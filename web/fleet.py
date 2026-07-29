@@ -14,7 +14,7 @@ from web.db import get_nvrs, get_wall_cameras_with_snapshots
 
 log = logging.getLogger(__name__)
 
-_CACHE: dict = {"data": None, "ts": 0.0}
+_CACHE: dict = {"db_path": None, "data": None, "ts": 0.0}
 _TTL_SECONDS = 30.0
 
 
@@ -25,7 +25,12 @@ def get_fleet_view(db_path: str, *, force_refresh: bool = False) -> list[dict]:
     單台 NVR 例外不中斷整批；該台 status='unknown'，其他台正常。
     """
     now = time.time()
-    if not force_refresh and _CACHE["data"] is not None and now - _CACHE["ts"] < _TTL_SECONDS:
+    if (
+        not force_refresh
+        and _CACHE["db_path"] == db_path
+        and _CACHE["data"] is not None
+        and now - _CACHE["ts"] < _TTL_SECONDS
+    ):
         return _CACHE["data"]
 
     # get_nvrs() 同時回 id（INTEGER primary key, FK 給 cameras.nvr_id）與 nvr_id（string）。
@@ -65,6 +70,7 @@ def get_fleet_view(db_path: str, *, force_refresh: bool = False) -> list[dict]:
             "status": status,
         })
 
+    _CACHE["db_path"] = db_path
     _CACHE["data"] = out
     _CACHE["ts"] = now
     return out
@@ -72,5 +78,6 @@ def get_fleet_view(db_path: str, *, force_refresh: bool = False) -> list[dict]:
 
 def clear_cache() -> None:
     """測試 / NVR 設定變動後可呼叫清掉 cache。"""
+    _CACHE["db_path"] = None
     _CACHE["data"] = None
     _CACHE["ts"] = 0.0

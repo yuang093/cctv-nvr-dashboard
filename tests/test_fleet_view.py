@@ -14,7 +14,6 @@ from pathlib import Path
 import pytest
 
 from db.sqlite_writer import SqliteWriter
-from web.app import create_app
 from web.fleet import get_fleet_view, clear_cache
 
 
@@ -143,18 +142,168 @@ def test_get_fleet_view_uses_cache_within_ttl(monkeypatch, fleet_db):
 
 
 # === 7. 單台 NVR 失敗隔離 ===
-def test_get_fleet_view_partial_failure_isolated(monkeypatch, fleet_db):
-    """一台 NVR 的 helper 拋例外，該台 status='unknown'，其他台仍正常。"""
+def test_get_fleet_view_partial_failure_isolated(monkeypatch, fleet_db, caplog):
+    """一台 NVR 的 helper 拋例外：該台 status='unknown'，其他台仍正常計數；warning 有 log。"""
     from web import fleet
 
-    def boom(*args, **kwargs):
-        if kwargs.get("nvr_id") == 1:
-            raise RuntimeError("simulated DB error")
-        return []
+    # 找 fixture 內 nvr_id（測試不要 hardcode 哪台是 1）
+    real_nvrs = fleet.get_nvrs(fleet_db)
+    target = real_nvrs[0]
+    target_id = target["id"]
+    other = real_nvrs[1]
+    other_id = other["id"]
 
-    monkeypatch.setattr(fleet, "get_wall_cameras_with_snapshots", boom)
+    def fake_helper(db_path, filter_kind="all", nvr_id=None):
+        if nvr_id == target_id:
+            raise RuntimeError("simulated DB error")
+        # 成功台回傳 3 台 cam 全 online
+        return [{"category": "online"} for _ in range(3)]
+
+    monkeypatch.setattr(fleet, "get_wall_cameras_with_snapshots", fake_helper)
     clear_cache()
 
-    result = fleet.get_fleet_view(fleet_db, force_refresh=True)
-    statuses = sorted(n["status"] for n in result)
-    assert "unknown" in statuses
+    with caplog.at_level("WARNING"):
+        result = fleet.get_fleet_view(fleet_db, force_refresh=True)
+
+    by_id = {n["nvr_id"]: n for n in result}
+    assert len(result) == 2, "結果應仍有 2 台 NVR"
+    assert by_id[target_id]["status"] == "unknown"
+    assert by_id[target_id]["total"] == 0
+    assert by_id[other_id]["status"] == "ok"
+    assert by_id[other_id]["total"] == 3
+    assert any("fleet view failed" in r.message for r in caplog.records), \
+        "應記 warning log"
+
+
+# === 8. cache 與 db_path 綁定 — 不同 db 不會回錯資料 ===
+def test_get_fleet_view_cache_isolated_by_db_path(monkeypatch, fleet_db):
+    """切到不同 db_path 不應回前一個 DB 的快取資料。"""
+    from web import fleet
+
+    # 在 fleet_db 先跑一次
+    clear_cache()
+    fleet.get_fleet_view(fleet_db, force_refresh=True)
+    assert fleet._CACHE["db_path"] == fleet_db
+
+    # 建另一個 DB（無 NVR）
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        other_db = f.name
+    SqliteWriter(other_db)
+    try:
+        result = fleet.get_fleet_view(other_db)
+        assert result == [], "切到另一個 DB 應重新計算（不是回前一個 DB 資料）"
+        assert fleet._CACHE["db_path"] == other_db
+    finally:
+        Path(other_db).unlink(missing_ok=True)
+
+
+# === 9. force_refresh=True 可繞過尚在 TTL 內的快取 ===
+def test_get_fleet_view_force_refresh_bypasses_cache(monkeypatch):
+    """TTL 內 force_refresh=True 仍應重算（呼叫次數增加）。"""
+    from web import fleet
+
+    # 建只有 1 台 NVR 的 DB（避免 count 計算被 fixture 干擾）
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    w = SqliteWriter(db_path)
+    w.upsert_nvr({"id": "X", "name": "X", "host": "10.0.0.99",
+                  "port": 8443, "username": "u", "password": "p"})
+    del w
+    gc.collect()
+
+    clear_cache()
+    t = [1000.0]
+    monkeypatch.setattr(fleet.time, "time", lambda: t[0])
+
+    call_count = [0]
+
+    def counting(*args, **kwargs):
+        call_count[0] += 1
+        return []
+
+    monkeypatch.setattr(fleet, "get_wall_cameras_with_snapshots", counting)
+
+    fleet.get_fleet_view(db_path)
+    assert call_count[0] == 1
+
+    # TTL 內（25s）再呼叫，正常情況走 cache
+    t[0] = 1025.0
+    fleet.get_fleet_view(db_path)
+    assert call_count[0] == 1, "TTL 內不應重算"
+
+    # TTL 內但 force_refresh=True → 必須重算
+    fleet.get_fleet_view(db_path, force_refresh=True)
+    assert call_count[0] == 2, "force_refresh 應繞過快取"
+
+    Path(db_path).unlink(missing_ok=True)
+
+
+# === 10. status='degraded' 分支（只有 signal_lost，沒有 no_signal）===
+def test_get_fleet_view_status_degraded_only_signal_lost():
+    """有 signal_lost 但無 no_signal → status='degraded'。"""
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+
+    w = SqliteWriter(db_path)
+    nvra = w.upsert_nvr({
+        "id": "NVR-D", "name": "D 站", "host": "10.0.0.9",
+        "port": 8443, "username": "u", "password": "p",
+    })
+    rid = w.begin_scan_run("2026-07-29T00:00:00Z")
+    w.upsert_cameras(nvra, {
+        "d1": {"name": "D1", "connection_state": "CONNECTED"},
+        "d2": {"name": "D2", "connection_state": "CONNECTED"},
+    })
+    w.insert_events(rid, nvra, [{
+        "eventId": "e1", "deviceId": "d2",
+        "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+        "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+        "occurred_at": "2026-07-29T00:00:00Z",
+    }])
+    w.finish_scan_run(rid, finished_at="2026-07-29T00:01:00Z", status="success",
+                      stats={"total_cameras": 2, "abnormal_cameras": 1,
+                             "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+    del w
+    gc.collect()
+
+    clear_cache()
+    result = get_fleet_view(db_path, force_refresh=True)
+    assert len(result) == 1
+    assert result[0]["status"] == "degraded"
+    assert result[0]["signal_lost"] == 1
+    assert result[0]["no_signal"] == 0
+
+    Path(db_path).unlink(missing_ok=True)
+
+
+# === 11. enabled=0 的 NVR 必須被排除 ===
+def test_get_fleet_view_excludes_disabled_nvrs():
+    """enabled=0 的 NVR 不應出現在 /fleet 結果。"""
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+
+    w = SqliteWriter(db_path)
+    w.upsert_nvr({
+        "id": "ENABLED", "name": "啟用中", "host": "10.0.0.1",
+        "port": 8443, "username": "u", "password": "p",
+    })
+    disabled_id = w.upsert_nvr({
+        "id": "DISABLED", "name": "已停用", "host": "10.0.0.2",
+        "port": 8443, "username": "u", "password": "p",
+    })
+    # SqliteWriter 沒有 set_nvr_enabled：直接用 SQL 改 nvr_servers.enabled
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    conn.execute("UPDATE nvr_servers SET enabled = 0 WHERE id = ?", (disabled_id,))
+    conn.commit()
+    conn.close()
+    del w
+    gc.collect()
+
+    clear_cache()
+    result = get_fleet_view(db_path, force_refresh=True)
+    names = {n["name"] for n in result}
+    assert "啟用中" in names
+    assert "已停用" not in names, "停用的 NVR 不應出現"
+
+    Path(db_path).unlink(missing_ok=True)
