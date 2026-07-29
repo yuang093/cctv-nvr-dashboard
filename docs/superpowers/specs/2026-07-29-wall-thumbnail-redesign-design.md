@@ -224,6 +224,25 @@ ORDER BY
 
 | 風險 | 緩解 |
 |---|---|
+
+### 隱私與存取控管（2026-07-29 user 補充）
+
+**現況**：8444 目前完全沒有任何認證 / 存取控管（v2 Web UI 是「內部工具」假設）。`/wall` 顯示縮圖後，任何能連到 8444 port 的人都能即時看到相機影像（含員工 / 客人 / 走道）。
+
+**本次不做**（user 明確決定）：
+- ❌ 不加 Flask 帳密登入（避免 scope creep）
+- ❌ 不加 IP whitelist（部署層處理，非 app 層）
+
+**保留的 hook 點**（未來可加、不影響本次實作）：
+- `get_wall_cameras_with_snapshots()` 可在中間層加 `authenticate(request)` 檢查
+- template 內 `{% if current_user.can_view_cameras %}` 區塊（目前永遠 True）
+- DB 內 `camera_snapshots` 加密欄位（SQLite 層 + Pillow 處理）
+
+**User 自行處理的部署層措施**（建議）：
+- 8444 綁 `127.0.0.1`（已有 env `NVR_WEB_HOST=127.0.0.1`）
+- 透過 Cloudflare Tunnel / WireGuard / SSH tunnel 從外部存取
+- 縮圖暫存路徑 `camera_snapshots` 權限設定（檔案系統層）
+|---|---|
 | Flask template cache 沒重啟 | 強制重啟 server、用 curl 驗證 |
 | 1000 cam DB 容量爆炸 | 5KB/cam × 1000 = 5MB，可接受；未來可加 `cleanup_old_snapshots()` 定期清舊資料 |
 | NVR 被打爆（image_health + 縮圖） | 共用同一個 HTTPS response（一次拿兩個東西）、平行 8 workers |
