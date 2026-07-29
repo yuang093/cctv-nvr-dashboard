@@ -44,8 +44,10 @@ CREATE INDEX IF NOT EXISTS idx_camera_snapshots_captured_at
 ```
 
 **Worker 端**（`batch_scan.py`）：`_image_health_check_loop` 內每台 cam 多一個 step。
+**注意**：目前 batch_scan 沒有使用 MediaApiClient；本次在 `_image_health_check_loop` 內（或外層）實例化 `MpdMediaClient`（從 `web.clip_retrieval` 借用），傳給 loop 或在 loop 內 lazy 建立。MediaClient 初始化失敗（缺 session、缺 NVR_CLIPS_CLIENT 等）→ 跳過縮圖步驟、image_health 仍跑、不影響 scan 主流程。
 
 **Web 端**（`web/app.py` + `web/db.py`）：`/wall` 從 `camera_snapshots` LEFT JOIN 拿縮圖。
+**注意**：category（signal_lost/no_signal/online）原本由 `get_wall_cameras` 內的 subquery 計算。新 query `get_wall_cameras_with_snapshots` 必須 **保留同樣的 category 計算邏輯**（LEFT JOIN 最新未解 events → CASE），不能直接讀 `cameras` 表（沒這欄位）。建議實作：在 helper 內組 SQL 時把 category 的 CASE WHEN ... AS category 一起 SELECT 進來。
 
 ### 2. 元件
 
@@ -187,7 +189,7 @@ ORDER BY
 
 ### 7. 測試計畫
 
-**新測試檔**：
+**新測試檔**（不替換既有 `get_wall_cameras`，純加法）：
 
 | 檔案 | 測試項目 |
 |---|---|
