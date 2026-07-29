@@ -421,7 +421,7 @@ git commit -m "feat(fleet): add get_fleet_view with 30s TTL cache + partial fail
 ## Task 3: 加 `/fleet` route 到 `web/app.py`
 
 **Files:**
-- Modify: `web/app.py`（在 `/` route 附近加 `/fleet`）
+- Modify: `web/app.py`（**實作位置**：`/theme/apply` 與 `/runs` 之間 — 總覽頁分組；與原 plan 文字「`/` route 附近」略異，語意上更整齊）
 
 - [ ] **Step 1: 跑 route 測試確認 RED**
 

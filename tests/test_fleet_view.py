@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from db.sqlite_writer import SqliteWriter
+from web.app import create_app
 from web.fleet import get_fleet_view, clear_cache
 
 
@@ -66,6 +67,15 @@ def fleet_db():
     gc.collect()
     yield db_path
     Path(db_path).unlink(missing_ok=True)
+
+
+@pytest.fixture
+def fleet_client(fleet_db):
+    """建 Flask test client（沿用 test_wall_routes 風格）。"""
+    clear_cache()
+    app = create_app(db_path=fleet_db)
+    app.config["TESTING"] = True
+    return app.test_client()
 
 
 # === 1. get_fleet_view 回傳 list，每台 NVR 一個 dict ===
@@ -309,16 +319,13 @@ def test_get_fleet_view_excludes_disabled_nvrs():
     Path(db_path).unlink(missing_ok=True)
 
 
-# === 12. /fleet route 回 200 並含 NVR 名稱 ===
-def test_fleet_route_returns_200_and_renders_nvr_names(fleet_db):
-    clear_cache()
-    from web.app import create_app
-    app = create_app(db_path=fleet_db)
-    app.config["TESTING"] = True
-    client = app.test_client()
-    resp = client.get("/fleet")
+# === 12. /fleet route 回 200 並含 NVR 名稱 + summary ===
+def test_fleet_route_returns_200_and_renders_nvr_names(fleet_client):
+    resp = fleet_client.get("/fleet")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "A 辦公室" in body
     assert "B 倉庫" in body
-    assert "共" in body  # summary line "共 2 台伺服器"
+    # fixture 有 2 台 NVR / 8 台 cam（critical + signal_lost + no_signal + 健康）
+    # 精確斷言：Task 4 替換模板時必須 conscious 改這行
+    assert "共 2 台伺服器 / 8 台 cam" in body
