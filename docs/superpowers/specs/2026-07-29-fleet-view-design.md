@@ -53,7 +53,7 @@ web/templates/fleet.html  ← NEW
 |---|---|---|
 | `web/fleet.py` | 聚合 NVR 清單 + 每台 cam 分類計數；30s TTL cache | NEW |
 | `web/templates/fleet.html` | 卡片版面、SVG 拼接進度條、dark mode CSS | NEW |
-| `web/db.py:list_enabled_nvrs` | 列出 enabled NVR | 既有，不改 |
+| `web/db.py:get_nvrs` | 列出全部 NVR（含 INTEGER internal_id） | 既有，Python 端過濾 `enabled==1` |
 | `web/db.py:get_wall_cameras_with_snapshots` | 每台 cam 帶 category + snapshot；**加 `nvr_id` 選填參數** | 修改（向後相容，預設 None = 不過濾） |
 | `web/app.py:@app.route('/fleet')` | 組裝 view → render template | NEW |
 | `web/templates/base.html` 或 `dashboard.html` | 加 `/fleet` 連結到 sidebar / dashboard | 既有，小改 |
