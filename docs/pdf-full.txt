@@ -1,0 +1,6012 @@
+Web Endpoint API
+
+Contents
+Avigilon Web Endpoint API. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6 What is the Avigilon Control CenterTM Software? . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6 What is the ACC Web Endpoint API? . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8 Quick-start Guide . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+Installing the Web Endpoint Service . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14 Changing the Default Port . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14 Increasing Security . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+Development and Deployment . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17 Authorization . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 Generating an Authorization Token . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19 Authorizing the Playground . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20 Error Codes . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20 Web Endpoint Capabilities . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 23 Using Web Endpoint Logs . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 30 Event Query API. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 35 Media API. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 43 Filtering Event Notifications . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 52 Monitoring Events with Webhooks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 54 Monitoring Events with Socket.IO. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 61 Webhooks vs Socket.IO . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 66 License Plate Recognition Events. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 68
+Web Endpoint API Routes . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 70 /alarm. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 74 /alarm-history . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 77 /alarms. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 79 /analytics . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 80 /appearance/descriptions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 83 /appearance/search . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 84 /appearance/search-by-description . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 86
+
+©2026, Avigilon Corporation. All right reserved.
+
+2
+
+/bookmark . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 88 /bookmark/search . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 93 /bookmarks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 95 /camera . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 96 /camera/commands/auto-focus . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 100 /camera/commands/aux. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 101 /camera/commands/focus . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 102 /camera/commands/focus/continuous . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 102 /camera/commands/focus/relative . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 103 /camera/commands/intercom . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 105 /camera/commands/pan-tilt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 106 /camera/commands/pan-tilt-zoom. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 106 /camera/commands/pattern . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 109 /camera/commands/preset . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 110 /camera/commands/preset/home . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 111 /camera/commands/ptz/lock. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 113 /camera/commands/ptz/lock/override . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 114 /camera/commands/reboot . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 115 /camera/commands/tour . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 116 /camera/commands/tour/stop . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 117 /camera/commands/trigger-digital-output . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 119 /camera/commands/zoom . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 120 /camera/discovery . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 120 /camera/geolocation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 123 /camera/intercom-state . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 125 /camera/link . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 127 /camera/manual-record-state . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 129 /camera/ptz/pattern . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 131 /camera/ptz/pattern/start. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 132 /camera/ptz/pattern/stop . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 133 /camera/ptz/preset . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 134
+
+©2026, Avigilon Corporation. All right reserved.
+
+3
+
+/camera/ptz/tour . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 139 /camera/record/manual . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 144 /camera/settings . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 146 /cameras . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 149 /cameras/discovery . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 150 /cloud/users . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 153 /config . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 156 /conversion/cameraId . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 157 /conversion/cameraId-all . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 158 /device/date-time . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 160 /device/firmware. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 161 /device/logs . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 162 /device/poe . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 163 /device/poe-info . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 165 /device/reboot. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 166 /device/switch . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 167 /device/timezone-list . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 167 /directory-entries . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 168 /directory-view . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 170 /entities . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 172 /entity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 173 /entity/settings . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 175 /event-subtopics . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 178 /events/search . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 179 /events/subscription . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 182 /events/user-export . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 184 /evo/info . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 186 /health . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 187 /login . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 188 /logout . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 189 /lpr/list . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 190
+
+©2026, Avigilon Corporation. All right reserved.
+
+4
+
+/lpr/list/entry. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 194 /lpr/lists . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 196 /media . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 197 /media/imageRef . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 205 /media/rtmp . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 207 /recording/retention . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 211 /recording/schedule . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 215 /recording/schedules . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 218 /recording/template . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 219 /recording/templates . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 223 /remote-site-upgrade . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 225 /savedView . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 230 /savedViews . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 232 /server . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 233 /server/ids . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 234 /servers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 235 /site . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 237 /sites . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 239 /siteView . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 240 /system-bug-report . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 241 /timeline . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 243 /webhooks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 246 /wep-capabilities . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 251 Avigilon Technology Partner Program . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 253 More Information & Support . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 255
+
+©2026, Avigilon Corporation. All right reserved.
+
+5
+
+Avigilon Web Endpoint API
+Web Endpoint API Reference Guide What is the Avigilon Control CenterTM Software? What is the ACC Web Endpoint API? Quick-start Guide
+
+Avigilon Web Endpoint API
+
+What is the Avigilon Control CenterTM Software?
+The Avigilon Control Center (ACC) video management software allows you to record and view live video from multiple video security cameras, monitor alarms, control cameras, and archive video. Video security teams can use the ACC software for live monitoring and use the archived footage for investigative and forensic purposes. The ACC software gives users control over their workstation with a simplified screen layout, intuitive controls, and customizable features that enable multiple user interactions.
+The ACC Server software is the application that captures and records video security data from network cameras and encoders. The captured data is sent to the ACC Client software for security personnel to review. The ACC Client software works with the ACC Server software to give you access and control of your video security system. The ACC Client software allows you to view live and recorded video, monitor events, and control user access to the ACC system. The ACC Client software also gives you the ability to configure your video security system.
+
+©2026, Avigilon Corporation. All right reserved.
+
+6
+
+Avigilon Web Endpoint API
+
+Editions
+There are 3 editions of the ACC software: Core, Standard, and Enterprise.
+The edition determines how many cameras can be connected to the system, the number of simultaneous ACC Client connections, and which features are available in the ACC Client software.
+
+Edition Core
+Standard Enterprise
+
+Description
+
+Third-party Integration Availability
+
+An entry-level software that x delivers advanced highdefinition video security capabilities and ease-of-use for smaller businesses. Core supports up to 24 cameras per server.
+
+A cost-effective video security solution that meets the vital and focused needs of mid-sized operations. Standard supports up to 75 cameras per server.
+
+A powerful, open platform for large-scale video security needs. Enterprise supports an unlimited number of cameras and servers.
+
+These editions can be enabled or disabled based on the license applied.
+Sites and Servers
+In the ACC system, servers and connected devices are organized into groups called sites. By organizing the system into sites, you can control user access and system-wide events through the site settings. The site settings are stored on the server, or across all servers in a multi-server system.
+
+©2026, Avigilon Corporation. All right reserved.
+
+7
+
+Avigilon Web Endpoint API
+Within a site, individual servers are responsible for managing the devices that are connected to it. Specifically, the server controls video recording. Using the server settings, you can control when video is recorded, how long it is stored, and how much bandwidth is used to stream video.
+Depending on your system and license edition, you may have multiple servers in a site. When there are multiple servers in a site, the site is able to distribute tasks and system data between the servers so that the system can continue running even if a server fails.
+Events and Alarms
+Events are occurrences that are logged by the ACC software and may or may not be of interest.
+Alarms are events that require user attention and are defined by an ACC system administrator. To ensure important events are reviewed and to minimize false alerts, create specific alarms in the ACC system.
+
+What is the ACC Web Endpoint API?
+
+The ACC Web Endpoint (WEP) API is a common API to ACC servers for third-party integrations. It allows interaction with ACC sites, servers, and devices. The WEP API allows third-party applications to stream live and recorded video, read and update alarms, and query events. It runs on both Linux and Windows operating systems and offers a REST interface.
+The following table describes the WEP API features compared to the .NET SDK:
+
+Feature
+
+API
+
+SDK
+
+General
+
+Secure connection and login
+
+©2026, Avigilon Corporation. All right reserved.
+
+8
+
+Feature Video Events and Alarms*
+
+API
+
+Transport layer
+
+--
+
+security Secure
+
+Remote Password
+
+(TLS-SRP)
+
+Scalable
+
+Platformindependent
+
+Get cameras
+
+View live and recorded video
+
+Live video with High -- Definition Stream Management (HDSM) 2.0
+
+Trigger video recording
+
+Display video analytics bounding boxes
+
+Fisheye dewarping --
+
+Live event monitoring
+
+Event query
+
+Recorded timeline events
+
+Event subscription filters
+
+Live alarm monitoring
+
+Alarm query
+
+©2026, Avigilon Corporation. All right reserved.
+
+Avigilon Web Endpoint API
+SDK -- --
+--
+-- --
+9
+
+Avigilon Web Endpoint API
+
+Feature
+
+API
+
+SDK
+
+Alarm actions
+
+Digital inputs and outputs
+
+Trigger digital outputs
+
+Audio
+
+Audio talkdown**
+
+Audio listen
+
+PTZ
+
+PTZ control
+
+PTZ presets
+
+Bookmarks
+
+Add bookmark
+
+List bookmarks
+
+Edit bookmarks
+
+Delete bookmarks
+
+Export
+
+Video export
+
+--
+
+Audio export
+
+--
+
+Snapshot export
+
+Configuration
+
+License Plate
+
+--
+
+Recognition (LPR)
+
+watch lists
+
+Recording schedules
+
+--
+
+* Events available through the WEP API include: Camera Health, System Health, Analytics Events, Face Match Events, LPR Events, Alarm Events, and Access Control Events.
+** Audio talkdown is only available for windowed streaming in the .NET SDK. Callback streaming does not support audio talkdown.
+System Requirements
+ACC Web Endpoint Service version should match the ACC Server version 7.12 or later.
+See system requirements on the Avigilon website: avigilon.com/products/acc/system-
+
+©2026, Avigilon Corporation. All right reserved.
+
+10
+
+Avigilon Web Endpoint API
+requirements.
+Licensing
+A license key is required to activate the ACC Server software. The ACC Server software has a 30-day trial period. Approved developers participating in the Avigilon Technology Partner Program can request developer licenses that are valid for 180 days from the Developer Support Community. No additional licensing is required to use the ACC Web Endpoint API.
+
+Quick-start Guide
+NOTE To be able to use ACC Web Endpoint API on a production system, you must be a registered participant in the Avigilon Technology Partner Program.
+To get started, you will need the following:
+· The WEP executable. See avigilon.com/software-downloads. · Trial version of ACC Server. See avigilon.com/software-downloads. If you are a registered
+developer or partner, you may request an extended trial on the Developer Support Community at developer.avigilon.com. · An Avigilon or ONVIF-conformant camera for development and testing purposes on your local machine. · Your userNonce and userKey (for production implementation only).
+TIP Request your userNonce and userKey by registering to the Avigilon Technology Partner Program.
+
+©2026, Avigilon Corporation. All right reserved.
+
+11
+
+Avigilon Web Endpoint API
+Follow these steps to quickly get started with the Web Endpoint service: 1. Install the Web Endpoint service.
+Run the downloaded WEP executable file as an administrator. The service should start automatically. 2. Access and verify runtime health. If running the WEP service locally, navigate to https://localhost:8443/ .
+
+NOTE
+Web Endpoint running on a production Avigilon appliance will have the default standard port of 443 .
+
+To change the default port on your version of WEP, see Changing the Default Port.
+Once you have loaded the URL above, the Web Endpoint landing page should be displayed. You now have a functioning ACC Server and Web Endpoint service running on your machine.
+3. Enable the Playground (optional).
+To get access to interactive development tools that ship with Web Endpoint API, register to the Avigilon Technology Partner Program.
+4. Generate the authorization token.
+If you have enabled the playground, visit https://localhost:8443/mt/ generateToken to generate a temporary token from the playground. It will allow you to start immediately, however, you will have to generate another one this way after 1 hour.
+To generate an authorization token, you need your userNonce and userKey .
+
+TIP Request your userNonce and userKey by registering to the Avigilon Technology Partner Program.
+
+5. Start developing and deploying.
+
+©2026, Avigilon Corporation. All right reserved.
+
+12
+
+Avigilon Web Endpoint API
+To use the WEP API, you need an HTTP client and an MP4 player. Most browsers and mobile platforms can play the provided video content.
+You can deploy an API-based integration using many frameworks and languages, such as hosted web, mobile apps, native Windows or MacOS apps, Electron apps, or similar.
+See the demo applications on the WEP Developer Support Community for examples of what a deployed Web Endpoint integration can look like.
+
+©2026, Avigilon Corporation. All right reserved.
+
+13
+
+Installing the Web Endpoint Service
+Installing the Web Endpoint Service
+The Web Endpoint Service must be installed on the same system as the ACC Server software. To install the Web Endpoint Service, download and install the Web Endpoint service from avigilon.com/software-downloads. Once installed, you can view the health of the Web Endpoint Service at https://localhost:8443/ .
+NOTE Web Endpoint running on a production Avigilon appliance will have the default standard port of 443 .
+Changing the Default Port Increasing Security
+
+Changing the Default Port
+The default port for the Web Endpoint Service is 8443 . You can change the default port for integrations on Windows-based systems developed using the Web Endpoint API.
+1. In the %ProgramData%\Avigilon\ folder, open the WebEndpoint.config.yaml file in a text editor.
+2. Add the following config parameter to the file, where 123 is the new port number:
+publicRestInterface:
+
+©2026, Avigilon Corporation. All right reserved.
+
+14
+
+Installing the Web Endpoint Service
+port: 123 3. Save the config file and restart the Web Endpoint service.
+The default port is updated. All commands should be sent to the new port.
+
+Increasing Security
+Disabling cross-origin resource sharing (CORS)
+By default, the Web Endpoint service has a response header that allows access from any origin. To disable CORS:
+1. In the %ProgramData%\Avigilon\ folder, open the WebEndpoint.config.yaml file in a text editor.
+2. Add the following config parameter to the file:
+enableCors: false
+3. Save the config file and restart the Web Endpoint service.
+Using a specified cipher list
+To restrict the Web Endpoint service to using a specified list of ciphers:
+1. In the %ProgramData%\Avigilon\ folder, open the WebEndpoint.config.yaml file in a text editor.
+2. Add the following config parameter to the file:
+tls:
+cipherList: <cipher list>
+
+©2026, Avigilon Corporation. All right reserved.
+
+15
+
+Installing the Web Endpoint Service
+NOTE  The value of the property is
+'DEFAULT@SECLEVEL=2:!AES128-SHA256:!AES256-SHA:!AES256:SHA25 6:!AES128-SHA' by default.  The <cipher list> must be a string value of the OpenSSL cipher list format. For more information, refer to the openssl-ciphers documentation on https://docs.openssl.org.
+3. Save the config file and restart the Web Endpoint service.
+
+©2026, Avigilon Corporation. All right reserved.
+
+16
+
+Development and Deployment
+
+Development and Deployment
+To use the WEP API, you need an HTTP client and an MP4 player. Most browsers and mobile platforms can play the provided video content.
+You can deploy an API-based integration using many frameworks and languages, such as hosted web, mobile apps, native Windows or MacOS apps, Electron apps, or similar.
+See the demo applications on the WEP Developer Support Community for examples of what a deployed Web Endpoint integration can look like.
+Best Practices
+When planning your system integrations, refer to the following best practices in your integration software:
+· Create a user with restricted or non-administrator access. · Create a logout mechanism to prevent unlimited number of sessions or connections. · Create a session timeout mechanism for idle sessions. · Monitor the TCP connections to ACC to prevent CPU overload on ACC software. · If using an alarm to pop up in a view, create an alarm view with armed panels to avoid
+generating hundreds of view panels. · Alarms must either be acknowledged or purged after a fixed maximum number of
+unacknowledged alarms remain pending.
+Authorization
+Error Codes
+Web Endpoint Capabilities
+Using Web Endpoint Logs
+Event Query API
+Media API
+
+©2026, Avigilon Corporation. All right reserved.
+
+17
+
+Filtering Event Notifications Monitoring Events with Webhooks Monitoring Events with Socket.IO Webhooks vs Socket.IO License Plate Recognition Events
+
+Development and Deployment
+
+Authorization
+To use the ACC Web Endpoint Service, you must submit a login request with a valid authorization token.
+An authorization token is a string that follows the format:
+
+userNonce + ":" + timestamp + ":" + hexEncoded + ":" + integrationIdentifier
+
+myusernonce:1530726298:89e1dd71c639b78732e2ce7404040de8ec71a7e163833c8efb1c88
+
+Each string component is described below.
+
+String Component
+userNonce
+
+Type string
+
+Required Required
+
+timestamp
+
+string
+
+Required
+
+Description
+
+Example
+
+The User Nonce provided by Avigilon.
+The timestamp in Unix time.
+
+myusernonce 1530726298
+
+©2026, Avigilon Corporation. All right reserved.
+
+18
+
+Development and Deployment
+
+String Component
+hexEncoded
+
+Type string
+
+integrationI string dentifier
+
+Required Required
+Optional
+
+Description
+
+Example
+
+The hexencoded result of an sha-256 hash of the following combination string: timestamp + userKey
+The integration identifier provided by Avigilon.
+
+89e1dd71c639 b78732e2ce74 04040de8ec71 a7e163833c8e f b1c88e42bc39 70e
+myIntegratio nId
+
+NOTE The userNonce and userKey are used for the entire application and should be part of the application code. End users do not need to input their own credentials.
+
+Generating an Authorization Token Authorizing the Playground
+
+Generating an Authorization Token
+The API Playground has a sample authorization token generator that creates an authorization token. You can use this token in playground login requests for up to 1 hour. Within that hour, you can use the same token for multiple login requests.
+
+©2026, Avigilon Corporation. All right reserved.
+
+19
+
+To generate an authorization token:
+
+Development and Deployment
+
+NOTE For full documentation, register with the Avigilon Technology Partner Program.
+
+Include the generated token in the login request. See Authorizing the Playground.
+
+Authorizing the Playground
+To authorize your login request, include the generated authorization token in the authorizationToken parameter.
+The following example shows a login request and response using a generated authorization token:
+NOTE For full documentation, register with the Avigilon Technology Partner Program.
+
+Error Codes
+
+©2026, Avigilon Corporation. All right reserved.
+
+20
+
+Development and Deployment
+Error Response Format
+There are different errors that can occur when integrating the Web Endpoint service with your application. Whether you are integrating via the REST server or Real-Time server (socket.io), all errors will follow the general format found below. For the REST server, the statusCode is the HTTP status code of the response.
+Copy
+{ "status": "error", "statusCode": 404, "message": "camera not found.", "meta": { "code": -25 "name": "NOT_FOUND" }
+}
+
+The statusCode is an HTTP status code defined in section 6 of RFC7231.
+The code is a specific Avigilon-defined error code.
+HTTP Status Codes
+Generally, validation and client errors are defined with a 4.X.X status code and internal server errors are defined with a 5.X.X status code. When an error occurs, look at both the statusCode and Avigilon error code within the meta data.
+The following table describes common ACC Web Endpoint service status codes:
+
+Code 200 400
+
+Name Ok Bad Request
+
+Description
+The request was successful.
+The request contained invalid arguments. Examples: validation errors, missing data, or invalid parameters.
+
+©2026, Avigilon Corporation. All right reserved.
+
+21
+
+Code 401
+403
+404 409 413 415 500 503 504
+507
+
+Name Unauthorized
+Forbidden
+Not Found Conflict Request Entity Too Large Unsupported Media Type Internal Server Error Server Unavailable Gateway Timeout
+Insufficient Storage
+
+Development and Deployment
+Description
+The credentials provided are not authorized to complete the request or the session token has expired.
+Cannot complete the request. The server may not be able to authenticate the session token.
+The requested resource cannot be found.
+The requested resource contains a conflict with an already existing resource.
+The payload entity exceeds the maximum payload size of the route.
+The requested resource (media) is not supported.
+An error has occurred internally.
+A communication error has occured.
+The ACC Web Endpoint service did not receive a timely response from the requested services.
+There is not enough storage available to fulfill the request.
+
+©2026, Avigilon Corporation. All right reserved.
+
+22
+
+Development and Deployment
+
+Web Endpoint Capabilities
+
+The following table describes ACC Web Endpoint capabilities as seen in the response to a call to GET /wep-capabilities
+
+Name
+
+Description
+
+ALARM_MANAGEME Receive and update
+
+NT
+
+ACC alarms
+
+BOOKMARK_MANAG EMENT
+
+Create, read, update, and delete bookmarks
+
+BOOKMARK_SEARCH Search for bookmarks
+
+CAMERA_CONFIG_LE Configure basic
+
+NS
+
+camera settings
+
+Included Routes
+GET /alarm PUT /alarm GET /alarmhistory GET /alarms
+GET /bookmark POST /bookmark PUT /bookmark DELETE /bookmark
+GET /bookmark/ search
+PUT /camera/ commands/autofocus PUT /camera/ commands/aux PUT /camera/ commands/focus/ continuous PUT /camera/ commands/focus/ relative
+
+Introduced in ACC Version 7.6
+7.6
+7.6 7.6
+
+©2026, Avigilon Corporation. All right reserved.
+
+23
+
+Development and Deployment
+
+Name
+
+Description
+
+CAMERA_CONFIG_LI NKS
+
+Configure camera links to audio or digital inputs and outputs
+
+CAMERA_CONFIG_PT Configure PTZ
+
+Z
+
+camera settings
+
+CAMERA_CONTROL_ Trigger digital
+
+DIGITALOUTPUT
+
+outputs
+
+Included Routes
+
+Introduced in ACC Version
+
+POST /camera/
+
+7.6
+
+link
+
+DELETE /camera/
+
+link
+
+GET /camera/
+
+7.6
+
+ptz/pattern
+
+PUT /camera/
+
+ptz/pattern/
+
+start
+
+PUT /camera/
+
+ptz/pattern/
+
+stop
+
+DELETE /camera/
+
+ptz/preset
+
+GET /camera/
+
+ptz/preset
+
+POST /camera/
+
+ptz/preset
+
+PUT /camera/
+
+ptz/preset
+
+DELETE /camera/
+
+ptz/tour
+
+GET /camera/
+
+ptz/tour
+
+POST /camera/
+
+ptz/tour
+
+PUT /camera/
+
+ptz/tour
+
+PUT /camera/
+
+7.6
+
+commands/
+
+trigger-digital-
+
+output
+
+©2026, Avigilon Corporation. All right reserved.
+
+24
+
+Development and Deployment
+
+Name
+
+Description
+
+Included Routes
+
+Introduced in ACC Version
+
+CAMERA_CONTROL_ Use Pan-Tilt-Zoom
+
+PTZ
+
+cameras
+
+PUT /camera/
+
+7.6
+
+commands/pan-
+
+tilt-zoom
+
+PUT /camera/
+
+commands/
+
+pattern
+
+PUT /camera/
+
+commands/preset
+
+PUT /camera/
+
+commands/preset/
+
+home
+
+PUT /camera/
+
+commands/ptz/
+
+lock
+
+PUT /camera/
+
+commands/ptz/
+
+lock/override
+
+PUT /camera/
+
+commands/tour
+
+PUT /camera/
+
+commands/tour/
+
+stop
+
+CAMERA_LOCATION Get the location of a GET /camera
+
+7.6
+
+camera
+
+GET /cameras
+
+CAMERAS_DISABLED Get only enabled
+
+GET /cameras
+
+7.12
+
+_REMOVED
+
+cameras and
+
+cameras with
+
+recorded footage
+
+DATE_TIME_ZONE Get customized and GET /camera
+
+7.12
+
+standard date time GET /cameras
+
+zone
+
+©2026, Avigilon Corporation. All right reserved.
+
+25
+
+Development and Deployment
+
+Name
+
+Description
+
+Included Routes
+
+Introduced in ACC Version
+
+DISCOVERY_CAMERA Discover available
+
+GET /camera
+
+7.6
+
+cameras and get camera details
+
+GET /cameras GET /entities
+
+GET /entity
+
+DISCOVERY_SITE
+
+Discover available
+
+GET /site
+
+7.6
+
+sites
+
+GET /sites
+
+CLIENT_DEWARPING _FLAG
+
+Camera objects contain flag enableClientDewarpi ng to indicate that the camera is a fisheye camera. Client-side dewarping can be used to match the behavior in the ACC Client.
+
+GET /camera GET /cameras
+
+7.12.2
+
+ELEVATED_TEMPERA TURE_EVENT
+
+Receive PERSON_ELEVATED_ TEMPERATURE activity type for analytic events with temperature included
+
+DEVICE_ANALYTIC S_START DEVICE_ANALYTIC S_STOP
+
+7.10.4
+
+ENTRY_EXIT_EVENTS Receive face mask detection and object enters or leaves occupancy area events. All analytic events will be received if subscribed for DEVICE_ANALYTICS_
+
+DEVICE_ANALYTIC S_START DEVICE_ANALYTIC S_STOP DEVICE_FACET_ST ART DEVICE_FACET_ST OP
+
+7.6.4
+
+©2026, Avigilon Corporation. All right reserved.
+
+26
+
+Development and Deployment
+
+Name
+
+Description
+
+Included Routes
+
+START/STOP events.
+
+ENTITY_MULTI_ID
+
+Get the status of one GET /entity or more entities
+
+EVENT_FACEMATCH Receive face match events
+
+EVENT_QUERY_SERV Query for events
+
+ER
+
+based on server
+
+GET /events/ search GET /cameras
+
+GET_CAMERA_GEOL Get the geolocation
+
+OCATION
+
+of a camera
+
+GET /camera GET /cameras
+
+INTERCOM
+
+Use the Avigilon Video Intercom
+
+PUT /camera/ commands/ intercom GET /camera/ intercom-state
+
+LOGIN
+
+Log in and out of sites
+
+POST /login POST /logout
+
+LPR_WATCHLIST
+
+Manage LPR watch lists
+
+DELETE /lpr/ list GET /lpr/list POST /lpr/list DELETE /lpr/ list/entry PUT /lpr/list/ entry GET /lpr/lists
+
+MEDIA_AUDIO
+
+Send audio from a 3rd party application to an Avigilon device
+
+POST /media
+
+Introduced in ACC Version 7.8.2 7.6.4 7.6 7.10 7.6
+7.6 7.6
+7.6
+
+©2026, Avigilon Corporation. All right reserved.
+
+27
+
+Development and Deployment
+
+Name
+
+Description
+
+Included Routes
+
+Introduced in ACC Version
+
+MEDIA_IMAGE_REF Get a JPEG image
+
+GET /media
+
+7.12
+
+using the imageRef
+
+parameter contained
+
+in a device event.
+
+MEDIA
+
+Send media from an GET /media/
+
+7.6
+
+ACC system to
+
+imageRef
+
+another application
+
+NO_LINK_TRIGGER
+
+Camera notifications are no longer triggered when a link changes
+
+CAMERAS_LIGHT deprecated CAMERA_OBJECTS - link changes won't trigger
+
+7.6.4
+
+NORMALIZED_EVENT Increase readability GET /events/
+
+7.6
+
+_STRUCTURE
+
+of events
+
+search
+
+QUERY_SESSION_OP Make the session
+
+All GET APIs
+
+7.12
+
+TIONAL
+
+parameter optional
+
+for GET queries
+
+where the session is
+
+passed in the header
+
+RECORDING_SCHEDU Manage recording
+
+LE
+
+schedules and
+
+templates
+
+GET /recording/ 7.6 schedule PUT /recording/ schedule GET /recording/ schedules GET /recording/ template POST /recording/ template PUT /recording/
+
+©2026, Avigilon Corporation. All right reserved.
+
+28
+
+Development and Deployment
+
+Name
+
+Description
+
+Included Routes
+
+Introduced in ACC Version
+
+template DELETE /recording/ templates GET /recording/ templates
+
+REQUEST_JPEG_ROI Crop requested
+
+GET /media
+
+7.6
+
+image from recorded
+
+video to a normalized
+
+region of interest
+
+SITE_WIDE_EVENTS_ FLAG
+
+Receieve site wide events by setting `getSiteWideEvents` to true when subscribing for notifications
+
+GET /notifications
+
+7.14.2
+
+SOCIAL_DISTANCING Receive
+
+DEVICE_ANALYTIC 7.8
+
+_EVENT
+
+OBJECT_TOO_CLOSE S_START
+
+activity type for
+
+DEVICE_ANALYTIC
+
+analytic events with S_STOP distance included
+
+TIMELINE
+
+Get timeline of recorded video
+
+GET /timeline
+
+7.6
+
+UPDATE_CAMERA_GE Update the
+
+OLOCATION
+
+geolocation of a
+
+camera
+
+PUT /camera/ geolocation
+
+7.10.4
+
+UTILITY_EVENT_SUB Get a list of
+
+GET /event-
+
+7.6
+
+TOPICS
+
+supported event
+
+subtopics
+
+subtopics
+
+UTILITY_ID_CONVER Convert camera IDs GET
+
+7.6
+
+SION
+
+between the .NET
+
+/conversion/
+
+©2026, Avigilon Corporation. All right reserved.
+
+29
+
+Development and Deployment
+
+Name
+
+Description
+
+Included Routes
+
+UTILITY_HEALTH WEBHOOK_EVENTS
+
+SDK and Web Endpoint
+
+cameraId
+
+Get the status of Web GET /health Endpoint
+
+Manage Webhooks for event monitoring
+
+DELETE /webhooks GET /webhooks POST /webhooks PUT /webhooks
+
+Introduced in ACC Version
+7.6 7.6
+
+Facial Recognition Capabilities
+ACC Web Endpoint offers limited support of facial recognition for analytic cameras. Supported capabilities: · Send a device event when server detects a face from an existing watch list · Send an alarm event when a face is detected Unsupported capabilities: · Update a watch list programmatically · Create a watch list
+
+Using Web Endpoint Logs
+
+©2026, Avigilon Corporation. All right reserved.
+
+30
+
+Development and Deployment
+
+Configuring Logs
+
+Logging can be configured through the Web Endpoint configuration YAML file located with the following Windows path:
+
+C:\ProgramData\Avigilon\WebEndpoint Config\WebEndpoint.config.yaml
+
+Copy
+
+log:
+
+modules:
+
+include: []
+
+exclude: []
+
+transports:
+
+- type: "console" ## Output type: "file" | "console"
+
+level: "debug"
+
+## Lowest log level to include (order in h
+
+igh to low): "error" | "warn" | "metric" | "info" | "verbose" | "de
+
+bug" | "silly"
+
+exclude:
+
+## Log levels to exclude. These levels mus
+
+t be above the lowest log level
+
+- "metric"
+
+## Exclude "metric" logs from console
+
+- type: "file"
+
+filename: "WebEndpoint.Root.log" ## Filename of the log fil
+
+e. Only use with "file" transport type
+
+level: "debug"
+
+## Include all the logs above and includin
+
+g "debug" level logs
+
+exclude:
+
+- "metric"
+
+- type: "file"
+
+filename: "WebEndpoint.Metrics.log"
+
+level: "metric"
+
+exclude:
+
+## Excluding levels above "metric" such th
+
+at this file will only contain metric logs
+
+- "warn"
+
+- "error"
+
+There are 2 files where logs will be present: · WebEndpoint.Root.log
+
+©2026, Avigilon Corporation. All right reserved.
+
+31
+
+Development and Deployment
+· WebEndpoint.Metrics.log
+WebEndpoint.Root.log is the main location for Web Endpoint logs. WebEndpoint.Metrics.log provides information on each call made to the WEP API and how long it took for WEP to return a response.
+WebEndpoint.Root.log and WebEndpoint.Metrics.log will replace older logs by renaming file names with a numeric suffix like WebEndpoint.Root1.log , WebEndpoint.Root2.log , and so on.
+Any change to the YAML configuration file will require a restart of the Web Endpoint service.
+Locating Logs
+All Web Endpoint related logs can be found here:
+C:\ProgramData\Avigilon\WebEndpoint Logs
+Logging Levels
+Each log in the Web Endpoint service has a particular logging level associated with it. The levels are prioritized by most critical to least critical. Logging levels in order of their priority are as follows:
+· error (log only critical messages) · warn · metric · info · verbose · debug · silly (display all possible logging messages)
+The level of each log is determined during implementation. Logs will indicate at which level they are. For example:
+Copy 2021-09-15 13:41:40 debug: [sdk-notificationReducer] Pushing notifi
+
+©2026, Avigilon Corporation. All right reserved.
+
+32
+
+Development and Deployment
+cation to inputQueue: DIRECTORY 2021-09-15 13:41:40 info: [sdk-sitesManager] Site discovery with na me: undefined
+The first log is logged at the debug level while the second log is logged at the info level.
+Include or Exclude Loggers
+Here is a snippet from the YAML config file:
+Copy log: modules: include: [] exclude: [] ...
+To exclude loggers, the name of the logger should be in the exclude list in single quotes separated by commas. When excluding loggers, ensure the include list is empty. To only show the logs with certain logger names, those names should be in the include list.
+For example:
+Copy exclude: ['sdk-sitesManager','sdk-reducerStream' ] ## 'sdk-sitesManager'and 'sdk-reducerStream' will no longer write t o the logger file.
+and
+Copy include: ['sdk-sitesManager','sdk-reducerStream' ] ## only these two loggers will write to the logger ## if theres something in the include list and the exclude list, ex clude will be ignored
+
+©2026, Avigilon Corporation. All right reserved.
+
+33
+
+Development and Deployment
+Restart the Web Endpoint Service and the loggers behaviour will change accordingly.
+Finding Logger Names
+There are 2 ways to find the name of the logger you want to include or exclude:
+· Through the Logs · Through the Source Code
+Through the Logs
+Copy 2021-09-15 13:41:40 debug: [sdk-notificationReducer] Pushing notifi cation to inputQueue: DIRECTORY 2021-09-15 13:41:40 info: [sdk-sitesManager] Site discovery with na me: undefined 2021-09-15 13:41:40 info: [sdk-sitesManager] Site discovery with i d: 2shv4pUxStuUud/hYHDmDQ== 2021-09-15 13:41:40 info: [sdk-reducerStream] Pushing 1 notificatio ns for stream 0
+The name of the loggers are in square brackets: sdk-notificationReducer , sdkreducerStream , and sdk-sitesManager .
+Through the Source Code
+You can find all of the logger names in the source code located with the following Windows path:
+C:\Program Files\Avigilon\Avigilon Control Center Web Endpoint\ modules\acc-sdk\lib
+Each file instantiates a logger. The name of the logger can be found through the instantiation.
+Copy const logger = new eagle.Logger({ moduleName: [LoggerName] }); ## [LoggerName] would be what the logger is named
+
+©2026, Avigilon Corporation. All right reserved.
+
+34
+
+Development and Deployment
+
+Event Query API
+
+The Event Query API can be used to retrieve events from ACC. The API will return an array of events that can be paginated.
+Required Parameters
+
+Parameter session queryType
+serverId
+
+Description
+Session token returned from GET /login .
+The parameter used to filter the results. Can be one of TIME_RANGE , ACTIVE , or CONTINUE . Each parameter is described below.
+The ID of the ACC server. Can be obtained from the results of GET /server/ids .
+
+Query Types
+
+Query Type TIME_RANGE
+
+Description
+Get specific events over a time range with additional optional filters
+
+Parameter
+from : starting timestamp in ISO 8601 format (required) to : ending timestamp in ISO 8601 format (required) eventTopics : filter events by event topics (optional). See Filtering Event Notifications for more
+
+©2026, Avigilon Corporation. All right reserved.
+
+35
+
+Development and Deployment
+
+Query Type
+
+Description
+
+Parameter
+information. deviceIds : filter events by device ID (optional) limit : maximum number of ACC events returned (optional)
+
+ACTIVE CONTINUE
+
+Returns all events that are currently active
+Continues a previous query
+
+If optional parameters are not specified, up to 1000 events within the given time range are returned.
+limit : maximum number of ACC events returned (optional)
+token : a Base-64 encoded string from a previous event query response
+
+Sample Responses for Specific Requests
+Request with queryType=TIME_RANGE
+https://127.0.0.1:8443/events/search?session=<session token>&queryType=TIME_RANGE&from=2020-01-27T19:00:00.000Z&to=2020-0129T19:05:00.000Z&serverId=pXyE3ycIRJCvkVSBJ9pHQ&limit=1&eventTopics=USER_LOGIN
+Response:
+Copy { "status": "success", "result": { "events": [
+
+©2026, Avigilon Corporation. All right reserved.
+
+36
+
+Development and Deployment
+{ "userName": "administrator", "clientId": "5k7vJVskRP26_6fgZGgldQ", "clientName": "string", "userUuid": "TZ6shHLARv-_iI3yRVfLVw", "clientType": 9, "clientIp": { "addrType": "ADDR_IP_V4", "addrIpV4": "10.89.121.200" }, "thisId": "64430", "timestamp": "2020-01-27T20:07:57.078Z", "originatingEventId": "64430", "originatingServerName": "SULLAH-01", "type": "USER_LOGIN", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q"
+} ], "token": "<continuation token> } }
+Request with queryType=TIME_RANGE
+https://127.0.0.1:8443/events/search?session=<session token>&queryType=TIME_RANGE&from=2020-01-27T19:00:00.000Z&to=2020-0129T19:05:00.000Z&serverId=pXyE3ycIRJCvkVSBJ9pHQ&limit=5&eventTopics=DEVICE_MOTION_START
+Response:
+Copy
+{ "status": "success", "result": { "events": [
+
+©2026, Avigilon Corporation. All right reserved.
+
+37
+
+Development and Deployment
+{ "thisId": "64227", "linkedEventId": "64229", "timestamp": "2020-01-27T19:00:20.674Z", "recordTriggerParams": { "prePostRecordTime": "1970-01-01T00:00:05.000
+Z", "isPrePost": true, "triggerJiffy": 2989741156, "isTriggerJiffy": true
+}, "originatingEventId": "64227", "originatingServerName": "SULLAH-01", "type": "DEVICE_MOTION_START", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q", "cameraId": "4xIx1DMwMLSwMDUyMLewSNRLTsw1MBASWFrTc l-dw2XC-okhjeq33H8CAA" }, { "thisId": "64239", "linkedEventId": "64241", "timestamp": "2020-01-27T19:01:04.473Z", "recordTriggerParams": {
+"prePostRecordTime": "1970-01-01T00:00:05.000 Z",
+"isPrePost": true, "triggerJiffy": 2989784953, "isTriggerJiffy": true }, "originatingEventId": "64239", "originatingServerName": "SULLAH-01", "type": "DEVICE_MOTION_START", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q", "cameraId": "4xIx1DMwMLSwMDUyMLewSNRLTsw1MBASWFrTc l-dw2XC-okhjeq33H8CAA" }, {
+
+©2026, Avigilon Corporation. All right reserved.
+
+38
+
+Development and Deployment
+"thisId": "64244", "linkedEventId": "64246", "timestamp": "2020-01-27T19:02:22.823Z", "recordTriggerParams": {
+"prePostRecordTime": "1970-01-01T00:00:05.000 Z",
+"isPrePost": true, "triggerJiffy": 2989863390, "isTriggerJiffy": true }, "originatingEventId": "64244", "originatingServerName": "SULLAH-01", "type": "DEVICE_MOTION_START", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q", "cameraId": "4xIx1DMwMLSwMDUyMLewSNRLTsw1MBASWFrTc l-dw2XC-okhjeq33H8CAA" }, { "thisId": "64248", "linkedEventId": "64250", "timestamp": "2020-01-27T19:02:33.173Z", "recordTriggerParams": { "prePostRecordTime": "1970-01-01T00:00:05.000 Z", "isPrePost": true, "triggerJiffy": 2989873640, "isTriggerJiffy": true }, "originatingEventId": "64248", "originatingServerName": "SULLAH-01", "type": "DEVICE_MOTION_START", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q", "cameraId": "4xIx1DMwMLSwMDUyMLewSNRLTsw1MBASWFrTc l-dw2XC-okhjeq33H8CAA" }, { "thisId": "64252",
+
+©2026, Avigilon Corporation. All right reserved.
+
+39
+
+Development and Deployment
+
+"linkedEventId": "64254", "timestamp": "2020-01-27T19:03:29.672Z", "recordTriggerParams": {
+"prePostRecordTime": "1970-01-01T00:00:05.000 Z",
+"isPrePost": true, "triggerJiffy": 2989930156, "isTriggerJiffy": true }, "originatingEventId": "64252", "originatingServerName": "SULLAH-01", "type": "DEVICE_MOTION_START", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q", "cameraId": "4xIx1DMwMLSwMDUyMLewSNRLTsw1MBASWFrTc l-dw2XC-okhjeq33H8CAA" } ], "token": "<pagination token>" } }
+Request with queryType=ACTIVE
+https://127.0.0.1:8443/events/search?session=<session token>&queryType=ACTIVE&serverId=pXyE3ycIRJCvkVSBJ9pH-Q
+Response:
+Copy
+{ "status": "success", "result": { "events": [ { "thisId": "144489", "linkedEventId": "-1", "timestamp": "2020-02-11T04:21:36.872Z",
+
+©2026, Avigilon Corporation. All right reserved.
+
+40
+
+Development and Deployment
+
+"originatingEventId": "144489", "originatingServerName": "SULLAH-01", "type": "DEVICE_RECORDING_STARTED", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q", "cameraId": "4xIx1DMwMLSwMDUyMLewSNRLTsw1MBASWFrTc l-dw2XC-okhjeq33H8CAA" } ] } }
+Request with queryType=CONTINUE
+https://127.0.0.1:8443/events/search?session=<session token>&queryType=CONTINUE&token=<pagination token>
+Response:
+Copy
+{ "status": "success", "result": { "events": [ { "userName": "administrator", "clientIp": "192.168.56.1", "thisId": "64232", "timestamp": "2020-01-27T19:00:27.037Z", "originatingEventId": "64232", "originatingServerName": "SULLAH-01", "type": "USER_LOGIN_FAILURE", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q" }, { "thisId": "64233", "linkedEventId": "64228", "timestamp": "2020-01-27T19:00:27.274Z",
+
+©2026, Avigilon Corporation. All right reserved.
+
+41
+
+Development and Deployment
+"originatingEventId": "64233", "originatingServerName": "SULLAH-01", "type": "DEVICE_RECORDING_STOPPED", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q", "cameraId": "4xIx1DMwMLSwMDUyMLewSNRLTsw1MBASWFrTc l-dw2XC-okhjeq33H8CAA" }, { "userName": "administrator", "clientIp": "192.168.56.1", "thisId": "64234", "timestamp": "2020-01-27T19:00:42.103Z", "originatingEventId": "64234", "originatingServerName": "SULLAH-01", "type": "USER_LOGIN_FAILURE", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q" }, { "userName": "administrator", "clientIp": "192.168.56.1", "thisId": "64235", "timestamp": "2020-01-27T19:00:42.103Z", "originatingEventId": "64235", "originatingServerName": "SULLAH-01", "type": "USER_LOGIN_FAILURE", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q" }, { "userName": "administrator", "clientIp": "192.168.56.1", "thisId": "64236", "timestamp": "2020-01-27T19:00:42.103Z", "originatingEventId": "64236", "originatingServerName": "SULLAH-01", "type": "USER_LOGIN_FAILURE", "originatingServerId": "pXyE3ycIRJCvkVSBJ9pH-Q" }
+
+©2026, Avigilon Corporation. All right reserved.
+
+42
+
+], "token": "<pagination token>" } }
+
+Development and Deployment
+
+Media API
+
+The following table lists the parameters that can be provided to the GET /media API:
+Format Parameter
+
+Parameter Value mpd
+
+Description
+
+Sample Requests
+
+https://localhost:844
+
+Requests the available audio/ 3/mt/api/rest/v1/
+
+video streams.
+
+media?session=<session
+
+Request the mpd format first >&cameraId=<cameraId>&
+
+to get the BaseURL property format=mpd from the returned response. BaseURL Example:
+
+See mpd format. Use the
+
+https://localhost:844
+
+BaseURL to request the
+
+3<mpdBaseURL>[&optiona
+
+associated video or audio
+
+lParams]
+
+stream.
+
+Additional parameters such as time-offset (t) can be appended to the BaseURL as needed.
+
+©2026, Avigilon Corporation. All right reserved.
+
+43
+
+Parameter Value fmp4 jpeg json
+webm spkc
+
+Development and Deployment
+
+Description
+
+Sample Requests
+
+Requests the video for the specified camera.
+
+https://localhost:844 3/mt/api/rest/v1/ media?session=<session >&cameraId=<cameraId>& format=fmp4
+
+Requests a snapshot from the specified camera.
+
+https://localhost:844 3/mt/api/rest/v1/ media?session=<session >&cameraId=<cameraId>& format=jpeg&t=live
+
+Requests the feature vectors for bounding boxes for a video stream. Returned value is a newline-delimited JSON stream with the coordinates of motion/bounding box. See json format.
+
+https://localhost:844 3/mt/api/rest/v1/ media?session=<session >&cameraId=<cameraId>& format=json&media=meta &t=live
+
+JSON format must include the media=meta parameter.
+
+Requests audio from the specified camera.
+
+https://localhost:844 3/mt/api/rest/v1/ media?session=<session >&cameraId=<cameraId>& format=webm
+
+Requests the supported speaker codecs of the specified camera.
+
+https://localhost:844 3/mt/api/rest/v1/ media?session=<session >&cameraId=<cameraId>&
+
+Request spkc to retrieve the format=spkc
+
+©2026, Avigilon Corporation. All right reserved.
+
+44
+
+Parameter Value
+
+Development and Deployment
+
+Description
+
+Sample Requests
+
+available MIME media types that can be provided in the content-type http header when making a POST /media request to stream audio to the camera speaker. See spkc format.
+
+Response Body Examples
+mpd format
+Request
+/mt/api/rest/v1/ media?session=<session>&cameraId=<cameraId>&format=mpd
+Response
+Copy
+<?xml version="1.0" encoding="UTF-8"?> <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:xsi="http://www.w 3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XM LSchema" xmlns:mpd="urn:mpeg:dash:schema:mpd:2011" xmlns:xlink="htt p://www.w3.org/1999/xlink" profiles="urn:mpeg:dash:profile:isoff-o n-demand:2011" type="static" minBufferTime="PT1.5S">
+<Period> <AdaptationSet> <SupplementalProperty schemeIdUri="urn:mpeg:dash:srd:2014" va
+lue="0,0,0,6016,4008,6016,4008"/> <SupplementalProperty schemeIdUri="urn:avg:rotation:v1" valu
+e="0"/> <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/> <Representation id="2" bandwidth="6311904" width="1777" heigh
+
+©2026, Avigilon Corporation. All right reserved.
+
+45
+
+Development and Deployment
+t="1184" mimeType="video/mp4" codecs="avc1.4D402A"> <BaseURL>/mt/api/rest/v1/media?ctx=...&session=...&cameraI
+d=...</BaseURL> </Representation> <Representation id="3" bandwidth="1036800" width="720" heigh
+t="480" mimeType="video/mp4" codecs="avc1.4D4016"> <BaseURL>/mt/api/rest/v1/media?ctx=...&session=...&cameraI
+d=...</BaseURL> </Representation>
+</AdaptationSet> <AdaptationSet>
+<SupplementalProperty schemeIdUri="urn:mpeg:dash:srd:2014" va lue="0,0,0,1504,1336,6016,4008"/>
+<SupplementalProperty schemeIdUri="urn:avg:rotation:v1" valu e="0"/>
+<Role schemeIdUri="urn:mpeg:dash:role:2011" value="supplement ary"/>
+<Representation id="1" bandwidth="6028032" width="1504" heigh t="1336" mimeType="video/mp4" codecs="avc1.4D4028">
+<BaseURL>/mt/api/rest/v1/media?ctx=...&session=...&cameraI d=...</BaseURL>
+</Representation> </AdaptationSet> <AdaptationSet>
+<SupplementalProperty schemeIdUri="urn:mpeg:dash:srd:2014" va lue="0,3008,0,1504,1336,6016,4008"/>
+<SupplementalProperty schemeIdUri="urn:avg:rotation:v1" valu e="0"/>
+<Role schemeIdUri="urn:mpeg:dash:role:2011" value="supplement ary"/>
+<Representation id="5" bandwidth="6028032" width="1504" heigh t="1336" mimeType="video/mp4" codecs="avc1.4D4028">
+<BaseURL>/mt/api/rest/v1/media?ctx=...&session=...&cameraI d=...</BaseURL>
+</Representation> </AdaptationSet> .
+
+©2026, Avigilon Corporation. All right reserved.
+
+46
+
+Development and Deployment
+. . <AdaptationSet>
+<SupplementalProperty schemeIdUri="urn:mpeg:dash:srd:2014" va lue="0,3008,1336,1504,1336,6016,4008"/>
+<SupplementalProperty schemeIdUri="urn:avg:rotation:v1" valu e="0"/>
+<Role schemeIdUri="urn:mpeg:dash:role:2011" value="supplement ary"/>
+<Representation id="9" bandwidth="6028032" width="1504" heigh t="1336" mimeType="video/mp4" codecs="avc1.4D4028">
+<BaseURL>/mt/api/rest/v1/media?ctx=...&session=...&cameraI d=...</BaseURL>
+</Representation> </AdaptationSet> </Period> </MPD>
+spkc format
+Request (when the speaker is enabled)
+/mt/api/rest/v1/ media?session=<session>&cameraId=<cameraId>&format=spkc
+Response
+Copy
+{ "status": "success", "result": { "speakerEnabled":true, "availableAudioCodecs": ["audio/PCMU","audio/opus"] }
+}
+
+©2026, Avigilon Corporation. All right reserved.
+
+47
+
+Development and Deployment
+Request (when the speaker is disabled)
+/mt/api/rest/v1/ media?session=<session>&cameraId=<cameraId>&format=spkc
+Response
+Copy { "status": "success", "result": { "speakerEnabled":false, "availableAudioCodecs": [] } }
+json format
+Request
+/mt/api/rest/v1/ media?session=<session>&cameraId=<cameraId>&format=json&media=meta&t= live
+Response
+Copy { "type": "objects", "timestamp": "20200109T035040.843Z", "rotate": 0, "detections": [ { "class": "vehicle", "confidence": 0.58999, "id": 178651399,
+
+©2026, Avigilon Corporation. All right reserved.
+
+48
+
+"isDay": true, "bounds": {
+"left": 0.85532, "top": 0.59114, "right": 1.02083, "bottom": 0.74652 } }, { "class": "vehicle", "confidence": 0.07999, "id": 178650823, "isDay": true, "bounds": { "left": 1.02835, "top": 0.48871, "right": 1.10243, "bottom": 0.55642 } } ] } { "type": "objects", "timestamp": "20200109T035040.876Z", "rotate": 0, "detections": [ { "class": "vehicle", "confidence": 0.58999, "id": 178651399, "isDay": true, "bounds": { "left": 0.85532, "top": 0.59114, "right": 1.02083, "bottom": 0.74652
+©2026, Avigilon Corporation. All right reserved.
+
+Development and Deployment 49
+
+} }, {
+"class": "vehicle", "confidence": 0.07999, "id": 178650823, "isDay": true, "bounds": {
+"left": 1.02835, "top": 0.48871, "right": 1.10243, "bottom": 0.55642 } } ] } { "type": "objects", "timestamp": "20200109T035040.909Z", "rotate": 0, "detections": [ { "class": "vehicle", "confidence": 0.58999, "id": 178651399, "isDay": true, "bounds": { "left": 0.85532, "top": 0.59114, "right": 1.02083, "bottom": 0.74652 } }, { "class": "vehicle", "confidence": 0.07999, "id": 178650823,
+©2026, Avigilon Corporation. All right reserved.
+
+Development and Deployment 50
+
+"isDay": true, "bounds": {
+"left": 1.02835, "top": 0.48871, "right": 1.10243, "bottom": 0.55642 } } ] } { "type": "objects", "timestamp": "20200109T035040.943Z", "rotate": 0, "detections": [ { "class": "vehicle", "confidence": 0.62999, "id": 178651399, "isDay": true, "bounds": { "left": 0.8478, "top": 0.59288, "right": 1.01446, "bottom": 0.75086 } }, { "class": "vehicle", "confidence": 0.07999, "id": 178650823, "isDay": true, "bounds": { "left": 1.02777, "top": 0.48871, "right": 1.10243, "bottom": 0.55642
+©2026, Avigilon Corporation. All right reserved.
+
+Development and Deployment 51
+
+} } ] } { "type": "endOfStream", "timestamp": "20200109T035040.972Z" }
+
+Development and Deployment
+
+Filtering Event Notifications
+When subscribing to event notifications, you can filter which events you want to be notified about using an include list or exclude list.
+For more information on how to integrate these filters with your integration, see the following links:
+· Monitoring Events with Webhooks · Monitoring Events with Socket.IO · Webhooks vs Socket.IO
+Server Events
+Server events are specific to the server on which they are generated. For each server in a site, there should be one Socket.IO channel open between the client and WEP to get events or configure a webhook to receive site-wide events.
+Site Events
+Site events include events generated by any server in a site. One webhook connection is
+
+©2026, Avigilon Corporation. All right reserved.
+
+52
+
+Development and Deployment
+sufficient to get these events.
+Getting Events
+A list of available events can be obtained using the following REST and Socket.IO calls. These events are organized into groups so you can request a collection of events at a time.
+REST
+https://127.0.0.1:8443/mt/api/rest/v1/event-subtopics
+Socket.IO
+Copy socket.emit( 'read-event-subtopics', {}, response => console.log( 'read-event-subtopics:\n', JSON.stringify(response, undefined, ' ') ) );
+Including Events
+Use the include parameter to subscribe to specific events or groups.
+Copy { include: ['ALARM'] // subscribe to ALARM related events }
+Excluding Events
+Use the exclude parameter to subscribe to all notifications except specific events or groups.
+For example, to subscribe to all notifications except storage and database notifications, add
+
+©2026, Avigilon Corporation. All right reserved.
+
+53
+
+Development and Deployment
+STORAGE and DB groups to your exclude array.
+Copy { exclude: ['DB', 'STORAGE'] // subscribe to all events except d atabase and storage related events };
+
+Monitoring Events with Webhooks
+You can set up webhooks with WEP to receive events from an ACC site. Webhooks are available for HTTP and HTTPS endpoints. HTTPS is recommended as notifications directed to HTTP endpoints will not be encrypted.
+Only events are available via Webhooks. For more information regarding alarm_objects , camera_objects , server_objects and site notifications, see Monitoring Events with Socket.IO.
+Before You Start
+Before you start, you need the following:
+· The session string generated from the Login Request. · A valid url that will receive ACC webhook notifications. · A list of eventTopics that you would like to subscribe to. For more information, see
+Filtering Event Notifications. · An authenticationToken to verify event messages are originating from the ACC
+webhook service.
+
+©2026, Avigilon Corporation. All right reserved.
+
+54
+
+Development and Deployment
+Generating Authentication Token
+With authenticationToken , you can verify that event messages are originating from the ACC webhook service and not a third party.
+The authenticationToken string should be:
+· atleast 16 bytes of secure, randomly generated data · Base-64 encoded
+For security, we recommend using a unique authenticationToken for each webhook configuration.
+Copy const crypto = require('crypto'); let authenticationToken; crypto.randomBytes(16, (err, buf) => { if (err) throw err; console.log(`${buf.length} bytes of random data: ${buf.toStrin g('hex')}`); authenticationToken = buff.ToString('base64'); });
+Filtering Event Notifications
+You can filter which events you want to be notified about using the eventTopics parameter to whitelist or blacklist events. For more information, see Filtering Event Notifications.
+The following example shows how to subscribe to events:
+Copy "eventTopics": { // subscribes to all events except the following "blacklist": [ "DEVICE_MOTION_START", "DEVICE_MOTION_STOP" ] }
+
+©2026, Avigilon Corporation. All right reserved.
+
+55
+
+Development and Deployment
+General Webhook Configuration Format
+Copy
+{ "session": "string", "webhook": { "url": "string", "heartbeat": { "enable": true, "frequencyMs": 30000 }, "authenticationToken": "string", "eventTopics": { // use whitelist to include specific events "whitelist": [ "DEVICE" ] } }
+}
+
+Parameter session url heartbeat enable
+©2026, Avigilon Corporation. All right reserved.
+
+Description The session token generated from the Login request. (required) The URL of the webhook receiving the event notifications. (required) An object that contains heartbeat notification configurations. Specify whether to enable ( true ) or disable ( false ) heartbeat notifications. If enabled, unless specified, frequencyMs will be defaulted to 1 hour.
+56
+
+Development and Deployment
+
+Parameter frequencyMs authenticationToken eventTopics
+whitelist blacklist
+
+Description
+The time interval for sending heartbeat notifications in milliseconds.
+The authentication token used to secure Webhook notifications. (required)
+The event topics to receive notifications for. Use whitelist to include event topics and blacklist to exclude event topics. (required)
+An array of all event topics/categories that should be included
+An array of all event topics/categories that should be excluded
+
+Creating a Webhook
+Use the POST /webhooks API to create webhook configurations for your ACC site.
+A successful response will let you know which settings were accepted or rejected. An error response indicates the request contained validation errors.
+Updating a Webhook
+Use the PUT /webhooks API to update an existing webhook configuration for your ACC site. You will need the webhook id and the parameters you want to update.
+For example, the following code disables heartbeat notifications and clears the frequencyMs parameter. When enabling heartbeat notifications again, the frequencyMs parameter needs to be reset.
+Copy { "session": "string", "webhook": { "id" : <WEBHOOK_ID>,
+
+©2026, Avigilon Corporation. All right reserved.
+
+57
+
+Development and Deployment
+"heartbeat": { "enable": false
+} } }
+Getting a Webhook
+Use the GET /webhooks API to get all webhook configurations for your ACC site or specific webhook configurations using webhook IDs. The response object returns the event topics as a list, not as event groups.
+To get all the webhook configurations in your ACC site, use the following GET request using your SESSION_TOKEN :
+https://127.0.0.1:8443/mt/api/rest/v1/ webhooks?session=<SESSION_TOKEN>
+To get specific webhook configurations, use the following GET request using your SESSION_TOKEN and WEBHOOK_ID s:
+https://127.0.0.1:8443/mt/api/rest/v1/ webhooks?session=<SESSION_TOKEN>&ids=<WEBHOOK_ID1>&ids=<WEBHOOK_ID2>
+Verifying Messages over HTTPS
+For webhooks directed to HTTPS endpoints, the webhook notification is presented in the JSON format. The notification will contain the authentication token within the payload to verify the authenticity.
+The following example shows how to verify an HTTPS webhook:
+Copy function verifyAuthorizationTokenHTTPS(request) { return authenticationToken === request.body.authenticationToke n; }
+
+©2026, Avigilon Corporation. All right reserved.
+
+58
+
+The following example shows how to extract the payload:
+Copy
+function extractPayloadHTTPS(request) { return request.body;
+}
+
+Development and Deployment
+
+Verifying Messages over HTTP
+For webhooks directed to HTTP endpoints, the webhook notification is presented as a string, with the following headers:
+· Content-Type: plain/text · A hash-based message authentication code (HMAC)-encrypted authorization header.
+Use the authorization header to verify the authenticity of the message content by recalculating the hash using the binary buffer of the authenticationToken .
+Copy function verifyAuthorizationTokenHTTP(request) { const authenticationTokenBinary = Buffer.from(authenticationTok en, 'base64');
+const authHeader = request.headers.authorization; const hmac = crypto.createHmac('sha256', authenticationTokenBin ary); hmac.update(request.body); const hashInBase64 = hmac.digest('base64');
+return hashInBase64 === authHeader; }
+
+To extract the notification, parse the string payload into JSON. The following Javascript function is an example of how to do so:
+Copy
+
+©2026, Avigilon Corporation. All right reserved.
+
+59
+
+Development and Deployment
+
+function extractPayloadHTTP(request) { return JSON.parse(request.body);
+}
+
+Webhook Notification Format
+The general webhook notification structure will always contain the following information:
+
+Parameter siteId type
+time
+
+Description The ACC site ID.
+The webhook notification type. Examples: HELLO, HEARTBEAT, NOTIFICATION. The notification timestamp in ISO-8601.
+
+Hello Message
+The hello message is denoted by type: 'HELLO' and indicates that a disconnected ACC server has reconnected. It is an indication that some events may have been missed.
+Heartbeat Message
+The heartbeat message is denoted by type: 'HEARTBEAT' and is sent at the configured frequencyMs time interval after the last successful webhook notification. It indicates that the ACC server is connected, although there are no notifications.
+Notifications
+The notification message is denoted by type: 'NOTIFICATION' and will contain event details. The notification is an array of events denoted by the notification: [] parameter.
+Tips and Best Practices
+· Check that all webhook targets are up and running before receiving notifications. The ACC Web Endpoint API can have 5 webhook notifications in flight at a time. If 5 or more webhook targets are unavailable, there will be a noticeable delay receiving notifications on available webhook targets due to timeouts.
+
+©2026, Avigilon Corporation. All right reserved.
+
+60
+
+Development and Deployment
+· Queue incoming webhook notifications on a webhook target client instead of processing them right away. If notifications are processed right away, the client is likely to hang.
+
+Monitoring Events with Socket.IO
+
+You can subscribe to runtime ACC notifications using Socket.IO, an open-source event-based communication engine. When you first configure your system, the ACC Server will return a notification package detailing the initial state of the system. After that, you will receive a notification when an alarm, camera, server, or site is modified or removed.
+The following notification topics are available:
+
+Topic Hello Heartbeat
+Slow_Heartbeat
+Alarms Cameras * Cameras_Light * Servers
+
+Description
+Start of the initial notification transmission.
+Automatic messages to confirm the server is connected to the client. Sent every 10 seconds unless a notification is received.
+Automatic messages to confirm the server is connected to the client. Sent every 3 minutes unless a notification is received.
+List of alarm IDS that have changed state.
+List of camera IDs that have changed state. Excludes camera link changes.
+List of camera IDs that have changed state. Excludes camera link changes. DEPRECATED
+List of server IDs that have changed state.
+
+©2026, Avigilon Corporation. All right reserved.
+
+61
+
+Development and Deployment
+
+Topic Site Alarm_objects Camera_objects *
+Camera_objects_Light *
+Server_Objects Event Rule_Action_Client End_of_Catalog
+
+Description Site object with the state change included. List of modified or removed alarm objects. List of modified or removed cameras. Excludes camera link changes. List of modified or removed cameras. Excludes camera link changes. List of modified or removed servers. ACC Server-specific events (not site-wide). Rule actions that are triggered by an event. End of the initial notification transmission.
+
+* A camera link refers to any addition, removal, or change to the logical connection between a camera and a digital i/o, audio i/o, or server-based analytics, available on the ES Analytics Appliance or the AI Appliance.
+
+NOTE To subscribe to alarm and camera notifications, your ACC Server must be licensed.
+Configuring Notifications
+To configure your system to subscribe to ACC notifications, you need to install the Socket.IO Client, then add code to begin receiving notifications.
+getSiteWideEvents
+This parameter specifies whether this particular instance of Web Endpoint should send events from every server within the site or just events generated within this particular server.
+Setting this parameter to true while connected to multiple Web Endpoint instances in the same site will cause duplicate events to be received. Setting this parameter to true will be the equivalent of setting all event types to be site-wide.
+
+©2026, Avigilon Corporation. All right reserved.
+
+62
+
+Development and Deployment
+The default value of this parameter is false and can be configured through the WebEndpoint.config.yaml file:
+Copy eventSubscribe: getSiteWideEventsDefault: false
+
+Filtering Event Notifications
+When subscribing to event notifications, you can filter which events you want to be notified about using subtopics to include or exclude events. These events differ from the alarm_objects , camera_objects , server_objects and site notifications, which return information about settings.
+For more information regarding obtaining event topics and how to include and exclude topics, see Filtering Event Notifications.
+The following example shows how to get a list of events:
+Copy
+socket.emit( 'read-event-subtopics', {}, response => console.log('read-event-subtopics:\n', JSON.stringi
+fy(response, undefined, ' ')) );
+
+The following example shows how to subscribe to events:
+
+Copy
+
+const subtopics = { EVENT: { exclude: ['DB_REINDEX']
+B_REINDEX' }
+};
+
+// subscribe to all events except 'D
+
+©2026, Avigilon Corporation. All right reserved.
+
+63
+
+Development and Deployment
+Important Considerations
+The client must acknowledge all server notifications. If the client is down or experiencing an error that prevents it from acknowledging notifications, the server will close the notification channel to prevent a resource leak.
+To close the notification channel gracefully, return false in the acknowledge callback() .
+Copy socket.on('notification', (notification, callback) => { console.log('notification:\n', JSON.stringify(notification, und efined, ' ')); callback(false); });
+Detecting Failures
+If you're building an application to monitor if the ACC server disconnects, add the following code:
+Copy socket .on('acc_disconnect', (error) => { logger.error('Received ACC disconnect with error: ', error);
+// add application logic to handle ACC disconnection case // ... });
+Unsubscribing from Notifications
+You may want to keep the socket connection open but unsubscribe from the notifications, either to reconnect with a new set of topics or terminate the notification channel completely.
+Use the unsubscribe event to communicate the notification channel termination without closing the socket connection:
+Copy
+
+©2026, Avigilon Corporation. All right reserved.
+
+64
+
+function unsubscribe(socket, reason) { socket.emit('unsubscribe', reason);
+}
+
+Notification Parameters
+The notification object properties are described below.
+
+Parameter siteId description
+
+Type string string
+
+type time
+
+string string
+
+id modified
+
+string array
+
+removed
+
+array
+
+sequence
+
+integer
+
+Development and Deployment
+Description The ACC site ID. A description of the notification. The notification topic. The notification timestamp in UTC. The notification ID. The site, server, or camera IDs that were modified. For a description of the included parameters, see the API documentation. The site, server, or camera IDs that were removed. For a description of the included parameters, see the API documentation. The order the notification is displayed in a notification package.
+
+©2026, Avigilon Corporation. All right reserved.
+
+65
+
+Development and Deployment
+
+Webhooks vs Socket.IO
+Both Socket.IO and webhooks are used for real time updates between ACC servers and clients. Webhooks are recommended as they can provide notifications for the whole site, whereas Socket.IO only provides notifications from the server that the WEP service is running on. The WEP service and the Socket.IO connection need to be running on each server within the site.
+Webhooks
+Webhooks provide site-wide notifications and are recommended over Socket.IO.
+Webhooks are callbacks that are triggered by events on the ACC Server. The client can configure a public URL to receive events from an ACC site. Webhooks are available over HTTP/HTTPS protocol and are configured for site-wide communication. Optional heartbeat notifications can be configured to make sure connection to the WEP service has not been interrupted.
+Pros
+1. WEP forwards notifications via a non-persistent HTTP/HTTPS connection. 2. Performs well across a multi-server site. 3. Server and site-wide notifications are sent to the client.
+Cons
+1. Only events are available via Webhooks. To receive ALARM_OBJECTS , CAMERA_OBJECTS , SERVER_OBJECTS and SITE notifications, you will need to subscribe via Socket.IO.
+2. Clients need to setup a receiving HTTP/HTTPS server to make use of this functionality. 3. Each push to HTTP/HTTPS server initiates a new TCP connection. 4. Webhooks can only facilitate one-way communication from server to client.
+
+©2026, Avigilon Corporation. All right reserved.
+
+66
+
+Development and Deployment
+
+Socket.IO
+Socket.IO only provides notifications from the server that the WEP service is running on and is not recommended over webhooks.
+Socket notifications rely on persistent web socket connections between the third party client and WEP, and a notification channel between WEP and the ACC server. The socket-based connection is configured between a specific server and a client.
+Pros
+1. Fast two-way channel between a web browser and a server. 2. Low latency communication between a client and web service. 3. ALARM_OBJECTS , CAMERA_OBJECTS , SERVER_OBJECTS , SITE notifications, and
+events are available through socket connection.
+Cons
+1. Session required for full life cycle: A session is required to open the notification channel as well as to keep the notification channel alive. These sessions can expire, which means that the client would have additional work to regenerate a new token and resubscribe to notifications again.
+2. The client has additional responsibility to listen to the notification channel disconnect event and re-establish the notification channel subscription if the connection goes down for some reason.
+3. WEP needs to be installed on each server and Socket.IO connection is required for each server to receive site-wide events.
+4. Only server-specific notifications are sent to the client. 5. Performance and Scale : Due to multiple channels for each server, with multiple clients,
+we have exponential channels open between the ACC server and the WEP service.
+Comparison between Webhooks and Socket.IO
+
+Index Connection Protocol
+
+Webhooks Non-Persistent HTTP / HTTPS
+
+Socket.IO Persistent WebSocket
+
+©2026, Avigilon Corporation. All right reserved.
+
+67
+
+Index Ease of Use
+Session
+
+Development and Deployment
+
+Webhooks
+Clients need to setup a receiving HTTP/HTTPS server
+Session only needed during configuration
+
+Socket.IO Clients need to have Socket.IO client
+Session-based
+
+License Plate Recognition Events
+
+License Plate Recognition (LPR) events are used for detecting the license plate. There are four events involved during the life cycle of license plate detection.
+
+Event DEVICE_LPR_PLATE_FOUND
+DEVICE_LPR_PLATE_UPDATE DEVICE_LPR_PLATE_LOST
+DEVICE_LPR_MATCH
+
+Triggered when
+License plate is detected initially by the LPR system
+Detected license plate is updated
+License plate no longer detected in the region of interest
+License plate in an LPR watch list was detected
+
+Interpreting ROI to Construct the Cropped Image from Actual Image
+Region of Interest (ROI) information is shared in DEVICE_LPR_PLATE_FOUND , DEVICE_LPR_PLATE_LOST and DEVICE_LPR_MATCH events.
+
+©2026, Avigilon Corporation. All right reserved.
+
+68
+
+Development and Deployment
+DEVICE_LPR_PLATE_FOUND and DEVICE_LPR_PLATE_LOST
+Copy top left x = (roi.topLeft.x * image.PixelWidth) top left y = (roi.topLeft.y * image.PixelHeight) width = (roi.bottomRight.x * image.PixelWidth - roi.topLeft.x * ima ge.PixelWidth) height = (roi.bottomRight.y * image.PixelHeight - roi.topLeft.y * i mage.PixelHeight)
+crop = width:height:x:y
+DEVICE_LPR_MATCH
+Copy top left x = (plateBox.left * image.PixelWidth) top left y = (plateBox.top * image.PixelHeight) width = (plateBox.right * image.PixelWidth - plateBox.left * imag e.PixelWidth) height = (plateBox.bottom * image.PixelHeight - plateBox.top * imag e.PixelHeight)
+crop = width:height:x:y
+
+©2026, Avigilon Corporation. All right reserved.
+
+69
+
+Web Endpoint API Routes
+
+Web Endpoint API Routes
+
+This section describes the Web Endpoint API routes.
+
+Scheme Host Base Path Base URL
+
+https 127.0.0.1:8443 /mt/api/rest/v1 https://127.0.0.1:8443/mt/api/ rest/v1
+
+/alarm /alarm-history /alarms /analytics /appearance/descriptions /appearance/search /appearance/search-by-description /bookmark /bookmark/search /bookmarks /camera /camera/commands/auto-focus /camera/commands/aux /camera/commands/focus
+
+©2026, Avigilon Corporation. All right reserved.
+
+70
+
+/camera/commands/focus/continuous /camera/commands/focus/relative /camera/commands/intercom /camera/commands/pan-tilt /camera/commands/pan-tilt-zoom /camera/commands/pattern /camera/commands/preset /camera/commands/preset/home /camera/commands/ptz/lock /camera/commands/ptz/lock/override /camera/commands/reboot /camera/commands/tour /camera/commands/tour/stop /camera/commands/trigger-digital-output /camera/commands/zoom /camera/discovery /camera/geolocation /camera/intercom-state /camera/link /camera/manual-record-state /camera/ptz/pattern /camera/ptz/pattern/start
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes 71
+
+/camera/ptz/pattern/stop /camera/ptz/preset /camera/ptz/tour /camera/record/manual /camera/settings /cameras /cameras/discovery /cloud/users /config /conversion/cameraId /conversion/cameraId-all /device/date-time /device/firmware /device/logs /device/poe /device/poe-info /device/reboot /device/switch /device/timezone-list /directory-entries /directory-view /entities
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes 72
+
+/entity /entity/settings /event-subtopics /events/search /events/subscription /events/user-export /evo/info /health /login /logout /lpr/list /lpr/list/entry /lpr/lists /media /media/imageRef /media/rtmp /recording/retention /recording/schedule /recording/schedules /recording/template /recording/templates /remote-site-upgrade
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes 73
+
+/savedView /savedViews /server /server/ids /servers /site /sites /siteView /system-bug-report /timeline /webhooks /wep-capabilities
+/alarm
+GET /alarm
+Get the details of one or more alarms
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes 74
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+id string (query)
+ids array[string] (query)
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The ID of the alarm. Deprecated. Use the ids parameter instead.
+The IDs of multiple alarms. Enter a single ID or an array of IDs.
+NOTE You can only use this field if the id field is empty.
+
+©2026, Avigilon Corporation. All right reserved.
+
+75
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+PUT /alarm
+Update an alarm Claim, acknowledge, trigger, or dismiss an alarm. You can add a note to document the reason for the update.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "id": "string", "action": "CLAIM", "note": "string", "permission": "GRANT"
+}
+
+©2026, Avigilon Corporation. All right reserved.
+
+76
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/alarm-history
+
+GET /alarm-history
+Get the history of an alarm
+By default, results are returned in reverse chronological order, with the most recent alarm listed first. To display the results in chronological order, set the from parameter to an earlier time than the to parameter.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+77
+
+Name session
+string (query)
+id string (query) required
+from string($date) (query)
+to string($date) (query)
+limit number (query)
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The ID of the alarm.
+The latest date of alarm history to return. Must be a valid ISO 8601 string. For example: yyyy-mm-ddThh:mm:ss ffff . The default value is the current time. The earliest date of the alarm history to return. Must be a valid ISO 8601 string. For example: yyyy-mm-ddThh:mm:ss ffff . The default value is one week before the from field. The number of entries to return. The default value is 1000 .
+78
+
+Name action
+string (query)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The alarm action to take. Available values: CLAIMED , UNCLAIMED , ACKNOWLEDGED , PURGED , TRIGGERED
+Description Successful Copy
+"string"
+
+/alarms
+GET /alarms
+Get all alarms Get information about all alarms for your site.
+
+©2026, Avigilon Corporation. All right reserved.
+
+79
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+80
+
+/analytics
+GET /analytics
+Read the analytics link state for a camera
+Parameters
+Name x-avg-session
+string (header)
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+
+session string (query)
+
+The session parameter returned by the login request
+
+cameraId string (query)
+
+The ID of the camera
+
+Responses
+Code default
+
+Description Successful Copy
+
+©2026, Avigilon Corporation. All right reserved.
+
+81
+
+Code
+
+Description "string"
+
+Web Endpoint API Routes
+
+PUT /analytics
+Connect or disconnect a discovered analytics camera
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "cameraId": "string", "enable": true
+}
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+82
+
+Web Endpoint API Routes
+
+/appearance/descriptions
+
+GET /appearance/descriptions
+Get the Appearance Search descriptors Get a list of supported descriptors for Appearance Search by description.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+session string (query)
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+83
+
+Responses
+Code 200
+
+Web Endpoint API Routes
+Description
+Successful
+Copy { "status": "success", "result": [ { "facet": "string", "tag": "string" } ] }
+
+/appearance/search
+POST /appearance/search
+Perform an Appearance Search Use an array of reference appearance results to find additional instances of a detected object in recorded video.
+
+©2026, Avigilon Corporation. All right reserved.
+
+84
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "queryType": "TIME_RANGE", "from": "2023-05-12", "to": "2023-05-12", "cameraIds": [ "string" ], "appearances": { "detectedObjects": [ { "sourceCameraId": "stri ng", "sourceTime": "2023-0 5-12", "objectId": 0, "generatorId": 5 } ], "images": [ "string" ], "imageUrls": [ "string" ]
+85
+
+Name
+Responses
+Code default
+
+Web Endpoint API Routes
+Description }, "scanType": "FULL", "intervalTimeSec": 0, "searchReason": "string", "limit": 100, "token": "string"
+}
+Description
+Successful Copy
+"string"
+
+/appearance/search-by-description
+POST /appearance/search-by-description
+Perform an Appearance Search using appearance descriptors Use supported descriptors to trigger an appearance search by description.
+
+©2026, Avigilon Corporation. All right reserved.
+
+86
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "queryType": "TIME_RANGE", "queryDescriptors": [ { "facet": "string", "tag": "string" } ], "scanType": "FULL", "from": "2023-05-13", "to": "2023-05-13", "cameraIds": [ "string" ], "limit": 100, "token": "string" }
+Description
+Successful
+87
+
+Code
+
+Description Copy
+"string"
+
+Web Endpoint API Routes
+
+/bookmark
+GET /bookmark
+Read a bookmark in the site
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+88
+
+Name id
+string (query) required
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The ID of the bookmark
+Description Successful Copy
+"string"
+
+POST /bookmark
+Add a new bookmark to the specified cameras
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body
+
+Copy
+
+©2026, Avigilon Corporation. All right reserved.
+
+89
+
+Name object (body)
+Responses
+Code default
+PUT /bookmark
+Update the specified bookmark Only provide the values to be updated.
+
+Web Endpoint API Routes
+Description
+{ "session": "string", "bookmark": { "name": "string", "description": "string", "cameraIds": [ "string" ], "startTime": "2018-10-03T2
+3:51:09.980Z", "endTime": "2018-10-03T23:5
+3:10.000Z", "isProtected": false
+} }
+Description
+Successful
+Copy "string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+90
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "bookmark": { "id": "string", "name": "string", "description": "string", "cameraIds": [ "string" ], "startTime": "2018-10-03T2 3:51:09.980Z", "endTime": "2018-10-03T23:5 3:10.000Z", "isProtected": false } }
+Description
+Successful Copy
+91
+
+Code
+
+Description "string"
+
+Web Endpoint API Routes
+
+DELETE /bookmark
+Delete one or more bookmarks You can delete up to 16 bookmarks by bookmark ID. A request to delete previously deleted bookmarks will return a success message.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "ids": [ "string" ]
+}
+
+Responses
+Code default
+
+Description Successful
+
+©2026, Avigilon Corporation. All right reserved.
+
+92
+
+Code
+
+Description Copy
+"string"
+
+Web Endpoint API Routes
+
+/bookmark/search
+
+GET /bookmark/search
+Get bookmarks within a time range Search for bookmarks over a specified time range. Bookmarks can be optionally filtered by cameraIDs , name , or type .
+Parameters
+
+Name x-avg-session
+string (header)
+
+Description
+The session parameter returned by the login request
+
+session string
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+93
+
+Name (query)
+cameraIds array[string] (query)
+name string (query)
+type string (query)
+from string($date) (query)
+to
+©2026, Avigilon Corporation. All right reserved.
+
+Description
+
+Web Endpoint API Routes
+
+Filter results by camera ID. All bookmarks containing at least 1 of the specified cameraIds will be returned. The maximum number of cameraIds that can be specified is 30.
+Filter results by bookmark name. The value can be a specific name or part of a name. All matching results will be returned.
+Filter search results by bookmark type. Available values: ALL , PROTECTED , UNPROTECTED . Default value: ALL
+The earliest date to search for bookmarks. Must be a valid ISO 8601 string. For example: yyyy-mm-ddThh:mm:ss.ffffff Default is 1 week prior to the to parameter.
+The latest date to search for bookmarks.
+94
+
+Name string($date) (query)
+
+Web Endpoint API Routes
+Description
+Must be a valid ISO 8601 string. For example: yyyy-mm-ddThh:mm:ss.ffffff Default is the current time.
+
+NOTE The from date must be earlier than the to date.
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+/bookmarks
+GET /bookmarks
+Read all the bookmarks in the site
+
+©2026, Avigilon Corporation. All right reserved.
+
+95
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+96
+
+/camera
+GET /camera
+Get the status of a single camera
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+id string (query)
+ids array[string] (query)
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The ID of the camera. Deprecated. Use the ids parameter instead.
+The IDs of multiple cameras. Enter a single ID or an array of IDs.
+NOTE You can only use this field if the id field is empty.
+97
+
+Name verbosity
+string (query)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description
+Specifies the amount of information to receive. Available values: · HIGH -- returns the full camera object
+including capability and links attributes · MEDIUM -- returns the full camera object
+including the capability attribute, but excluding the links attribute. · LOW -- returns the full camera object excluding the capability and links attributes. Default value is HIGH .
+Description
+Successful Copy
+"string"
+
+PUT /camera
+Connect or disconnect the discovered camera
+
+©2026, Avigilon Corporation. All right reserved.
+
+98
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "id": "string", "modify": true, "action": "UPDATE_CREDENTIAL S", "username": "string", "password": "string", "initialize": false, "confirmPassword": "ref:passw ord", "apiType": "UNKNOWN" }
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+99
+
+Web Endpoint API Routes
+
+/camera/commands/auto-focus
+
+PUT /camera/commands/auto-focus
+Autofocus a camera
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "id": "string"
+}
+
+Responses
+Code default
+
+Description Successful Copy
+
+©2026, Avigilon Corporation. All right reserved.
+
+100
+
+Code
+
+Description "string"
+
+Web Endpoint API Routes
+
+/camera/commands/aux
+
+PUT /camera/commands/aux
+Trigger an auxiliary camera command
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "id": "string", "channel": 0, "start": true
+}
+
+©2026, Avigilon Corporation. All right reserved.
+
+101
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/camera/commands/focus
+PUT /camera/commands/focus
+Deprecated.
+
+/camera/commands/focus/continuous
+PUT /camera/commands/focus/continuous
+Update the focus of a camera continuously This route is for continuous focus only. If your camera does not support continuous focus,
+
+©2026, Avigilon Corporation. All right reserved.
+
+102
+
+Web Endpoint API Routes
+
+use the PUT /camera/commands/focus/relative route.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "id": "string", "session": "string", "action": "START", "distance": "NEAR"
+}
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+103
+
+Web Endpoint API Routes
+
+/camera/commands/focus/relative
+
+PUT /camera/commands/focus/relative
+Update the focus of a camera continuously This route is for relative focus only. If your camera does not support relative focus, use the PUT /camera/commands/focus/continuous route.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "id": "string", "amount": 1
+}
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+104
+
+Web Endpoint API Routes
+
+/camera/commands/intercom
+
+PUT /camera/commands/intercom
+Start, ignore, or end an intercom call
+To enable intercom calls, configure a rule in the ACC client to start a call when the intercom digital input is triggered. Then to get intercom notifications, subscribe to the RULE_ACTION_CLIENT topic. See Monitoring Events with Socket.IO for more details.
+Once a notification is received, use this route to update the intercom call status to start , ignore or end . Then to get or push audio or video streams from or to the device, use the GET /media route.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "id": "string", "action": "START"
+
+©2026, Avigilon Corporation. All right reserved.
+
+105
+
+Name
+Responses
+Code default
+
+Description }
+Description Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/camera/commands/pan-tilt
+PUT /camera/commands/pan-tilt
+Deprecated.
+
+©2026, Avigilon Corporation. All right reserved.
+
+106
+
+Web Endpoint API Routes
+/camera/commands/pan-tilt-zoom
+PUT /camera/commands/pan-tilt-zoom
+Trigger a continuous or field-of-view PTZ action
+A PTZ action can be triggered by specifying either the continuous mode or the fieldOfView mode.
+Continuous PTZ
+The continuous mode triggers a continuous PTZ action with a joystick, mouse-drag, or zooming in or out.
+You can call multiple START commands with varying values for panAmount , tiltAmount and zoomAmount . The last call will continue until another START or STOP command is received. Specify a STOP command when the mouse button or joystick is released. If there is no STOP command, the last call will continue until the end of the camera range is reached.
+This mode requires visual verification of the video stream. Use the camera web UI or the ACC client to view the stream while calling a command.
+Field-of-View PTZ
+The fieldOfView mode changes the camera field-of-view (FOV). Only one of the following two modes can be specified at a time:
+· ROI -- zooms into a sub-region of the current camera FOV. · point -- centers the FOV on a specified point within the current camera FOV.
+For both ROI and point values, any unit can be used as long as it is consistent. The API normalizes the units.
+
+©2026, Avigilon Corporation. All right reserved.
+
+107
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "id": "string", "fieldOfView": { "imagePanelSize": { "width": 0, "height": 0 }, "ROI": { "x": 0, "y": 0, "width": 0, "height": 0 }, "point": { "x": 0, "y": 0 } }, "continuous": { "panAmount": 1, "tiltAmount": 1, "zoomAmount": 1, "action": "START" }
+108
+
+Name
+Responses
+Code default
+
+Description }
+Description Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/camera/commands/pattern
+
+PUT /camera/commands/pattern
+Start a PTZ camera pattern
+Parameters
+
+Name
+
+Description
+
+x-avg-session string
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+109
+
+Name (header)
+body object (body)
+Responses
+Code default
+
+Description
+
+Web Endpoint API Routes
+
+Copy
+{ "session": "string", "id": "string", "patternId": 0
+}
+
+Description
+Successful Copy
+"string"
+
+/camera/commands/preset
+PUT /camera/commands/preset
+Start a PTZ preset of the camera
+
+©2026, Avigilon Corporation. All right reserved.
+
+110
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+Copy { "session": "string", "id": "string", "patternId": 0 }
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+111
+
+Web Endpoint API Routes
+
+/camera/commands/preset/home
+
+PUT /camera/commands/preset/home
+Move the PTZ camera to its home preset position
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "id": "string", "session": "string"
+}
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+112
+
+Web Endpoint API Routes
+
+/camera/commands/ptz/lock
+
+PUT /camera/commands/ptz/lock
+Lock or unlock the PTZ of a camera
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "id": "string", "lock": true
+}
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+113
+
+Web Endpoint API Routes
+
+/camera/commands/ptz/lock/override
+
+PUT /camera/commands/ptz/lock/override
+Override a PTZ lock
+This route allows users to take ownership of locked PTZ cameras if they are from a higher ranked group than the current owner.
+If a PTZ camera is not locked, you can use the PUT /camera/commands/ptz/lock route instead. To determine if a camera is locked or not, use the GET /camera route. If lockSessionGid is empty, the camera is unlocked. If the user does not have permission to override the current lock, an error with the HTTP status code 403 (Forbidden) will be returned.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object
+
+Copy
+{ "session": "string", "id": "string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+114
+
+Name (body)
+Responses
+Code default
+
+Description }
+Description Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/camera/commands/reboot
+
+PUT /camera/commands/reboot
+Reboot a camera
+Parameters
+
+Name
+
+Description
+
+x-avg-session string
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+115
+
+Name (header)
+body object (body)
+Responses
+Code default
+
+Description
+
+Web Endpoint API Routes
+
+Copy
+{ "session": "string", "id": "string"
+}
+
+Description
+Successful Copy
+"string"
+
+/camera/commands/tour
+PUT /camera/commands/tour
+Start a PTZ tour of a camera
+
+©2026, Avigilon Corporation. All right reserved.
+
+116
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+Copy { "session": "string", "id": "string", "tourId": 0 }
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+117
+
+Web Endpoint API Routes
+
+/camera/commands/tour/stop
+
+PUT /camera/commands/tour/stop
+Stop a PTZ tour of a camera
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "id": "string", "tourId": 0
+}
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+118
+
+Web Endpoint API Routes
+
+/camera/commands/trigger-digital-output
+
+PUT /camera/commands/trigger-digital-output
+Trigger a digital output
+This route accepts either a specific digital output ID ( entityId ) which can be retrieved through the GET /entities route, or a camera ID ( id ) which can be retrieved through GET /cameras route.
+If only entityId is provided, then the digital output specified by the entityId will be triggered. If only id is provided, then all the digital output entities linked to the camera will be triggered. If both parameters are provided, then id will take precedence over entityId .
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "id": "string", "entityId": "string", "isToggle": true
+}
+
+©2026, Avigilon Corporation. All right reserved.
+
+119
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/camera/commands/zoom
+PUT /camera/commands/zoom
+Deprecated.
+
+/camera/discovery
+GET /camera/discovery
+Get the details for a discovered camera on the current server
+
+©2026, Avigilon Corporation. All right reserved.
+
+120
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+id string (query) required
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The ID of the camera.
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+121
+
+PUT /camera/discovery
+Manually discover a camera
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+Copy { "session": "string", "address": "string", "uri": "string", "apiType": "UNKNOWN", "username": "string", "password": "string", "initialize": false, "confirmPassword": "ref:passw ord" }
+Description Successful Copy
+"string"
+122
+
+Web Endpoint API Routes
+
+/camera/geolocation
+
+PUT /camera/geolocation
+Update the geolocation data of cameras
+Update the geolocation of a camera that has not been placed on an ACC map. The coordinate system must be World Geodetic System 1984 (WGS84).
+If an error occurs, the response will have an errors field inside the meta field with the following information:
+· notReady -- the service is not available for the listed cameras. · alreadyExists -- cameras are already placed on an ACC map. · otherErrors -- cameras that could not be updated for another reason.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object
+
+Copy
+{ "session": "string",
+
+©2026, Avigilon Corporation. All right reserved.
+
+123
+
+Name (body)
+Responses
+Code 200
+207
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description
+"coordinates": [ { "cameraId": "string", "longitude": -123.098587, "latitude": 49.303072 }
+] }
+Description
+Successful
+Copy { "status": "success", "result": "string" }
+Multi Status
+Copy { "status": "partial success", "statusCode": 207, "message": "string", "meta": { "errors": { "notReady": [ "string"
+124
+
+Code
+
+Web Endpoint API Routes
+Description
+], "alreadyExists": [
+"string" ], "otherErrors": [
+"string" ] } } }
+
+/camera/intercom-state
+GET /camera/intercom-state
+Get the state of intercom The possible states of intercom are: · Start -- currently in a call · End -- not in a call · Pending -- intercom is ringing and pending answer
+
+©2026, Avigilon Corporation. All right reserved.
+
+125
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+id string (query) required
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The ID of the camera.
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+126
+
+Web Endpoint API Routes
+
+/camera/link
+
+POST /camera/link
+Add an audio or digital input or output to multiple cameras
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "entityId": "string", "ids": [ "string" ]
+}
+
+©2026, Avigilon Corporation. All right reserved.
+
+127
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+DELETE /camera/link
+Remove an audio or digital input or output from multiple cameras
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "entityId": "string", "ids": [ "string" ]
+}
+
+©2026, Avigilon Corporation. All right reserved.
+
+128
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/camera/manual-record-state
+GET /camera/manual-record-state
+Get manual recording state
+Get the manual recording state of given cameras. The response contains a list of manual recording states of the cameras that are currently manually recording and that an ACC user has access to.
+The startTime parameter is in UTC time.
+NOTE This API will not return the recording state of cameras that have been triggered by an alarm or motion detection, or cameras that are in continuous recording mode.
+
+©2026, Avigilon Corporation. All right reserved.
+
+129
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+cameraIds array[string] (query) required
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The IDs of the cameras to get manual recording state.
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+130
+
+Web Endpoint API Routes
+
+/camera/ptz/pattern
+GET /camera/ptz/pattern
+Get the list of PTZ patterns for a camera
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+id string (query) required
+
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The ID of the camera
+
+©2026, Avigilon Corporation. All right reserved.
+
+131
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/camera/ptz/pattern/start
+PUT /camera/ptz/pattern/start
+Records a PTZ camera pattern
+
+TIP Start moving the camera after calling the route to record the pattern.
+
+Parameters
+Name x-avg-session
+string (header)
+
+Description
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+132
+
+Name body
+object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description Copy
+{ "session": "string", "id": "string", "patternId": 0, "name": "string"
+}
+Description
+Successful Copy
+"string"
+
+/camera/ptz/pattern/stop
+PUT /camera/ptz/pattern/stop
+Stop recording a pattern
+TIP Stop moving your camera before calling the route.
+
+©2026, Avigilon Corporation. All right reserved.
+
+133
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+Copy { "session": "string", "id": "string", "patternId": 0, "name": "string" }
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+134
+
+/camera/ptz/preset
+GET /camera/ptz/preset
+Get the presets of a camera
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+id string (query) required
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The ID of the camera
+Description Successful
+135
+
+Code
+
+Description Copy
+"string"
+
+Web Endpoint API Routes
+
+POST /camera/ptz/preset
+Add a PTZ preset to a camera
+Position the camera before adding a preset. The current camera position will be set as the preset position when the route is called.
+If you are updating a preset, provide the id of the preset. If you are creating a new preset, provide a value between 0 and maxId . If the id is already in use, it will be overwritten. To see which IDs are in use and the maximum number of available IDs, use the GET /camera/ ptz/preset request.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "id": "string", "presetId": 0, "name": "string", "isHome": false
+}
+
+©2026, Avigilon Corporation. All right reserved.
+
+136
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+PUT /camera/ptz/preset
+Update a PTZ preset to the current camera position
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "id": "string", "presetId": 0, "name": "string", "isHome": false
+}
+
+©2026, Avigilon Corporation. All right reserved.
+
+137
+
+Responses
+Code default
+DELETE /camera/ptz/preset
+Delete a PTZ preset
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "id": "string", "presetId": 0 }
+
+©2026, Avigilon Corporation. All right reserved.
+
+138
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/camera/ptz/tour
+GET /camera/ptz/tour
+Get the PTZ tours of a camera
+Parameters
+Name x-avg-session
+string (header)
+session
+©2026, Avigilon Corporation. All right reserved.
+
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+139
+
+Name string (query)
+id string (query) required
+Responses
+Code default
+
+Description
+
+Web Endpoint API Routes
+
+The ID of the camera
+
+Description
+Successful Copy
+"string"
+
+POST /camera/ptz/tour
+Add a new PTZ tour to a camera
+If you are updating a tour, provide the id of the tour. If you are creating a new tour, provide a value between 0 and maxId . If the id is already in use, it will be overwritten. To see which IDs are in use and the maximum number of available IDs, use the GET /camera/ptz/ tour request.
+
+©2026, Avigilon Corporation. All right reserved.
+
+140
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+
+Web Endpoint API Routes
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "id": "string", "tour": { "name": "string", "pauseDurationMs": 0, "mode": "sequential", "presets": [ { "id": 0, "viewTimeMs": 0, "moveSpeed": 1 } ], "isDefault": false, "idleStartTime": 0, "id": 0 } }
+
+©2026, Avigilon Corporation. All right reserved.
+
+141
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+PUT /camera/ptz/tour
+Update the PTZ tour of a camera
+If you are updating a tour, provide the id of the tour. If you are creating a new tour, provide a value between 0 and maxId . If the id is already in use, it will be overwritten. To see which IDs are in use and the maximum number of available IDs, use the GET /camera/ptz/ tour request.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "id": "string", "tour": { "name": "string", "pauseDurationMs": 0,
+
+©2026, Avigilon Corporation. All right reserved.
+
+142
+
+Name
+Responses
+Code default
+DELETE /camera/ptz/tour
+Delete a PTZ tour from a camera
+Parameters
+Name x-avg-session
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description "mode": "sequential", "presets": [ { "id": 0, "viewTimeMs": 0, "moveSpeed": 1 } ], "isDefault": false, "idleStartTime": 0, "id": 0
+} }
+Description Successful Copy
+"string"
+Description The session parameter returned by the login
+143
+
+Name string (header)
+body object (body)
+Responses
+Code default
+
+Description request
+
+Web Endpoint API Routes
+
+Copy
+{ "session": "string", "id": "string", "tourId": 0
+}
+
+Description
+Successful Copy
+"string"
+
+/camera/record/manual
+POST /camera/record/manual
+Trigger recording
+
+©2026, Avigilon Corporation. All right reserved.
+
+144
+
+Web Endpoint API Routes
+
+Manually start and stop recording on selected cameras. You can manually record video for up to 24 hours at a time.
+Parameters
+
+Name x-avg-session
+string (header)
+
+Description
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "cameraIds": [ "string" ], "action": "START", "maxDurationSec": 86400
+}
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+145
+
+Web Endpoint API Routes
+
+/camera/settings
+GET /camera/settings
+Get the list of settings for a camera
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+id string (query) required
+type
+©2026, Avigilon Corporation. All right reserved.
+
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The ID of the camera.
+Available values : ALL , ACQUISITION ,
+146
+
+Name string (query)
+Responses
+Code default
+PUT /camera/settings
+Update the settings of a camera
+Parameters
+Name x-avg-session
+string (header)
+body
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description ANALYTICS , BANDWIDTH , COMPRESSION , DIGITAL_INPUT , DIGITAL_OUTPUT , GENERAL , MICROPHONE , NETWORK , PIXEL_MOTION , PTZ , RETENTION , ROOT , SPEAKER , STORAGE .
+Description Successful Copy
+"string"
+Description The session parameter returned by the login request
+Copy {
+147
+
+Name object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description
+"session": "string", "id": "string", "settings": {
+"acquisition": {}, "analytics": {}, "compression": {}, "digital_input": {}, "digital_output": {}, "general": {}, "microphone": {}, "network": {}, "pixel_motion": {}, "ptz": {}, "retention": {}, "root": {}, "speaker": {} } }
+Description
+Successful
+Copy "string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+148
+
+Web Endpoint API Routes
+
+/cameras
+
+GET /cameras
+Get the list of all cameras connected to the current server
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+session string (query)
+
+The session parameter returned by the login request
+
+verbosity string (query)
+
+Specifies the amount of information to receive.
+Available values:
+· HIGH -- returns the full camera object including capability and links attributes
+· MEDIUM -- returns the full camera object including the capability attribute, but excluding the links attribute.
+· LOW -- returns the full camera object
+
+©2026, Avigilon Corporation. All right reserved.
+
+149
+
+Name
+q string (query)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description excluding the capability and links attributes.
+Default value is HIGH .
+Query for camera. Pattern is like ( <property> exists|eq|ne <value> ). For example: \((([a-zAZ]+)\s(exists|eq|ne))(\s\w+)?\)
+Description Successful Copy
+"string"
+
+/cameras/discovery
+GET /cameras/discovery
+Get the list of discovered cameras on the current server
+
+©2026, Avigilon Corporation. All right reserved.
+
+150
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+Responses
+Code default
+PUT /cameras/discovery
+Manually discover cameras
+Parameters
+Name x-avg-session
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+Description Successful Copy
+"string"
+Description The session parameter returned by the login
+151
+
+Name string (header)
+body object (body)
+Responses
+Code default
+
+Description request
+
+Web Endpoint API Routes
+
+Copy
+{ "session": "string", "startIpAddress": "string", "endIpAddress": "string", "port": 65535, "apiType": "UNKNOWN", "isSsl": true, "username": "string", "password": "string", "initialize": false, "confirmPassword": "ref:passw
+ord" }
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+152
+
+/cloud/users
+POST /cloud/users
+Create users in a site
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+Copy { "session": "string", "users": [ { "firstName": "string", "lastName": "string", "cloudUsername": "strin g", "cloudUserid": "string", "role": "VIEWER" } ] }
+
+©2026, Avigilon Corporation. All right reserved.
+
+153
+
+Responses
+Code default
+PUT /cloud/users
+Update users in a site
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+©2026, Avigilon Corporation. All right reserved.
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "users": [ { "firstName": "string", "lastName": "string", "cloudUsername": "strin g", "cloudUserid": "string", "role": "VIEWER" }
+154
+
+Name
+Responses
+Code default
+DELETE /cloud/users
+Delete the specified cloud users
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+©2026, Avigilon Corporation. All right reserved.
+
+Description ]
+}
+Description Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "users": [ { "firstName": "string",
+155
+
+Name
+Responses
+Code default
+
+Web Endpoint API Routes
+Description
+"lastName": "string", "cloudUsername": "strin g", "cloudUserid": "string", "role": "VIEWER" } ] }
+Description
+Successful Copy
+"string"
+
+/config
+GET /config
+Get internal configuration values
+
+©2026, Avigilon Corporation. All right reserved.
+
+156
+
+Parameters
+Name paths
+array[string] (query) required
+Responses
+Code default
+
+Description
+
+Web Endpoint API Routes
+
+Description
+Successful Copy
+"string"
+
+/conversion/cameraId
+GET /conversion/cameraId
+Deprecated. Use GET /conversion/cameraId-all.
+
+©2026, Avigilon Corporation. All right reserved.
+
+157
+
+Web Endpoint API Routes
+
+/conversion/cameraId-all
+GET /conversion/cameraId-all
+Get camera ID conversions for the .NET SDK and ACC Web Endpoint
+Convert any camera ID, including of the .NET SDK to that of a WEP version and vice versa.
+Due to the .NET SDK requiring a different ID format for cameras with multiple heads or encoders, when the conversion direction is FROM_WEB_ENDPOINT , both cameraId and multisensorId will be returned.
+The multisensorId should be used whenever the ID of a multisensor camera is to be used, otherwise, the cameraId should be used. A common convention is to always use the cameraId , and if it fails, to try again with the multisensorId .
+Copy
+{ "cameraId": "0a0e312e3030313838353061353463641a10dd2da76bc9c144
+7fbef2ed995d345b8d2210b12194a981484dcba23f8013fddfd66e380a", // optional "multiheadId": "0a14312e3030313838353061353463642e63616d30301a1
+0dd2da76bc9c1447fbef2ed995d345b8d2210b12194a98148ba23f8013fddfd66e3 80a", }
+
+Parameters
+
+Name x-avg-session
+
+Description The session parameter returned by the login
+
+©2026, Avigilon Corporation. All right reserved.
+
+158
+
+Name string (header)
+session string (query)
+id string (query) required
+direction string (query) required
+
+Description request
+
+Web Endpoint API Routes
+
+The session parameter returned by the login request
+
+The ID of the camera.
+
+Available values: TO_WEB_ENDPOINT , FROM_WEB_ENDPOINT .
+If set to TO_WEB_ENDPOINT , the API expects to receive the .NET SDK ID and will return the WEP format of the same ID. If set to FROM_WEB_ENDPOINT , the API expects to receive WEP ID and will return the .NET SDK format of the same ID.
+
+©2026, Avigilon Corporation. All right reserved.
+
+159
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/device/date-time
+GET /device/date-time
+Get the time zone of a server
+Parameters
+No parameters.
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+160
+
+PUT /device/date-time
+Update the time zone of the appliance
+Parameters
+Name body
+object (body)
+
+Web Endpoint API Routes
+Description Copy
+{ "timeZone": "string"
+}
+
+TIP To obtain a list of available time zones, use the GET /device/timezone-list route.
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+161
+
+Web Endpoint API Routes
+
+/device/firmware
+
+POST /device/firmware
+Upload Yocto Linux image to Edge Storage appliance
+Parameters
+
+Name body
+object (body)
+
+Description
+Copy
+{ "address": "string", "filename": "\n 'Example: fi
+lename.fp." }
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+162
+
+/device/logs
+GET /device/logs
+Get the logs and config files of a server
+Parameters
+No parameters.
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/device/poe
+GET /device/poe
+Deprecated.
+POST /device/poe
+Reset the Power over Ethernet (PoE) information of a given camera
+
+©2026, Avigilon Corporation. All right reserved.
+
+163
+
+Parameters
+Name body
+object (body)
+Responses
+Code default
+PUT /device/poe
+Update the PoE ports of the appliance
+Parameters
+Name body
+object (body)
+
+Web Endpoint API Routes
+Description Copy
+{ "mac": "9b:E2:B1:57:21:6D"
+}
+Description Successful Copy
+"string"
+Description Copy
+{ "ports": [ { "power": true, "budget": 0 } ]
+
+©2026, Avigilon Corporation. All right reserved.
+
+164
+
+Name
+Responses
+Code default
+
+Description }
+Description Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/device/poe-info
+GET /device/poe-info
+Read the PoE port information of the appliance
+Parameters
+No parameters.
+
+©2026, Avigilon Corporation. All right reserved.
+
+165
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/device/reboot
+POST /device/reboot
+Reboot a server
+
+NOTE Only applies to Edge Storage appliances.
+
+Parameters
+No parameters.
+Responses
+Code default
+
+Description Successful
+
+©2026, Avigilon Corporation. All right reserved.
+
+166
+
+Code
+
+Description Copy
+"string"
+
+Web Endpoint API Routes
+
+/device/switch
+GET /device/switch
+Deprecated.
+
+/device/timezone-list
+GET /device/timezone-list
+Get the list of available time zones for an appliance
+Parameters
+No parameters.
+
+©2026, Avigilon Corporation. All right reserved.
+
+167
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/directory-entries
+GET /directory-entries
+Get a group of raw directory entries
+Parameters
+Name x-avg-session
+string (header)
+session
+©2026, Avigilon Corporation. All right reserved.
+
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+168
+
+Name string (query)
+paths array[string] (query)
+destServerId string (query)
+serverId string (query)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Description
+Description Successful Copy
+"string"
+
+Web Endpoint API Routes 169
+
+Web Endpoint API Routes
+
+/directory-view
+POST /directory-view
+Create a directory view
+Open an additional directory view for a notification channel given a set of paths. A directory view is a view to a branch in the ACC directory. The requestPeriod and count parameters determine the number of maximum requests for that specific view.
+For example, if requestPeriod is 60 seconds and count is 2 , it will send a request at most 2 times every 60 seconds.
+
+NOTE
+Using an existing viewId will return an incorrect success response with a removed subscription. The expected response should be an error or notification that the ID was removed.
+
+Parameters
+Name x-avg-session
+string (header)
+
+Description
+The session parameter returned by the login request
+
+body
+
+Copy {
+
+©2026, Avigilon Corporation. All right reserved.
+
+170
+
+Name object (body)
+
+Web Endpoint API Routes
+Description
+"session": "string", "paths": [
+"/R9wQ-]Nao\j$SS<X=3T\\n" ], "id": "ANzgNIn+Rtzf3Fj9Z8euGk Ys3....", "rateLimitedViews": [], "label": "string" }
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+DELETE /directory-view
+Delete a directory view Close an existing directory view for a given notification channel.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+171
+
+Name (header)
+body object (body)
+Responses
+Code default
+
+Description
+
+Web Endpoint API Routes
+
+Copy
+{ "session": "string", "id": "8FrmFJQAuZcCEYz4cyoeRB
+zZL...." }
+
+Description
+Successful Copy
+"string"
+
+/entities
+GET /entities
+Get the status of all entities
+
+©2026, Avigilon Corporation. All right reserved.
+
+172
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+173
+
+/entity
+GET /entity
+Get the status of an entity
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+ids array[string] (query)
+id string (query)
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The IDs of one or more entities.
+Deprecated. Use the ids parameter instead. The ID of the entity.
+NOTE
+174
+
+Name
+Responses
+Code default
+
+Web Endpoint API Routes
+Description You can only use this field if the ids field is empty.
+Description Successful Copy
+"string"
+
+/entity/settings
+GET /entity/settings
+Get the settings of an entity
+Parameters
+Name x-avg-session
+©2026, Avigilon Corporation. All right reserved.
+
+Description The session parameter returned by the login request
+175
+
+Name string (header)
+session string (query)
+id string (query) required
+type string (query)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Description
+
+Web Endpoint API Routes
+
+The session parameter returned by the login request
+The ID of the camera
+
+Available values: ALL , ACQUISITION , ANALYTICS , BANDWIDTH , COMPRESSION , DIGITAL_INPUT , DIGITAL_OUTPUT , GENERAL , MICROPHONE , NETWORK , PIXEL_MOTION , PTZ , RETENTION , ROOT , SPEAKER , STORAGE
+Description
+Successful Copy
+176
+
+Code
+PUT /entity/settings
+Update the settings of an entity
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+©2026, Avigilon Corporation. All right reserved.
+
+Description "string"
+
+Web Endpoint API Routes
+
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "id": "string", "settings": { "acquisition": {}, "analytics": {}, "compression": {}, "digital_input": {}, "digital_output": {}, "general": {}, "microphone": {}, "network": {}, "pixel_motion": {}, "ptz": {}, "retention": {}, "root": {},
+177
+
+Name
+Responses
+Code default
+
+Web Endpoint API Routes
+Description "speaker": {}
+} }
+Description Successful Copy
+"string"
+
+/event-subtopics
+GET /event-subtopics
+Get events available for subscribing to notifications
+This route provides a list of event sub-topics that can be used when subscribing to event notifications using Socket.IO. See Monitoring Events with Socket.IO to learn how to subscribe to event notifications.
+Parameters
+No parameters.
+
+©2026, Avigilon Corporation. All right reserved.
+
+178
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/events/search
+
+GET /events/search
+Get events
+Get events filtered by device ID, event type, and time range. To get events from all servers within a multi-server site, each server must be queried individually. To get the server IDs of each server within the site, use the GET /server/ids route.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+179
+
+Name session
+string (query)
+queryType string (query) required
+serverId string (query)
+from string($date) (query) required
+to string($date) (query)
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+Available values: ACTIVE , TIME_RANGE , CONTINUE
+The ID of the server from which events originated
+Specifies the earliest time for events. Must be a valid ISO 8601 string. For example: yyyy-mm-ddThh:mm:ss.ffffff
+Specifies the latest time for events. Must be a valid ISO 8601 string. For example: yyyy-mm-ddThh:mm:ss.ffffff
+180
+
+Name eventTopics
+array[string] (query)
+deviceIds array[string] (query)
+limit integer (query)
+token string (query)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description Event types to include in the query. See Filtering Event Notifications. Available values: ALL
+Device IDs to filter events by
+Maximum number of events returned in the response. Default value: 1000
+Token to retrieve more events
+Description Successful Copy
+181
+
+Code
+
+Description "string"
+
+Web Endpoint API Routes
+
+/events/subscription
+
+POST /events/subscription
+Request site-wide events Assumes that a notification channel is already opened for the session provided in the query.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "eventTopics": { "whitelist": [ "ALL"
+
+©2026, Avigilon Corporation. All right reserved.
+
+182
+
+Name
+
+Web Endpoint API Routes
+Description
+] }, "filter": "string" }
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+DELETE /events/subscription
+Unsubscribe from site-wide events Assumes that a notification channel is already opened for the session provided in the query.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+session
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+183
+
+Name string (query)
+Responses
+Code default
+
+Description
+
+Web Endpoint API Routes
+
+Description
+Successful Copy
+"string"
+
+/events/user-export
+POST /events/user-export
+Create an audit log for video export
+TIP Always create an audit log before exporting video.
+NOTE The route will return an error if the user does not have export privileges.
+
+©2026, Avigilon Corporation. All right reserved.
+
+184
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description
+The session parameter returned by the login request
+Copy { "cameraIds": [ "string" ], "endTime": "1948-05-14T12:3 4:56.789Z", "session": "string", "startTime": "1948-05-14T12:3 4:56.789Z" }
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+185
+
+Web Endpoint API Routes
+
+/evo/info
+
+GET /evo/info
+Retrieve internal EVO data for specified cameras
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+session string (query)
+
+The session parameter returned by the login request
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+186
+
+Web Endpoint API Routes
+
+/health
+
+GET /health
+Simple LTM monitor API to determine if the node is bad. Responds with text/plain and 200 or 500 code.
+Returns the current health status state of a web service.
+Status state strings: GOOD , WARN , BAD , or other configured values.
+WARN is a (graceful) degraded state - service only provides core, required functionality when in this state. If LTM detects a non- 200 response or BAD , the node should be pulled from rotation immediately.
+Parameters
+No parameters.
+Responses
+
+Code
+
+Description
+
+default
+
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+187
+
+Web Endpoint API Routes
+
+/login
+
+POST /login
+Log in to an ACC site
+An authorization token (must be in lowercase) is required to log in to the ACC site. See Generating an Authorization Token for more details.
+To log in, always use your ACC username and password , and provide a clientName . The accessToken field is not available for integration use. The session token generated from this request will expire after 1 hour of inactivity. Sessions that are subscribed to notifications or have an active stream associated with them (for example, live video streaming) will not expire until the stream has ended. See Filtering Event Notifications for more details.
+Parameters
+
+Name body
+object (body)
+
+Description
+Copy
+{ "username": "string", "password": "string", "clientName": "string", "authorizationToken": "strin
+g", "siteId": "string", "siteName": "string", "clientId": "string", "clientVersion": "string",
+
+©2026, Avigilon Corporation. All right reserved.
+
+188
+
+Name
+Responses
+Code default
+
+Web Endpoint API Routes
+Description
+"accessToken": "string" }
+Description
+Successful Copy
+{ "status": "success", "result": { "session": "string", "externalUserId": "string", "domainId": "string" }
+}
+
+/logout
+POST /logout
+Log out of an ACC site An ACC session token is required to log out of an ACC site.
+
+©2026, Avigilon Corporation. All right reserved.
+
+189
+
+Parameters
+Name body
+object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description Copy
+{ "session": "string"
+}
+Description Successful Copy
+"string"
+
+/lpr/list
+GET /lpr/list
+Get an LPR watch list
+
+©2026, Avigilon Corporation. All right reserved.
+
+190
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+id string (query) required
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The ID of the watch list
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+191
+
+POST /lpr/list
+Create a new LPR watch list
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+Copy { "session": "string", "watchlist": { "name": "string", "description": "string", "watches": [ { "licensePlate": "strin g", "confidence": 1 } ] } }
+Description Successful
+192
+
+Code
+DELETE /lpr/list
+Delete an LPR watch list
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Description Copy
+"string"
+
+Web Endpoint API Routes
+
+Description The session parameter returned by the login request
+Copy { "session": "string", "id": "string" }
+Description Successful Copy
+"string"
+193
+
+Web Endpoint API Routes
+
+/lpr/list/entry
+
+PUT /lpr/list/entry
+Update the name, description and content of an LPR watch list
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "watchlist": { "id": "string", "name": "string", "description": "string", "watches": [ { "licensePlate": "strin
+g", "confidence": 1
+}
+
+©2026, Avigilon Corporation. All right reserved.
+
+194
+
+Name
+
+Web Endpoint API Routes
+Description
+] }, "insert": false }
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+DELETE /lpr/list/entry
+Delete license plates from an LPR watch list
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object
+
+Copy
+{ "session": "string", "id": "string",
+
+©2026, Avigilon Corporation. All right reserved.
+
+195
+
+Name (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description "licensePlates": [ "string" ]
+}
+Description Successful Copy
+"string"
+
+/lpr/lists
+
+GET /lpr/lists
+Get details of all LPR watch lists for an ACC site
+Parameters
+
+Name
+
+Description
+
+x-avg-session
+
+The session parameter returned by the login
+
+©2026, Avigilon Corporation. All right reserved.
+
+196
+
+Name string (header)
+session string (query)
+Responses
+Code default
+
+Description request
+
+Web Endpoint API Routes
+
+The session parameter returned by the login request
+
+Description
+Successful Copy
+"string"
+
+/media
+GET /media
+Stream video or audio from a camera, or get a JPEG snapshot
+
+©2026, Avigilon Corporation. All right reserved.
+
+197
+
+Web Endpoint API Routes
+
+NOTE p2p is deprecated.
+
+If requesting a JPEG snapshot, the range and quality parameters are ignored. Only 1 image is returned.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+session string (query)
+
+The session parameter returned by the login request
+
+cameraId
+string (query) required
+
+The ID of the camera.
+
+format string
+
+The format of the media object in the response.
+Available values: fmp4 , jpeg , json ,
+
+©2026, Avigilon Corporation. All right reserved.
+
+198
+
+Name (query)
+frames string (query)
+max_gap string (query)
+media string (query)
+range
+©2026, Avigilon Corporation. All right reserved.
+
+Description webm , mpd , spkc . Default value: fmp4
+
+Web Endpoint API Routes
+
+Video support only. Specifies whether to send video with filler frames when large time gaps appear ( fill ) or without filler frames ( all ).
+Available values: all , fill .
+Default value: all
+
+The maximum time gap between two media frames. The end of the stream will be triggered if a larger gap is found.
+Must be a valid ISO 8601 duration. For example: P0Y0M0DT0H1M0S .
+
+Specifies the media type to include in the output stream.
+Audio must be in PCMU format. The maximum stream duration is 120000 ms.
+Available values: audio , video , meta .
+Default value: video
+
+The number of frames to include in the video.
+
+199
+
+Name string (query)
+quality string (query)
+sample string (query)
+burnin boolean (query)
+
+Web Endpoint API Routes
+Description
+Either an ISO 8601 duration or the letter F followed by a frame count. For example: range=P0Y0M0DT0H0M02S or range=F120 .
+The stream quality preferred for video streaming. There are always at least 2 fullROI streams available. Available values: low , high .
+NOTE The use of this parameter implies a non-tiled/full-ROI (non-mosaic) stream only.
+The minimum time interval between 2 video frames. Applies to transcoding only. Must be a valid ISO 8601 duration. For example: P0Y0M0DT0H1M0S .
+Specifies whether to burn metadata information on the video.
+TIP Transcoding must be enabled through the vcoding property.
+
+©2026, Avigilon Corporation. All right reserved.
+
+200
+
+Name size
+string (query)
+t string (query)
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description
+The preferred width and height of the video in pixels.
+NOTE The size can optionally be followed by the standard ACC comma-separated match criteria. The size is a hint to the server; the video returned to the client may not match the requested dimensions. For example: size=640,480,le
+Start streaming from the specified date-time reference in ISO 8601 format. Specify live for live video.
+The timestamp can be followed by a commaseparated match criteria to return recorded video near the specified date:
+· c -- closest match before or after the date. It is used by default when no time match criteria are provided
+· l -- before the date · g -- after the date · e -- exactly the date. If there's no
+recorded video at the provided timestamp, an error message is returned
+For example: t=live or t=20160310T210100.057Z,c or t=2016-03-10T21:01:00.057Z,c
+201
+
+Name
+t_max string (query)
+t_min string (query)
+vcoding string (query)
+ctx string (query)
+rotate
+©2026, Avigilon Corporation. All right reserved.
+
+Description Default value: live
+
+Web Endpoint API Routes
+
+The latest start time when searching forward for a recording.
+
+The earliest start time when searching backward for a recording.
+
+Enable video transcoding using the specified codec. Not available for live streams. Available values : h264 , jpeg .
+Important Used with clips of short duration only because it requires heavy CPU usage.
+The opaque resource string for tracking request context.
+
+Request mpd with ( true ) or without
+202
+
+Name boolean (query)
+roi string (query)
+Responses
+Code default
+POST /media
+Stream audio from a client
+Parameters
+Name x-avg-session
+string (header)
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description ( false ) the tiles rotated for HDSM 2.0 supported cameras. The normalized region of interest to apply to the recorded video or image.
+Description Successful Copy
+"string"
+Description The session parameter returned by the login request
+203
+
+Name session
+string (query)
+cameraId string (query) required
+media string (query)
+t string (query)
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The ID of the camera.
+Specifies the media type to include in the output stream. Audio must be in PCMU format. The maximum stream duration is 120000 ms. Available values: audio , video , meta . Default value: video
+Start streaming from the specified date-time reference in ISO 8601 format. Specify live for live video. The timestamp can be followed by a commaseparated match criteria to return recorded video near the specified date: · c -- closest match before or after the
+204
+
+Name
+Responses
+Code default
+
+Web Endpoint API Routes
+Description
+date. It is used by default when no time match criteria are provided · l -- before the date · g -- after the date · e -- exactly the date. If there's no recorded video at the provided timestamp, an error message is returned For example: t=live or t=20160310T210100.057Z,c or t=2016-03-10T21:01:00.057Z,c Default value: live
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+205
+
+Web Endpoint API Routes
+
+/media/imageRef
+
+GET /media/imageRef
+Get image using an image reference This API returns a JPEG image based on the given path and type for an image reference. Image references are retrieved from the imageRef parameter of an event.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+session string (query)
+
+The session parameter returned by the login request
+
+cameraId
+string (query) required
+
+The ID of the camera
+
+imageRefPath
+
+The path to the image reference obtained from the imageRef parameter of an event.
+
+©2026, Avigilon Corporation. All right reserved.
+
+206
+
+Name string (query) required
+imageRefType string (query) required
+Responses
+Code default
+
+Description
+
+Web Endpoint API Routes
+
+The image reference type obtained from the imageRef parameter of an event.
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+207
+
+Web Endpoint API Routes
+/media/rtmp
+GET /media/rtmp
+Get active RTMP streams This API returns the streams that were created with the session provided in the query.
+
+Important
+This API aggregates the responses from all the servers, and if at the time of querying some servers are down, the response will not include the streams.
+
+Parameters
+Name x-avg-session
+string (header)
+
+Description
+The session parameter returned by the login request
+
+session string (query)
+
+The session parameter returned by the login request
+
+Responses
+Code default
+
+Description Successful Copy
+
+©2026, Avigilon Corporation. All right reserved.
+
+208
+
+Code
+
+Description "string"
+
+Web Endpoint API Routes
+
+POST /media/rtmp
+Stream media over RTMP
+Enter the URL of the external server that will receive the RTMP media stream from the ACC server. The media stream will contain either audio, video or both depending on the media value in the payload.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "cameraId": "string", "url": "string", "time": "live", "media": "audio", "quality": "high"
+}
+
+©2026, Avigilon Corporation. All right reserved.
+
+209
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+DELETE /media/rtmp
+Delete active RTMP streams
+This route is optional. Dropping the stream on the receiving media server will also terminate the stream.
+Important · Specify an RTMP stream URL for streamIds or all RTMP streams in the session
+will be terminated. · This API spreads the request to all the servers in the cluster, and if at the time of
+requesting some servers are unreachable, the response will still be successful.
+
+Parameters
+Name x-avg-session
+string (header)
+body
+
+Description The session parameter returned by the login request
+Copy {
+
+©2026, Avigilon Corporation. All right reserved.
+
+210
+
+Name object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description "session": "string", "ids": [ "string" ]
+}
+Description
+Successful Copy
+"string"
+
+/recording/retention
+GET /recording/retention
+Read the video retention settings This call returns the current video retention settings for all cameras connected to the specified server.
+
+©2026, Avigilon Corporation. All right reserved.
+
+211
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+id string (query) required
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The ID of the server
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+212
+
+PUT /recording/retention
+Update the video retention settings
+
+Web Endpoint API Routes
+
+WARNING Updating these settings can result in data loss.
+
+This call updates the retention settings for cameras connected to a server. The request only applies to the cameraIds entered.
+Specify the maximum amount of time to keep recorded video on the server using the maxRetention parameter. Video older than this setting is deleted from the server, unless it is part of a protected bookmark. If the server runs out of space before this time, the oldest unprotected video will be deleted first.
+To increase storage capacity, the ACC system can delete a portion of the higher resolution streams using the streamRetentionAmount parameter. To use this parameter, the camera must have a secondary stream enabled.
+The streamRetentionAmount parameter is an array with two values, [x, y] :
+· For JPEG cameras with 3 streams, specify the percent of video kept at full frame rate (x) and half frame rate (x + y) . The ACC system keeps 100% of the quarter frame rate until it exceeds the maxRetention parameter.
+· For H.264 and H.265 cameras with 2 streams, specify the percent of video kept at high resolution (x + y) . Both x and y values are required in case the camera format changes to JPEG. The ACC system keeps 100% of the low resolution stream until it exceeds the maxRetention parameter.
+For example,
+· for JPEG cameras, [0.6, 0.2] would indicate 60% full frame rate, 80% half frame rate and 100% quarter frame rate.
+· for H.264 cameras, [0.6, 0.2] would indicate 80% high resolution and 100% low resolution.
+
+©2026, Avigilon Corporation. All right reserved.
+
+213
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+
+Web Endpoint API Routes
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "retentionSettings": { "cameraIds": [ "string" ], "storage": { "maxRetention": { "val": 0 }, "streamRetentionAmount": { "val": [ 1 ] }, "camerasLinked": { "val": true } } } }
+
+©2026, Avigilon Corporation. All right reserved.
+
+214
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/recording/schedule
+GET /recording/schedule
+Read specific recording schedules
+Parameters
+Name x-avg-session
+string (header)
+session
+
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+215
+
+Name string (query)
+ids string (query) required
+Responses
+Code default
+
+Description
+
+Web Endpoint API Routes
+
+The IDs of the cameras for which the schedule is requested
+
+Description
+Successful Copy
+"string"
+
+PUT /recording/schedule
+Update the specified recording schedule
+To update a recording schedule, provide the days for which you would like to change the schedule, as well as the days that will remain the same.
+If one or more of the schedules in the request do not get updated, the response will be an error with a list of IDs that did not get updated. If the list does not include IDs from the original request, then the schedules corresponding to the missing IDs are updated.
+If the provided template ID for any given day is non-existent or corrupt, the ACC server will update the days that have a faulty ID to the Default template.
+
+©2026, Avigilon Corporation. All right reserved.
+
+216
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "recordingSchedules": [ { "id": "string", "sunday": "string", "monday": "string", "tuesday": "string", "wednesday": "string", "thursday": "string", "friday": "string", "saturday": "string" } ] }
+Description
+Successful Copy
+"string"
+217
+
+Web Endpoint API Routes
+
+/recording/schedules
+GET /recording/schedules
+Get the recording schedules in the site
+Parameters
+Name x-avg-session
+string (header)
+
+Description
+The session parameter returned by the login request
+
+session string (query)
+
+The session parameter returned by the login request
+
+Responses
+Code default
+
+Description Successful Copy
+
+©2026, Avigilon Corporation. All right reserved.
+
+218
+
+Code
+
+Description "string"
+
+Web Endpoint API Routes
+
+/recording/template
+GET /recording/template
+Get specific recording templates
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+ids
+
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The IDs of multiple recording templates.
+
+©2026, Avigilon Corporation. All right reserved.
+
+219
+
+Name array[string] (query) required
+Responses
+Code default
+
+Web Endpoint API Routes
+Description Enter a single ID or an array of IDs
+Description Successful Copy
+"string"
+
+POST /recording/template
+Create a new recording template Hover over the string option listed under the eventToRecordOn parameter to see the list of valid values. Click Model to see the template for the request body.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+220
+
+Name body
+object (body)
+
+Web Endpoint API Routes
+Description
+Copy
+{ "session": "string", "recordingTemplate": { "name": "string", "templateIntervals": [ { "frameRecordIntervalM
+s": 0, "recordingMode": "CONTI
+NUOUS", "eventToRecordOn": [ "MOTION" ]
+} ] } }
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+PUT /recording/template
+Update a recording template To update the values of one or more intervals in the template, provide the complete
+
+©2026, Avigilon Corporation. All right reserved.
+
+221
+
+Web Endpoint API Routes
+
+templateInterval array. This array represents the 30-minute intervals that exist in a day, starting with 12.00am to 12.30am. When you update any interval, provide the full array (all 48 entries) instead of just the interval to be updated.
+Provide the fields you want to update, either name or templateInterval or both.
+Parameters
+
+Name x-avg-session
+string (header)
+
+Description
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "recordingTemplate": { "id": "string", "name": "string", "templateIntervals": [ { "frameRecordIntervalM
+s": 0, "recordingMode": "CONTI
+NUOUS", "eventToRecordOn": [ "MOTION" ]
+} ] } }
+
+©2026, Avigilon Corporation. All right reserved.
+
+222
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/recording/templates
+GET /recording/templates
+Get the recording templates for the site
+Parameters
+Name x-avg-session
+string (header)
+session
+
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+223
+
+Name string (query)
+Responses
+Code default
+
+Description
+
+Web Endpoint API Routes
+
+Description
+Successful Copy
+"string"
+
+DELETE /recording/templates
+Delete the specified recording templates
+If the ID of the Default template is passed as one of the IDs to be deleted, the ACC server will respond with a successful delete operation, however, the Default template will not be deleted.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body
+
+Copy
+
+©2026, Avigilon Corporation. All right reserved.
+
+224
+
+Name object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description { "session": "string", "ids": [ "string" ] }
+Description
+Successful Copy
+"string"
+
+/remote-site-upgrade
+GET /remote-site-upgrade
+Get uploaded installer information
+
+©2026, Avigilon Corporation. All right reserved.
+
+225
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+Description Successful Copy
+"string"
+
+POST /remote-site-upgrade
+Download binary file from binary storage
+Parameters
+Name x-avg-session
+
+Description The session parameter returned by the login
+
+©2026, Avigilon Corporation. All right reserved.
+
+226
+
+Name string (header)
+body object (body)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Description request
+
+Web Endpoint API Routes
+
+Copy
+{ "session": "string", "fileUrl": "string", "fileDescription": { "version": "7.12.1.2.3", "type": "UNKNOWN", "platformVersion":
+"0.0.0.0.0", "componentType": 0, "compatPlatformList": [], "deviceFirmwareVersions":
+{} }, "jobConfig": { "jobId": "hIskuoj7Pbwlh7f06
+67CebWYHq==", "sendNotifications": true, "updateIntervalSec": 0
+} }
+
+Description Successful Copy
+227
+
+Code
+
+Description "string"
+
+Web Endpoint API Routes
+
+PUT /remote-site-upgrade
+Start the installer file to upgrade ACC and WEP
+Calling this API will begin the remote upgrade process. ACC server may restart and recorded footage or data may be lost. Failovers for cameras connected to server should be set up if applicable.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "serverId": "string", "upgradeFlags": { "clientBundle": false, "firmwareBundle": false, "wepBundle": false }, "jobConfig": { "jobId": "3aINPA5taLtUT6xqr
+CeBJNnPgxOIxvkW0S6AXogK0W7AOj0I ysGzfrAiFDR7BBC4V1NmRNJCkbTpCxz
+
+©2026, Avigilon Corporation. All right reserved.
+
+228
+
+Name
+
+Web Endpoint API Routes
+Description
+oj5P+O5pfdTyWe7rgh5Ekg3jpgXys9T O6KW4RsuwEB89uB5bo7cgeY6==",
+"sendNotifications": true, "updateIntervalSec": 0 } }
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+DELETE /remote-site-upgrade
+Delete uploaded installer
+Parameters
+Name x-avg-session
+string (header)
+body
+
+Description The session parameter returned by the login request
+Copy {
+
+©2026, Avigilon Corporation. All right reserved.
+
+229
+
+Name object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description "session": "string"
+}
+Description Successful Copy
+"string"
+
+/savedView
+GET /savedView
+Get a saved view of the site
+Parameters
+Name x-avg-session
+©2026, Avigilon Corporation. All right reserved.
+
+Description The session parameter returned by the login request
+230
+
+Name string (header)
+session string (query)
+id string (query) required
+Responses
+Code default
+
+Description
+
+Web Endpoint API Routes
+
+The session parameter returned by the login request
+The ID of the saved view.
+
+Description
+Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+231
+
+/savedViews
+GET /savedView
+Get the saved views of the site
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+232
+
+Web Endpoint API Routes
+
+/server
+GET /server
+Get the status of a server
+
+NOTE If the id and ids parameters are both not provided, the server discovered over localhost will be returned.
+
+Parameters
+Name x-avg-session
+string (header)
+
+Description
+The session parameter returned by the login request
+
+session string (query)
+
+The session parameter returned by the login request
+
+id string
+
+The ID of the server. Deprecated. Use the ids parameter
+
+©2026, Avigilon Corporation. All right reserved.
+
+233
+
+Name (query)
+ids array[string] (query)
+Responses
+Code default
+
+Description instead.
+
+Web Endpoint API Routes
+
+The IDs of multiple servers.
+
+Description
+Successful Copy
+"string"
+
+/server/ids
+GET /server/ids
+Get servers Get the name and IDs of every server in the multi-server site.
+
+©2026, Avigilon Corporation. All right reserved.
+
+234
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+235
+
+/servers
+GET /servers
+Get a list of all servers
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+236
+
+Web Endpoint API Routes
+
+/site
+GET /site
+Get details of all servers in a site
+
+NOTE If the name and id parameters are both not provided, the site discovered over localhost will be returned.
+
+Parameters
+Name session
+string (query)
+
+Description
+The session parameter returned by the login request
+
+id string (query)
+
+The ID of the site
+
+name string (query)
+
+The name of the site
+
+©2026, Avigilon Corporation. All right reserved.
+
+237
+
+Responses
+Code default
+PUT /site
+Update the ACC site name
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+Description The session parameter returned by the login request
+Copy { "session": "string", "name": "string" }
+Description Successful
+238
+
+Code
+
+Description Copy
+"string"
+
+Web Endpoint API Routes
+
+/sites
+
+GET /sites
+Read all ACC multi-server sites If a camera is in an error state, does not have any recorded video, and has not been restricted for user access previously, it will show up in the site view.
+Parameters
+
+Name
+
+Description
+
+session string (query)
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+239
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+/siteView
+
+GET /siteView
+Get a site view of the site If a camera is in an error state, does not have any recorded video, and has not been restricted for user access previously, it will show up in the site view.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+240
+
+Name session
+string (query)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+Description Successful Copy
+"string"
+
+/system-bug-report
+GET /system-bug-report
+Generate a system bug report zip file
+
+©2026, Avigilon Corporation. All right reserved.
+
+241
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+systemBugReportConfig string (query) required
+Responses
+Code default
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+Description Successful Copy
+"string"
+
+©2026, Avigilon Corporation. All right reserved.
+
+242
+
+Web Endpoint API Routes
+
+/timeline
+GET /timeline
+Get a timeline of recorded video The purpose of this route is to make visualization of any recording, motion or UMD event easier. It should not be used for an accuracy measure for available recordings.
+
+TIP
+In the response body, the unloaded parameter indicates a time range that has recorded video, motion events, or UMD events for a given camera. Use the GET /media route to get recorded video from this time range.
+
+Parameters
+Name x-avg-session
+string (header)
+
+Description
+The session parameter returned by the login request
+
+session string (query)
+
+The session parameter returned by the login request
+
+©2026, Avigilon Corporation. All right reserved.
+
+243
+
+Name cameraIds
+array[string] (query) required
+scope string (query) required
+start string($date) (query)
+umdRange number (query)
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description The IDs of multiple cameras.
+The requested interval length for the timeline in seconds. The returned intervals will have a representative length of at least X_SECONDS , where X is an integer, if there is recorded video for the given camera. Available values: TENTH_SECOND , 1_SECOND , 10_SECONDS , 100_SECONDS , 1000_SECONDS , 10000_SECONDS , 100000_SECONDS , 1000000_SECONDS
+Must be a valid ISO 8601 string. For example: yyyy-mm-ddThh:mm:ss.ffffff This value should be a time earlier than the end parameter value. Default value: 1 week before the current date.
+The minimum duration of UMD activity in milliseconds. Default value is 0 , so all the activity found in the start to end range will be returned.
+244
+
+Name rareness
+integer (query)
+end string($date) (query)
+storage string (query)
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description
+Specify the minimum amount of rareness of the UMD activity as a percentage.
+Default value is 0 , so all UMD events will be returned.
+Must be a valid ISO 8601 string. For example: yyyy-mm-ddThh:mm:ss.ffffff
+This value should be a time later than the start parameter value.
+Default value is current time.
+The storage layer to get the timeline from.
+The different layers of storage are represented as LAYER_X , where X is an integer representing how immediate the layer is in terms of accessibility. As X gets bigger, the layer that is accessed is likely to have higher latency.
+If the layer information is not important but you need to query all the available recordings, specify this parameter with the ALL value. The response to this request will contain all the recordings discovered, without the layer information.
+If the layer information is important, make separate queries for each layer.
+Available values: LAYER_1 , LAYER_2 ,
+245
+
+Name
+Responses
+Code default
+
+Web Endpoint API Routes
+Description ALL . Default value: LAYER_1
+Description Successful Copy
+"string"
+
+/webhooks
+GET /webhooks
+Get the specified webhooks
+Returns information about a webhook. If the webhook subscribes to event category notifications, the response will list the corresponding events. If the webhook subscribes to specific event notifications, the response will list those events. See Monitoring Events with Webhooks for more information.
+
+©2026, Avigilon Corporation. All right reserved.
+
+246
+
+Parameters
+Name x-avg-session
+string (header)
+session string (query)
+ids array[string] (query)
+Responses
+Code default
+POST /webhooks
+Add a webhook
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description The session parameter returned by the login request
+The session parameter returned by the login request
+The IDs of webhooks to read. Enter up to 16 IDs.
+Description Successful Copy
+"string"
+247
+
+Parameters
+Name x-avg-session
+string (header)
+body object (body)
+Responses
+Code default
+©2026, Avigilon Corporation. All right reserved.
+
+Web Endpoint API Routes
+Description
+The session parameter returned by the login request
+Copy { "session": "string", "webhook": { "url": "string", "heartbeat": { "enable": false }, "authenticationToken": "str ing", "eventTopics": { "whitelist": [ "ALL" ] } } }
+Description
+Successful Copy
+248
+
+Code
+
+Description "string"
+
+Web Endpoint API Routes
+
+PUT /webhooks
+Update a webhook Enter the webhook ID and the parameters you want to change.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body object (body)
+
+Copy
+{ "session": "string", "webhook": { "id": "string", "url": "string", "heartbeat": { "enable": false }, "authenticationToken": "str
+ing", "eventTopics": { "whitelist": [ "ALL" ]
+
+©2026, Avigilon Corporation. All right reserved.
+
+249
+
+Name
+
+Description
+} } }
+
+Web Endpoint API Routes
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+DELETE /webhooks
+Delete the specified webhooks You can delete up to 16 webhooks by webhook ID. A request to delete previously deleted webhooks will return a success message.
+Parameters
+
+Name
+
+Description
+
+x-avg-session string (header)
+
+The session parameter returned by the login request
+
+body
+
+Copy {
+
+©2026, Avigilon Corporation. All right reserved.
+
+250
+
+Name object (body)
+Responses
+Code default
+
+Web Endpoint API Routes
+Description "session": "string", "ids": [ "string" ]
+}
+Description
+Successful Copy
+"string"
+
+/wep-capabilities
+GET /wep-capabilities
+Get Web Endpoint capabilities
+Parameters
+No parameters.
+
+©2026, Avigilon Corporation. All right reserved.
+
+251
+
+Responses
+Code default
+
+Description
+Successful Copy
+"string"
+
+Web Endpoint API Routes
+
+©2026, Avigilon Corporation. All right reserved.
+
+252
+
+Avigilon Technology Partner Program
+
+Avigilon Technology Partner Program
+
+The Avigilon Technology Partner Program offers third-party software, hardware and development services vendors the opportunity to engage with Avigilon in a structured, resource-oriented partnership with the ultimate goal of driving value for our mutual customers.
+As a member of the program, you will be able to build custom integrations using our featurerich software development kits (SDKs) and application programming interfaces (APIs).
+Participants can engage with Avigilon at the following program levels:
+
+Program Level Compatible Vendor
+Developer
+Development Services Partner Technology Partner
+
+Description
+Device or video security application manufacturers who integrate with Avigilon products using the ONVIF® open-industry standards.
+Complementary software vendor or development provider working on custom, project-driven integrations using Avigilon APIs and SDKs.
+Development services provider who writes, sells, and maintains integration middleware using Avigilon APIs and SDKs.
+Complementary technology vendor with market leading applications who writes, sells, and maintains integrations using Avigilon APIs and SDKs.
+
+Resources and benefits are calibrated at each level to meet partner needs in the areas of technical guidance, product knowledge and go-to-market assistance.
+
+©2026, Avigilon Corporation. All right reserved.
+
+253
+
+Avigilon Technology Partner Program
+How Do I Sign Up?
+To learn more about the Avigilon Technology Partner Program, visit avigilon.com/partners/ technology-partner-program.
+Submit an application to the Avigilon Technology Partner Program team to become a partner. Further information will be provided upon submission of your request.
+Developer Support Community
+Avigilon Technology Partner Program participants at all levels receive access to the developer support community, where they can leverage knowledge and insight from Avigilon experts, as well as from the full Avigilon developer ecosystem.
+If you are a participant of the Avigilon Technology Partner Program, visit developer.avigilon.com.
+
+©2026, Avigilon Corporation. All right reserved.
+
+254
+
+More Information & Support
+More Information & Support
+For additional product documentation and software and firmware upgrades, visit support.avigilon.com.
+Technical Support
+Contact Avigilon Technical Support at support.avigilon.com/s/contactsupport.
+Copyright
+© 2025, Avigilon Corporation. All rights reserved. MOTOROLA, MOTO, MOTOROLA SOLUTIONS, and the Stylized M Logo are trademarks or registered trademarks of Motorola Trademark Holdings, LLC and are used under license. All other trademarks are the property of their respective owners. Unless stated explicitly and in writing, no license is granted with respect to any copyright, industrial design, trademark, patent or other intellectual property rights of Avigilon Corporation or its licensors.
+This document has been compiled and published using product descriptions and specifications available at the time of publication. The contents of this document and the specifications of the products discussed herein are subject to change without notice. Avigilon Corporation reserves the right to make any such changes without notice. Neither Avigilon Corporation nor any of its affiliated companies: (1) guarantees the completeness or accuracy of the information contained in this document; or (2) is responsible for your use of, or reliance on, the information. Avigilon Corporation shall not be responsible for any losses or damages (including consequential damages) caused by reliance on the information presented herein.
+Avigilon Corporation avigilon.com
+HTML-WEP-A Revision: 2 - en 20251112
+
+©2026, Avigilon Corporation. All right reserved.
+
+255
+
+More Information & Support
+
+©2026, Avigilon Corporation. All right reserved.
+
+256
+
+More Information & Support
+For additional product documentation and software and firmware upgrades, visit support.avigilon.com.
+Contact Avigilon Technical Support at support.avigilon.com/s/contactsupport.
+©2026, Avigilon Corporation. All rights reserved. MOTOROLA, MOTO, MOTOROLA SOLUTIONS, and the Stylized M Logo are trademarks or registered trademarks of Motorola Trademark Holdings, LLC and are used under license. All other trademarks are the property of their respective owners. Unless stated explicitly and in writing, no license is granted with respect to any copyright, industrial design, trademark, patent or other intellectual property rights of Avigilon Corporation or its licensors.
+Avigilon Corporation avigilon.com
+PDF generated on 05 15, 2026
+See the Motorola Solutions terms of use at motorolasolutions.com/en_us/about/termsuse.html
+
+

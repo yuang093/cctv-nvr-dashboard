@@ -1,0 +1,160 @@
+                                                               Web Endpoint API Routes
+
+/device/firmware
+
+POST /device/firmware
+
+Upload Yocto Linux image to Edge Storage appliance
+
+Parameters
+
+Name                                              Description
+ body
+                                                  Copy
+object
+(body)                                             {
+                                                       "address": "string",
+                                                       "filename": "\n 'Example: fi
+
+                                                   lename.fp."
+                                                   }
+
+Responses                                         Description
+
+ Code                                             Successful
+   default                                        Copy
+
+                                                   "string"
+
+©2026, Avigilon Corporation. All right reserved.                                     162
+                                                                   Web Endpoint API Routes
+
+/device/logs                                      Description
+
+GET /device/logs                                  Successful
+                                                  Copy
+Get the logs and config files of a server
+                                                   "string"
+Parameters
+
+No parameters.
+
+Responses
+
+ Code
+   default
+
+/device/poe
+
+GET /device/poe
+
+Deprecated.
+
+POST /device/poe
+
+Reset the Power over Ethernet (PoE) information of a given camera
+
+©2026, Avigilon Corporation. All right reserved.                   163
+Parameters                                                                                                Web Endpoint API Routes
+
+ Name                                             Description
+   body                                           Copy
+
+ object                                            {
+ (body)                                                "mac": "9b:E2:B1:57:21:6D"
+
+Responses                                          }
+
+ Code                                             Description
+   default                                        Successful
+                                                  Copy
+PUT /device/poe
+                                                   "string"
+Update the PoE ports of the appliance
+                                                  Description
+Parameters                                        Copy
+
+ Name                                              {
+   body                                                "ports": [
+                                                           {
+ object                                                       "power": true,
+ (body)                                                       "budget": 0
+                                                           }
+                                                       ]
+
+©2026, Avigilon Corporation. All right reserved.  164
+                                                               Web Endpoint API Routes
+
+ Name                                             Description
+                                                   }
+Responses
+                                                  Description
+ Code                                             Successful
+   default                                        Copy
+
+                                                   "string"
+
+/device/poe-info
+
+GET /device/poe-info
+
+Read the PoE port information of the appliance
+
+Parameters
+
+No parameters.
+
+©2026, Avigilon Corporation. All right reserved.               165
+                                                               Web Endpoint API Routes
+
+Responses                                         Description
+
+ Code                                             Successful
+   default                                        Copy
+
+                                                   "string"
+
+/device/reboot
+
+POST /device/reboot
+
+Reboot a server
+
+NOTE
+Only applies to Edge Storage appliances.
+
+Parameters                                        Description
+                                                  Successful
+No parameters.
+
+Responses
+
+ Code
+   default
+
+©2026, Avigilon Corporation. All right reserved.               166
+                                                               Web Endpoint API Routes
+
+Code                                              Description
+                                                  Copy
+
+                                                   "string"
+
+/device/switch
+
+GET /device/switch
+
+Deprecated.
+
+/device/timezone-list
+
+GET /device/timezone-list
+
+Get the list of available time zones for an appliance
+
+Parameters
+
+No parameters.
+
+©2026, Avigilon Corporation. All right reserved.               167
+
