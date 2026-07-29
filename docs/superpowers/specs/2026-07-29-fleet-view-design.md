@@ -202,11 +202,12 @@ def clear_cache() -> None:
 def get_wall_cameras_with_snapshots(
     db_path: str,
     filter_kind: str = "all",
-    nvr_id: Optional[int] = None,  # ← 新增（None = 不過濾）
+    nvr_id: int | None = None,  # ← 新增（None = 不過濾）
 ) -> list[dict]:
     ...
-    query += "" if nvr_id is None else " AND c.nvr_id = ?"
-    params = [] if nvr_id is None else [nvr_id]
+    # 注意：原 SQL 沒既有 WHERE，所以這裡用 WHERE（不是 AND）
+    extra_where = "" if nvr_id is None else " WHERE c.nvr_id = ?"
+    extra_params = [] if nvr_id is None else [nvr_id]
     ...
 ```
 
