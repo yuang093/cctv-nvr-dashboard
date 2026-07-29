@@ -155,9 +155,9 @@ def clear_cache() -> None:
 {% block title %}伺服器總覽 · NVR Scanner{% endblock %}
 {% block content %}
 <h1>📡 伺服器總覽</h1>
-<p class="text-muted">
-    共 {{ nvrs | length }} 台伺服器 / {{ total_cams }} 台攝影機
-</p>
+<span class="badge bg-secondary">
+    共 {{ nvrs | length }} 台伺服器 / {{ total_cams }} 台 cam
+</span>
 
 {% if nvrs %}
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
