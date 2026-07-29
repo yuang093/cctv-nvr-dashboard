@@ -1,19 +1,98 @@
-{# Stub template — Task 4 will replace this with full Bootstrap fleet.html #}
-{# For now, just render enough to make /fleet route test pass (test #12). #}
-{# Task 4 spec: cards per NVR, status badge, health counters, summary header. #}
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-<meta charset="utf-8">
-<title>Fleet (stub)</title>
-</head>
-<body>
-<h1>伺服器總覽（共 {{ nvrs | length }} 台伺服器 / {{ total_cams }} 台 cam）</h1>
-{% for n in nvrs %}
-  <div class="nvr">
-    <h2>{{ n.name }}</h2>
-    <p>status={{ n.status }} healthy={{ n.healthy }} signal_lost={{ n.signal_lost }} no_signal={{ n.no_signal }} total={{ n.total }}</p>
-  </div>
-{% endfor %}
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}伺服器總覽 · NVR Scanner{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">📡 伺服器總覽</h1>
+    <span class="badge bg-secondary">
+        共 {{ nvrs | length }} 台伺服器 / {{ total_cams }} 台 cam
+    </span>
+</div>
+
+{% if nvrs %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+    {% for n in nvrs %}
+    <div class="col">
+        <div class="card fleet-card h-100">
+            <div class="card-body">
+                <h5 class="d-flex align-items-center">
+                    <span class="fleet-dot
+                        {% if n.status == 'ok' %}bg-success
+                        {% elif n.status == 'degraded' %}bg-warning
+                        {% elif n.status == 'critical' %}bg-danger
+                        {% else %}bg-secondary{% endif %}"></span>
+                    <span class="text-truncate" title="{{ n.name }}">{{ n.name }}</span>
+                </h5>
+                <small class="text-muted">{{ n.host }}:{{ n.port }}</small>
+
+                {# 三色拼接進度條（綠/琥珀/紅）#}
+                <div class="fleet-bar mt-3">
+                    {% if n.total > 0 %}
+                        <div class="fleet-bar-ok" style="width: {{ (n.healthy / n.total * 100) | round(1) }}%"></div>
+                        <div class="fleet-bar-warn" style="width: {{ (n.signal_lost / n.total * 100) | round(1) }}%"></div>
+                        <div class="fleet-bar-crit" style="width: {{ (n.no_signal / n.total * 100) | round(1) }}%"></div>
+                    {% endif %}
+                </div>
+
+                <div class="small mt-2">
+                    <span class="text-success">✅ 健康 {{ n.healthy }}</span>
+                    <span class="ms-2 text-warning">⚠ 訊號中斷 {{ n.signal_lost }}</span>
+                    <span class="ms-2 text-danger">✗ 無訊號 {{ n.no_signal }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">
+    尚無啟用的 NVR。請到 <a href="{{ url_for('nvrs_list') }}">NVR 清單</a> 新增。
+</div>
+{% endif %}
+
+<style>
+.fleet-card {
+    transition: transform .15s ease, box-shadow .15s ease;
+    overflow: hidden;
+}
+.fleet-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.15);
+}
+.fleet-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 4px rgba(0,0,0,0.3);
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+.fleet-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #e2e8f0;
+}
+.fleet-bar-ok { background: #198754; }
+.fleet-bar-warn { background: #ffc107; }
+.fleet-bar-crit { background: #dc3545; }
+
+{% if dark %}
+.fleet-card {
+    background: #1a1a2e;
+    border-color: #334155;
+}
+.fleet-card:hover {
+    box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.5);
+}
+.fleet-bar {
+    background: #0f172a;
+}
+.fleet-dot {
+    border-color: #1a1a2e;
+}
+{% endif %}
+</style>
+{% endblock %}
