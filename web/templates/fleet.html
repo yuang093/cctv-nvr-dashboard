@@ -1,0 +1,19 @@
+{# Stub template — Task 4 will replace this with full Bootstrap fleet.html #}
+{# For now, just render enough to make /fleet route test pass (test #12). #}
+{# Task 4 spec: cards per NVR, status badge, health counters, summary header. #}
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Fleet (stub)</title>
+</head>
+<body>
+<h1>伺服器總覽（共 {{ nvrs | length }} 台伺服器 / {{ total_cams }} 台 cam）</h1>
+{% for n in nvrs %}
+  <div class="nvr">
+    <h2>{{ n.name }}</h2>
+    <p>status={{ n.status }} healthy={{ n.healthy }} signal_lost={{ n.signal_lost }} no_signal={{ n.no_signal }} total={{ n.total }}</p>
+  </div>
+{% endfor %}
+</body>
+</html>

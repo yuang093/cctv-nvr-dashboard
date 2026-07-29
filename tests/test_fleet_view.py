@@ -307,3 +307,18 @@ def test_get_fleet_view_excludes_disabled_nvrs():
     assert "已停用" not in names, "停用的 NVR 不應出現"
 
     Path(db_path).unlink(missing_ok=True)
+
+
+# === 12. /fleet route 回 200 並含 NVR 名稱 ===
+def test_fleet_route_returns_200_and_renders_nvr_names(fleet_db):
+    clear_cache()
+    from web.app import create_app
+    app = create_app(db_path=fleet_db)
+    app.config["TESTING"] = True
+    client = app.test_client()
+    resp = client.get("/fleet")
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "A 辦公室" in body
+    assert "B 倉庫" in body
+    assert "共" in body  # summary line "共 2 台伺服器"
