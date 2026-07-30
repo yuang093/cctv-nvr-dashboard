@@ -1245,23 +1245,30 @@ def bulk_upsert_nvrs(db_path: str, nvr_list: list[dict]) -> dict:
     conn = _connect_writable(db_path)
     try:
         now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        # === 2026-07-29 host dedup ===
-        # 同 (host, port) 若已有不同 nvr_id 的 row，把既有 row 的 nvr_id
-        # merge 成新 alias，確保「一台實體 NVR ↔ DB 一筆 row」的不變量。
+        # === 2026-07-30 host dedup（完整 migration）===
+        # 同 (host, port) 若已有不同 nvr_id 的 row：
+        #   1. 不再 hack「把舊 row 的 nvr_id 改成新 alias」（會撞 UNIQUE）
+        #   2. 改用：建好 NEW row 後，把 OLD row 旗下的 FK 資料全部 migrate 過去，
+        #      最後 DELETE OLD row → 保證「一台實體 NVR ↔ DB 一筆 row」
         # 否則 nvr_config.json 改了 id 就會建第二筆同 host NVR，
-        # → /wall 看到重複 cam（每個 nvr_id 各 upsert 一組 cameras）。
+        # → /wall 看到重複 cam、/abnormal 看到幽靈相機、dashboard 顯示舊資料。
+        collisions: list[dict] = []
         for nvr_data in nvr_list:
             target_host = nvr_data.get("host", "")
             target_port = int(nvr_data.get("port", 8443))
-            conn.execute(
+            new_nvr_id = nvr_data["nvr_id"]
+            old_rows = conn.execute(
                 """
-                UPDATE nvr_servers
-                SET nvr_id = ?, updated_at = ?
-                WHERE host = ? AND port = ? AND nvr_id != ?
+                SELECT id FROM nvr_servers
+                WHERE host=? AND port=? AND nvr_id != ?
                 """,
-                (nvr_data["nvr_id"], now_iso,
-                 target_host, target_port, nvr_data["nvr_id"]),
-            )
+                (target_host, target_port, new_nvr_id),
+            ).fetchall()
+            for row in old_rows:
+                collisions.append({
+                    "new_nvr_id": new_nvr_id,
+                    "old_id": row["id"],
+                })
         # 統計既有 id（用 nvr_id 比對，不是 internal id）
         existing = {
             r["nvr_id"]
@@ -1348,6 +1355,73 @@ def bulk_upsert_nvrs(db_path: str, nvr_list: list[dict]) -> dict:
                 updated += 1
             else:
                 inserted += 1
+
+        # === Phase 3: 處理 collisions（host:port 同但 nvr_id 不同）===
+        # 把 OLD row 旗下的 FK 資料搬去 NEW row，然後 DELETE OLD。
+        # 注意：cameras / recording_status / camera_snapshots 有 UNIQUE(nvr_id, *)
+        # 若 OLD 和 NEW 都有同 device 的 row，UPDATE 會撞 UNIQUE；
+        # 用 INSERT OR IGNORE + DELETE 模式安全處理。
+        PLAIN_TABLES = [
+            ("events", "nvr_id"),
+            ("image_health_checks", "nvr_server_id"),
+            ("nvr_failure_log", "nvr_internal_id"),
+        ]
+        UNIQ_TABLES = [
+            # (table, fk_col, uniq_cols)
+            ("cameras", "nvr_id", ["device_id"]),
+            ("recording_status", "nvr_id", ["camera_id"]),
+            ("camera_snapshots", "nvr_id", ["camera_id"]),
+        ]
+        for c in collisions:
+            new_row = conn.execute(
+                "SELECT id FROM nvr_servers WHERE nvr_id=?",
+                (c["new_nvr_id"],),
+            ).fetchone()
+            if not new_row:
+                continue
+            new_id = new_row["id"]
+            old_id = c["old_id"]
+            if new_id == old_id:
+                continue
+
+            # 無 UNIQUE 撞的表：直接 UPDATE
+            for tbl, col in PLAIN_TABLES:
+                conn.execute(
+                    f"UPDATE {tbl} SET {col}=? WHERE {col}=?",
+                    (new_id, old_id),
+                )
+
+            # 有 UNIQUE(nvr_id, uniq_cols) 的表：
+            # 1) INSERT OR IGNORE 從 OLD → NEW（重複就略過，保留 NEW 原有的）
+            # 2) DELETE 剩下的 OLD row
+            for tbl, col, uniq_cols in UNIQ_TABLES:
+                uniq_select = ", ".join(uniq_cols)
+                uniq_list = ", ".join(
+                    f"{uc} = excluded.{uc}" for uc in uniq_cols
+                )
+                # 從 OLD 撈出每列（除了 nvr_id）並 INSERT OR IGNORE 到 NEW
+                other_cols = [
+                    r[1] for r in conn.execute(f"PRAGMA table_info({tbl})").fetchall()
+                    if r[1] not in ("id", col)
+                ]
+                cols_csv = ", ".join(other_cols)
+                sel_csv = ", ".join(other_cols)
+                conn.execute(
+                    f"""
+                    INSERT OR IGNORE INTO {tbl} ({col}, {cols_csv})
+                    SELECT ?, {sel_csv} FROM {tbl}
+                    WHERE {col} = ?
+                    """,
+                    (new_id, old_id),
+                )
+                # 刪掉 OLD 剩下的（已被 INSERT 走或本來就要丟）
+                conn.execute(
+                    f"DELETE FROM {tbl} WHERE {col}=?",
+                    (old_id,),
+                )
+
+            conn.execute("DELETE FROM nvr_servers WHERE id=?", (old_id,))
+
         conn.commit()
         return {"inserted": inserted, "updated": updated, "total": inserted + updated}
     except (sqlite3.IntegrityError, sqlite3.Error, ValueError):
