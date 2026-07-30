@@ -218,8 +218,11 @@ def _register_routes(app: Flask) -> None:
         recent = webdb.get_recent_runs(_get_db_path(app), limit=5)
         # Phase 2.8（Arisan 缺錄排名）：取 24h 缺錄最多的前 5 台 cam
         top_missing = webdb.get_top_missing_cameras(_get_db_path(app), limit=5)
+        # Phase 2.8 補：給 dashboard 顯示「最後更新 X 小時前」
+        recording_latest_at = webdb.get_latest_recording_check_at(_get_db_path(app))
         return render_template(
             "dashboard.html", stats=stats, recent=recent, top_missing=top_missing,
+            recording_latest_at=recording_latest_at,
         )
 
     @app.route("/theme")
@@ -672,6 +675,45 @@ def _register_routes(app: Flask) -> None:
         """查目前 scan 狀態（給前端 polling）。"""
         with _scan_lock:
             return jsonify(dict(_scan_state))
+
+    # === Phase 2.8 補：Dashboard 「🔄 重整完整率」按鈕 ===
+    # 不依賴 NVR_TIMELINE env（直接呼叫 _timeline_check_loop），
+    # 跟 scan 走獨立 state 互不干擾。
+
+    @app.route("/dashboard/refresh-completeness", methods=["POST"])
+    def refresh_completeness_trigger():
+        """啟動 background thread 跑 24h timeline 收集（每台 NVR 逐台）。
+
+        已在跑 → 409 conflict。同步回 202 + 啟動時間。
+        """
+        with _timeline_lock:
+            if _timeline_state["running"]:
+                return jsonify({
+                    "ok": False,
+                    "error": "已有完整率重整在進行中",
+                    "started_at": _timeline_state["started_at"],
+                }), 409
+            _reset_timeline_state()
+
+        db_path = _get_db_path(app)
+        thread = threading.Thread(
+            target=_run_timeline_refresh,
+            args=(app, db_path),
+            daemon=True,
+            name="timeline-refresh",
+        )
+        thread.start()
+
+        return jsonify({
+            "ok": True,
+            "started_at": _timeline_state["started_at"],
+        }), 202
+
+    @app.route("/dashboard/refresh-completeness/status")
+    def refresh_completeness_status():
+        """查目前 timeline refresh 進度（給前端 polling）。"""
+        with _timeline_lock:
+            return jsonify(dict(_timeline_state))
 
     @app.route("/abnormal")
     def abnormal_list():
@@ -1285,6 +1327,45 @@ _scan_state: dict = {
 _scan_lock = threading.RLock()   # RLock 才能在 scan_trigger「握著鎖呼叫 _reset_scan_state」時不死鎖（2026-07-07）
 
 
+# Phase 2.8 補：timeline refresh 獨立 state（跟 scan 不互相 block）
+_timeline_state: dict = {
+    "running": False,
+    "started_at": None,
+    "finished_at": None,
+    "checked": 0,
+    "written": 0,
+    "errors_count": 0,
+    "error": None,
+}
+_timeline_lock = threading.RLock()
+
+
+def _reset_timeline_state() -> None:
+    """重置 timeline refresh 狀態。"""
+    with _timeline_lock:
+        _timeline_state.update({
+            "running": True,
+            "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "finished_at": None,
+            "checked": 0,
+            "written": 0,
+            "errors_count": 0,
+            "error": None,
+        })
+
+
+def _finish_timeline_state(success: bool, **kwargs) -> None:
+    """結束 timeline refresh 狀態。"""
+    with _timeline_lock:
+        _timeline_state["running"] = False
+        _timeline_state["finished_at"] = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(),
+        )
+        _timeline_state.update(kwargs)
+        if not success and "error" not in kwargs:
+            _timeline_state["error"] = "timeline refresh failed"
+
+
 def _reset_scan_state(total_nvrs: int | None = None) -> None:
     """重置 scan 狀態。total_nvrs=None 時保留現值（2026-07-13 Phase 2.2）。"""
     with _scan_lock:
@@ -1381,6 +1462,108 @@ def _run_scan_in_background(app: Flask, db_path: str) -> None:
     except Exception as exc:
         logger.exception("background scan failed: %s", exc)
         _finish_scan_state(
+            success=False, error=f"{type(exc).__name__}: {exc}",
+        )
+
+
+# Phase 2.8 補：Dashboard 「🔄 重整完整率」按鈕對應的 background worker
+# 跟 scan 走獨立 state，scan 跑時 refresh 仍可啟動（不互相 block）。
+def _run_timeline_refresh(app: Flask, db_path: str) -> None:
+    """背景 thread 跑 24h timeline 收集（每台 NVR 逐台跑 _timeline_check_loop）。
+
+    跟 batch_scan 不同：
+      - 不跑 events 收集、不跑 image health（單純 timeline）
+      - 開一個獨立 scan_run（recording_status 寫入需 transaction）
+      - 跑完 finish_scan_run（會出現在 /runs 列表中）
+    """
+    try:
+        # 函式內 import（避免 module-load 階段就 import batch_scan / nvr_scanner）
+        from batch_scan import _timeline_check_loop
+        from nvr_scanner import AvigilonScanner
+        from db.sqlite_writer import SqliteWriter
+
+        # 1. 從 DB 讀啟用的 NVR
+        enabled = webdb.list_enabled_nvrs(db_path)
+        if not enabled:
+            _finish_timeline_state(
+                success=False, error="DB 沒有啟用的 NVR（請到 /nvrs 新增並啟用）",
+            )
+            return
+
+        # 2. 認證（沿用 .env 的 AVIGILON_*）
+        user_nonce = os.environ.get("AVIGILON_USER_NONCE", "")
+        user_key = os.environ.get("AVIGILON_USER_KEY", "")
+        if not user_nonce or not user_key:
+            _finish_timeline_state(
+                success=False,
+                error="伺服器未設定 AVIGILON_USER_NONCE/KEY（檢查 .env）",
+            )
+            return
+        credentials = {
+            "user_nonce": user_nonce,
+            "user_key": user_key,
+            "integration_id": os.environ.get("AVIGILON_INTEGRATION_ID", ""),
+            "username_override": os.environ.get("AVIGILON_USERNAME") or None,
+            "password_override": os.environ.get("AVIGILON_PASSWORD") or None,
+        }
+
+        # 3. 開 scan_run（recording_status 寫入需要 transaction）
+        total_checked = 0
+        total_written = 0
+        total_errors = 0
+
+        with SqliteWriter(db_path) as writer:
+            rid = writer.begin_scan_run(
+                time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            )
+
+            for nvr in enabled:
+                nvr_int_id = writer.upsert_nvr(nvr)
+                try:
+                    # per-NVR instance（HTTP session 絕不跨 NVR 共用）
+                    scanner = AvigilonScanner(
+                        nvr,
+                        user_nonce=credentials["user_nonce"],
+                        user_key=credentials["user_key"],
+                        integration_id=credentials.get("integration_id", ""),
+                        timeout=10,
+                    )
+                    scanner.login()  # _timeline_check_loop 直接呼叫 get_timeline，不經過 scan() → 不會自動登入
+                    summary = _timeline_check_loop(
+                        scanner, nvr_int_id, writer, verbose=True,
+                    )
+                    total_checked += summary["checked"]
+                    total_written += summary["written"]
+                    total_errors += len(summary["errors"])
+                except Exception as exc:
+                    total_errors += 1
+                    logger.warning(
+                        "timeline refresh %s 失敗：%s: %s",
+                        nvr.get("id"), type(exc).__name__, exc,
+                    )
+
+            writer.finish_scan_run(
+                rid,
+                finished_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                status="complete",
+                stats={
+                    "total_cameras": total_checked,
+                    "abnormal_cameras": 0,
+                    "total_nvrs": len(enabled),
+                    "ok_nvrs": len(enabled) - total_errors,
+                    "failed_nvrs": total_errors,
+                },
+            )
+
+        _finish_timeline_state(
+            success=True,
+            checked=total_checked,
+            written=total_written,
+            errors_count=total_errors,
+        )
+    except Exception as exc:
+        logger.exception("timeline refresh failed: %s", exc)
+        _finish_timeline_state(
             success=False, error=f"{type(exc).__name__}: {exc}",
         )
 

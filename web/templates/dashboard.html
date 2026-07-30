@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard | NVR Scanner{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">儀表板</h1>
+    <div>
+        <a href="{{ url_for('abnormal_list') }}" class="btn btn-outline-warning">故障相機</a>
+        <a href="{{ url_for('nvr_export_csv') }}" class="btn btn-outline-success">⬇ 匯出 NVR (CSV)</a>
+        <a href="{{ url_for('abnormal_export_pdf') }}" class="btn btn-outline-danger">⬇ 匯出異常 (PDF)</a>
+        <button id="scanBtn" type="button" class="btn btn-primary">▶ 立即掃描所有 NVR</button>
+    </div>
+</div>
+<div id="scanProgress" class="alert alert-info d-none mb-4">
+    <div class="d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm me-2"></div>
+        <strong class="me-2">掃描中...</strong>
+        <span id="scanProgressText" class="small"></span>
+    </div>
+</div>
+<div class="row g-3 mb-4">
+    {# Phase 2.8（Arisan 磁磚點擊跳轉）：4 個計數磁磚變 anchor，href 帶 query string #}
+    <div class="col"><a href="{{ url_for('nvrs_list') }}" class="card text-bg-primary text-decoration-none card-tile"><div class="card-body text-center"><p class="display-6 mb-1">{{ stats.total_nvrs }}</p><h6 class="card-title mb-0">NVR 總數</h6></div></a></div>
+    {# Phase 2.8（Arisan 磁磚點擊跳轉）：攝影機總數 + 在線 暫連 /runs（/devices 待 Phase #5 加入） #}
+    <div class="col"><a href="{{ url_for('runs_list') }}" class="card text-bg-info text-decoration-none card-tile"><div class="card-body text-center"><p class="display-6 mb-1">{{ stats.total_cameras }}</p><h6 class="card-title mb-0">攝影機總數</h6></div></a></div>
+    <div class="col"><a href="{{ url_for('runs_list') }}?filter=online" class="card text-bg-success text-decoration-none card-tile"><div class="card-body text-center"><p class="display-6 mb-1">{{ stats.online_cameras | default(0) }}</p><h6 class="card-title mb-0">在線</h6></div></a></div>
+    <div class="col"><a href="{{ url_for('events_list') }}?status=pending" class="card text-bg-warning text-decoration-none card-tile"><div class="card-body text-center"><p class="display-6 mb-1">{{ stats.pending_events | default(0) }}</p><h6 class="card-title mb-0">異常（需處理）</h6></div></a></div>
+    {# Phase 2.8（Arisan 錄影磁磚）：錄影中 cam 數 #}
+    <div class="col"><a href="{{ url_for('wall', filter='online') }}" class="card text-bg-secondary text-decoration-none card-tile"><div class="card-body text-center"><p class="display-6 mb-1">{{ stats.recording_cameras | default(0) }}</p><h6 class="card-title mb-0">錄影中</h6></div></a></div>
+    <div class="col"><div class="card text-bg-{% if stats.last_run and stats.last_run.status == 'success' %}success{% elif stats.last_run and stats.last_run.status == 'partial' %}warning{% else %}secondary{% endif %}"><div class="card-body text-center">
+        <p class="display-6 mb-1">
+            {% if stats.last_run %}
+                {% if stats.last_run.status == "success" %}<span class="badge bg-success">成功</span>
+                {% elif stats.last_run.status == "partial" %}<span class="badge bg-warning">部分成功</span>
+                {% elif stats.last_run.status == "failed" %}<span class="badge bg-danger">失敗</span>
+                {% else %}{{ stats.last_run.status }}{% endif %}
+            {% else %}<span class="badge bg-secondary">無</span>{% endif %}
+        </p>
+        <h6 class="card-title mb-0">最新掃描狀態</h6>
+        {% if stats.last_run %}<small class="d-block mt-1">#{{ stats.last_run.id }} · {{ stats.last_run.finished_at | taipei or "執行中" }}</small>{% endif %}
+    </div></div></div>
+</div>
+<h3>最近 5 次掃描</h3>
+{% if recent %}
+<table class="table table-striped table-hover">
+<thead><tr><th>#</th><th>狀態</th><th>開始時間</th><th>結束時間</th><th>NVR 連線</th><th>異常相機</th><th></th></tr></thead>
+<tbody>
+{% for r in recent %}
+<tr><td>#{{ r.id }}</td><td>
+    {% if r.status == "success" %}<span class="badge bg-success">成功</span>
+    {% elif r.status == "partial" %}<span class="badge bg-warning">部分成功</span>
+    {% elif r.status == "failed" %}<span class="badge bg-danger">失敗</span>
+    {% else %}<span class="badge bg-secondary">{{ r.status }}</span>{% endif %}
+</td><td><code>{{ r.started_at | taipei }}</code></td>
+<td><code>{{ r.finished_at | taipei or "—" }}</code></td>
+<td>
+    {% set ok = r.ok_nvrs or 0 %}
+    {% set total = r.total_nvrs or 0 %}
+    {% if total == 0 %}<span class="badge bg-secondary">— / —</span>
+    {% elif ok == total %}<span class="badge bg-success">✓ {{ ok }} / {{ total }}</span>
+    {% elif ok == 0 %}<span class="badge bg-danger">✗ 0 / {{ total }}</span>
+    {% else %}<span class="badge bg-warning text-dark">⚠ {{ ok }} / {{ total }}</span>{% endif %}
+</td>
+<td><span class="{% if r.abnormal_cameras > 0 %}text-danger fw-bold{% endif %}">{{ r.abnormal_cameras }} / {{ r.total_cameras }}</span></td>
+<td><a href="{{ url_for('run_detail', run_id=r.id) }}" class="btn btn-sm btn-outline-primary">詳情</a></td></tr>
+{% endfor %}</tbody></table>
+{% else %}
+<div class="alert alert-info">尚無掃描紀錄。先跑 <code>python nvr_scanner.py</code> 建立第一次掃描.</div>
+{% endif %}
+<p><a href="{{ url_for('runs_list') }}" class="btn btn-outline-primary btn-sm">查看全部掃描紀錄 &rarr;</a></p>
+
+{# Phase 2.8（Arisan 缺錄排名）：24h 缺錄最多的前 5 台 cam #}
+<div class="d-flex justify-content-between align-items-center mt-4">
+    <h3 class="mb-0">📉 24h 缺錄最多（Top 5）</h3>
+    <div>
+        {# Phase 2.8 補：「最後更新」+ 重整按鈕（staleness 提示）#}
+        {% if recording_latest_at %}
+            <span id="recordingStaleness" class="text-muted me-2 small"></span>
+        {% endif %}
+        <button id="refreshCompletenessBtn" type="button" class="btn btn-outline-primary btn-sm">
+            🔄 重整完整率
+        </button>
+    </div>
+</div>
+<div id="refreshProgress" class="alert alert-info d-none mt-2">
+    <div class="d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm me-2"></div>
+        <strong class="me-2">收集 24h 完整率中...</strong>
+        <span id="refreshProgressText" class="small"></span>
+    </div>
+</div>
+{% if top_missing %}
+<table class="table table-striped table-hover">
+    <thead>
+        <tr>
+            <th>排名</th>
+            <th>攝影機</th>
+            <th>NVR</th>
+            <th class="text-end">完整率</th>
+            <th class="text-end">缺段小時數</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in top_missing %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>
+                <a href="{{ url_for('device_detail', device_id=r.camera_id) }}">
+                    {{ r.camera_name }}
+                </a>
+            </td>
+            <td>{{ r.nvr_name }}</td>
+            <td class="text-end">
+                <span class="{% if r.completeness < 0.5 %}text-danger fw-bold{% endif %}">
+                    {{ '{:.1%}'.format(r.completeness) }}
+                </span>
+            </td>
+            <td class="text-end">
+                <span class="{% if r.missing_hours >= 12 %}text-danger fw-bold{% endif %}">
+                    {{ r.missing_hours }} h
+                </span>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="alert alert-info">
+    尚無錄影完整率紀錄。點「🔄 重整完整率」開始收集。
+</div>
+{% endif %}
+<script>
+{# Phase 2.8 補：渲染 staleness 提示 + 「重整完整率」按鈕 handler #}
+(function() {
+    // staleness 顯示（recording_latest_at 是 ISO UTC 字串）
+    var st = document.getElementById("recordingStaleness");
+    var latest = {{ recording_latest_at | tojson if recording_latest_at else "null" }};
+    if (st && latest) {
+        var lTime = new Date(latest + "Z").getTime();
+        var ageMin = Math.round((Date.now() - lTime) / 60000);
+        var ageTxt;
+        if (ageMin < 60) ageTxt = ageMin + " 分鐘前";
+        else if (ageMin < 1440) ageTxt = Math.round(ageMin / 60) + " 小時前";
+        else ageTxt = Math.round(ageMin / 1440) + " 天前";
+        st.textContent = "最後更新：" + ageTxt;
+        st.title = latest;
+        if (ageMin > 60) {
+            st.classList.add("text-warning");
+            st.classList.remove("text-muted");
+        }
+    }
+
+    var b = document.getElementById("refreshCompletenessBtn");
+    var p = document.getElementById("refreshProgress");
+    var t = document.getElementById("refreshProgressText");
+    var poll = null;
+
+    function stop() {
+        if (poll) { clearInterval(poll); poll = null; }
+        b.disabled = false;
+        b.textContent = "🔄 重整完整率";
+    }
+
+    function go() {
+        poll = setInterval(function() {
+            fetch("{{ url_for('refresh_completeness_status') }}")
+                .then(function(r) { return r.json(); })
+                .then(function(s) {
+                    if (s.running) {
+                        var e = s.started_at ? s.started_at.replace("T", " ").slice(0, 19) : "";
+                        t.textContent = e + " · 已檢查 " + s.checked + " 台、寫入 " + s.written + " 筆";
+                    } else {
+                        stop();
+                        if (s.error) {
+                            p.classList.remove("alert-info");
+                            p.classList.add("alert-danger");
+                            t.textContent = "✗ " + s.error;
+                        } else {
+                            p.classList.remove("alert-info");
+                            p.classList.add("alert-success");
+                            t.textContent = "✓ 完成：" + s.written + " 筆完整率寫入、" + s.errors_count + " 個錯誤";
+                            setTimeout(function() { window.location.reload(); }, 2000);
+                        }
+                    }
+                })
+                .catch(function(e) { console.error("poll failed", e); });
+        }, 2000);
+    }
+
+    if (b) {
+        b.addEventListener("click", function() {
+            b.disabled = true;
+            b.textContent = "啟動中...";
+            p.className = "alert alert-info mt-2";
+            p.classList.remove("d-none");
+            t.textContent = "送出請求...";
+            fetch("{{ url_for('refresh_completeness_trigger') }}", { method: "POST" })
+                .then(function(r) {
+                    if (r.status === 409) {
+                        r.json().then(function(s) {
+                            t.textContent = "已有重整在進行中（" + (s.started_at || "") + "）";
+                        });
+                        go();
+                        return;
+                    }
+                    if (!r.ok) throw new Error("HTTP " + r.status);
+                    t.textContent = "已啟動背景收集，請稍候...";
+                    go();
+                })
+                .catch(function(e) {
+                    p.classList.remove("alert-info");
+                    p.classList.add("alert-danger");
+                    t.textContent = "✗ 啟動失敗：" + e.message;
+                    stop();
+                });
+        });
+    }
+})();
+</script>
+<script>
+(function() {
+    var b = document.getElementById("scanBtn");
+    var p = document.getElementById("scanProgress");
+    var t = document.getElementById("scanProgressText");
+    var x = null;
+
+    function go() {
+        x = setInterval(function() {
+            fetch("{{ url_for('scan_status') }}")
+                .then(function(r) { return r.json(); })
+                .then(function(s) {
+                    if (s.running) {
+                        var e = s.started_at ? s.started_at.replace("T", " ").slice(0, 19) : "";
+                        t.textContent = e + " · " + s.total_nvrs + " 台 NVR";
+                    } else {
+                        clearInterval(x);
+                        p.classList.remove("alert-info");
+                        if (s.error) {
+                            p.classList.add("alert-danger");
+                            t.textContent = "✗ " + s.error;
+                        } else {
+                            p.classList.add("alert-success");
+                            t.textContent = "✓ 完成：" + s.ok_nvrs + "/" + s.total_nvrs + " 台成功、" + s.abnormal_cameras + " 台異常相機";
+                        }
+                        b.disabled = false;
+                        b.textContent = "▶ 立即掃描所有 NVR";
+                        setTimeout(function() { window.location.reload(); }, 3000);
+                    }
+                })
+                .catch(function(e) { console.error("poll failed", e); });
+        }, 2000);
+    }
+
+    b.addEventListener("click", function() {
+        b.disabled = true;
+        b.textContent = "啟動中...";
+        p.className = "alert alert-info mb-4";
+        t.textContent = "送出請求...";
+        fetch("{{ url_for('scan_trigger') }}", { method: "POST" })
+            .then(function(r) {
+                if (r.status === 409) {
+                    r.json().then(function(s) {
+                        p.className = "alert alert-warning mb-4";
+                        t.textContent = "已有掃描在進行中（" + (s.started_at || "") + "）";
+                        b.disabled = false;
+                        b.textContent = "▶ 立即掃描所有 NVR";
+                    });
+                    go();
+                    return;
+                }
+                if (!r.ok) throw new Error("HTTP " + r.status);
+                t.textContent = "已啟動背景掃描，請稍候...";
+                go();
+            })
+            .catch(function(e) {
+                p.className = "alert alert-danger mb-4";
+                t.textContent = "✗ 啟動失敗：" + e.message;
+                b.disabled = false;
+                b.textContent = "▶ 立即掃描所有 NVR";
+            });
+    });
+})();
+</script>
+{% endblock %}

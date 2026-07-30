@@ -712,6 +712,7 @@ def get_top_missing_cameras(db_path: str, limit: int = 5) -> list[dict]:
                 "missing_seconds" (float),
                 "missing_hours" (float),
                 "completeness" (float),
+                "checked_at" (str, ISO UTC),
             }
         ]，沒資料 → 空 list。
     """
@@ -724,7 +725,8 @@ def get_top_missing_cameras(db_path: str, limit: int = 5) -> list[dict]:
                 COALESCE(c.camera_name, rs.camera_id) AS camera_name,
                 n.name AS nvr_name,
                 rs.missing_seconds,
-                rs.completeness
+                rs.completeness,
+                rs.checked_at
             FROM recording_status rs
             LEFT JOIN cameras c
                 ON c.nvr_id = rs.nvr_id AND c.device_id = rs.camera_id
@@ -743,6 +745,21 @@ def get_top_missing_cameras(db_path: str, limit: int = 5) -> list[dict]:
         item["missing_hours"] = round(item["missing_seconds"] / 3600.0, 2)
         out.append(item)
     return out
+
+
+def get_latest_recording_check_at(db_path: str) -> str | None:
+    """Phase 2.8 補：回傳 recording_status 表最新的 checked_at（ISO UTC string）。
+
+    沒資料 → None。給 dashboard 顯示「最後更新 X 小時前」用。
+    """
+    conn = _connect(db_path)
+    try:
+        row = conn.execute(
+            "SELECT MAX(checked_at) AS latest FROM recording_status"
+        ).fetchone()
+    finally:
+        conn.close()
+    return row["latest"] if row and row["latest"] else None
 
 
 def get_recording_status_for_camera(
