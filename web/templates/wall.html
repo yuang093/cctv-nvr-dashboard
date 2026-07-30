@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}相機牆 · NVR Scanner{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">📹 相機牆</h1>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-secondary">共 {{ cams | length }} 台</span>
+        {# 2026-07-30：cam 重啟後 user 需要一鍵觸發 scan 並刷新縮圖
+           JS 流程：POST /scan（背景跑 batch_scan 含 image_health_loop）
+                   → 等 10 秒 → reload（讀新 snapshot）#}
+        <button id="rescan-btn" type="button" class="btn btn-sm btn-primary"
+                onclick="triggerRescan(this)">
+            🔄 重新掃描並更新縮圖
+        </button>
+    </div>
+</div>
+
+{# 篩選按鈕列（帶計數）#}
+<div class="btn-group mb-3" role="group">
+    {% set filters = [
+        ("all", "全部", counts.all),
+        ("online", "在線", counts.online),
+        ("signal_lost", "訊號中斷", counts.signal_lost),
+        ("no_signal", "無訊號", counts.no_signal),
+    ] %}
+    {% for key, label, n in filters %}
+    <a href="{{ url_for('wall', filter=key) }}"
+       class="btn btn-sm {% if filter_kind == key %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+        {{ label }} ({{ n }})
+    </a>
+    {% endfor %}
+</div>
+
+{% if cams %}
+<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-6 g-3">
+    {% for c in cams %}
+    <div class="col">
+        <a href="{{ url_for('device_detail', device_id=c.device_id) }}"
+           class="card wall-card text-decoration-none h-100">
+            <div class="wall-thumb-wrapper">
+                {% if c.has_snapshot %}
+                    <img src="data:image/jpeg;base64,{{ c.snapshot_b64 }}"
+                         class="wall-thumb" alt="{{ c.camera_name }}">
+                {% else %}
+                    <svg class="wall-thumb-placeholder" viewBox="0 0 160 120" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="160" height="120" fill="#e2e8f0"/>
+                        <g fill="#94a3b8" transform="translate(50,30)">
+                            <path d="M30 0c-13.8 0-25 11.2-25 25v10c0 13.8 11.2 25 25 25s25-11.2 25-25V25C55 11.2 43.8 0 30 0zM30 50c-8.3 0-15-6.7-15-15s6.7-15 15-15 15 6.7 15 15S38.3 50 30 50z"/>
+                            <circle cx="30" cy="35" r="10"/>
+                        </g>
+                        <text x="80" y="105" text-anchor="middle" font-size="10" fill="#64748b">無快照</text>
+                    </svg>
+                {% endif %}
+                {# Status 圓點（綠/紅/琥珀）#}
+                <span class="wall-status-dot
+                    {% if c.category == 'online' %}bg-success
+                    {% elif c.category == 'signal_lost' %}bg-danger
+                    {% else %}bg-warning{% endif %}"></span>
+            </div>
+            <div class="card-body p-2">
+                <div class="wall-cam-name text-truncate" title="{{ c.camera_name }}">
+                    {{ c.camera_name }}
+                </div>
+                <div class="wall-nvr-label text-muted small text-truncate" title="{{ c.nvr_name }}">
+                    {{ c.nvr_name }}
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+
+{# 查看全部按鈕（未來要分頁時改這裡）#}
+<div class="text-center mt-4">
+    <a href="{{ url_for('wall', filter='all') }}" class="btn btn-outline-primary">
+        查看全部 {{ counts.all }} 支攝影機
+    </a>
+</div>
+
+{% else %}
+<div class="alert alert-info">
+    {% if filter_kind == 'all' %}尚無攝影機。
+    {% else %}目前沒有符合「{{ filter_kind }}」篩選的攝影機。
+    {% endif %}
+</div>
+{% endif %}
+
+<style>
+/* === 縮圖卡樣式（對齊 019 參考圖）=== */
+.wall-card {
+    transition: transform .15s ease, box-shadow .15s ease;
+    overflow: hidden;
+}
+.wall-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.15);
+}
+.wall-thumb-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #f1f5f9;
+    overflow: hidden;
+}
+.wall-thumb, .wall-thumb-placeholder {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.wall-thumb-placeholder {
+    /* SVG 自適應 */
+}
+.wall-status-dot {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 4px rgba(0,0,0,0.3);
+}
+.wall-cam-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    line-height: 1.2;
+    margin-top: 2px;
+}
+.wall-nvr-label {
+    font-size: 0.75rem;
+    margin-top: 1px;
+}
+
+{% if dark %}
+/* Dark mode overrides */
+.wall-card {
+    background: #1a1a2e;
+    border-color: #334155;
+}
+.wall-card:hover {
+    box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.5);
+}
+.wall-thumb-wrapper {
+    background: #0f172a;
+}
+.wall-status-dot {
+    border-color: #1a1a2e;
+}
+{% endif %}
+</style>
+
+<script>
+// 2026-07-30：cam 重啟後一鍵觸發 scan 並刷新縮圖
+// 流程：POST /scan（背景 thread）→ 等 10 秒 → reload
+function triggerRescan(btn) {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ 掃描中...約 10 秒';
+    fetch('/scan', { method: 'POST' })
+        .then(function(r) {
+            if (r.status === 409) {
+                // 已有 scan 在跑
+                btn.innerHTML = '⏳ 已有掃描在跑，等 10 秒';
+                setTimeout(function() { location.reload(); }, 10000);
+                return;
+            }
+            if (!r.ok) throw new Error('scan failed: ' + r.status);
+            // 202：scan 已啟動，等 10 秒 reload
+            setTimeout(function() { location.reload(); }, 10000);
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.innerHTML = '❌ ' + err.message + ' — 重試';
+            console.error('rescan error:', err);
+        });
+}
+</script>
+{% endblock %}
