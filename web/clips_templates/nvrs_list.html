@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVR 清單 · Clips 8555</title>
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    {% if dark %}
+    <style>
+        body { background: #0c1220; color: #f1f5f9; --bs-body-color: #f1f5f9; }
+        .navbar { background: #0c1220 !important; border-bottom: 1px solid #334155; }
+        .navbar-brand, .nav-link, .navbar-text { color: #f1f5f9 !important; }
+        .navbar-text.small.text-muted { color: #cbd5e1 !important; }
+        .card { background: #1a1a2e; border-color: #334155; color: #f1f5f9; }
+        .table { color: #f1f5f9; --bs-table-bg: #1a1a2e; --bs-table-striped-bg: #16213e; --bs-table-color: #f1f5f9; }
+        .table > :not(caption) > * > * { color: #f1f5f9; border-color: #475569; }
+        .table-secondary { --bs-table-bg: #334155; --bs-table-color: #cbd5e1; }
+        .form-control { background: #1a1a2e; color: #f1f5f9; border-color: #334155; }
+        .form-control::placeholder { color: #94a3b8; opacity: 1; }
+        .form-control:focus { background: #1a1a2e; color: #f1f5f9; border-color: #3b82f6; box-shadow: 0 0 0 .2rem rgba(59,130,246,.25); }
+        .btn-outline-secondary { color: #cbd5e1; border-color: #64748b; }
+        .btn-outline-secondary:hover { background: #334155; color: #f1f5f9; border-color: #94a3b8; }
+        .btn-outline-primary { color: #93c5fd; border-color: #3b82f6; }
+        .btn-outline-primary:hover { background: #1e3a8a; color: #dbeafe; border-color: #60a5fa; }
+        .text-muted { color: #cbd5e1 !important; }
+        code { color: #f0abfc; }
+        .badge.bg-secondary { background: #475569 !important; color: #f1f5f9; }
+        a { color: #93c5fd; }
+        a:hover { color: #bfdbfe; }
+        hr { border-color: #334155; }
+        small { color: #cbd5e1; }
+    </style>
+    {% endif %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/nvrs">🖥️ NVR 清單</a>
+            <span class="navbar-text small text-muted me-auto">Phase 2.7 · port 8555</span>
+            <form method="POST" action="{{ url_for('dark_toggle') }}" style="display:inline">
+                <button type="submit" class="nav-link"
+                        style="background:none;border:none;cursor:pointer;padding:5px 10px;
+                               font-size:0.8125rem;font-weight:500;
+                               color:{{ '#93c5fd' if dark else '#94a3b8' }}">
+                    {% if dark %}☀️{% else %}🌙{% endif %}
+                </button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="mb-0">NVR 清單（{{ total }} 台）</h1>
+            <div>
+                <a href="{{ url_for('nvr.export_csv') }}" class="btn btn-outline-primary">📤 匯出 CSV</a>
+                <a href="{{ url_for('nvr.export_json') }}" class="btn btn-outline-primary">📤 匯出 JSON</a>
+                <a href="{{ url_for('nvr.import_') }}" class="btn btn-outline-secondary">📥 批次匯入</a>
+                <a href="{{ url_for('nvr.new') }}" class="btn btn-primary">+ 新增 NVR</a>
+            </div>
+        </div>
+
+        <form class="row g-2 mb-3" method="get" action="{{ url_for('nvr.list') }}">
+            <div class="col-auto">
+                <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"
+                       placeholder="搜尋 ID / 名稱 / Host...">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">搜尋</button>
+                {% if q %}
+                <a href="{{ url_for('nvr.list') }}" class="btn btn-sm btn-outline-secondary">清除</a>
+                {% endif %}
+            </div>
+        </form>
+
+        {% if nvrs %}
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>啟用</th>
+                    <th>ID</th>
+                    <th>名稱</th>
+                    <th>主機</th>
+                    <th>Port</th>
+                    <th>Site</th>
+                    <th>Tags</th>
+                    <th>攝影機數</th>
+                    <th>更新時間</th>
+                    <th class="text-end">動作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for n in nvrs %}
+                <tr class="{% if not n.enabled %}table-secondary text-muted{% endif %}">
+                    <td>
+                        {% if n.enabled %}
+                            <span class="badge bg-success">✓ 啟用</span>
+                        {% else %}
+                            <span class="badge bg-secondary">⏸ 停用</span>
+                        {% endif %}
+                    </td>
+                    <td><code>{{ n.nvr_id }}</code></td>
+                    <td><strong>{{ n.name }}</strong></td>
+                    <td><code>{{ n.host }}</code></td>
+                    <td>{{ n.port }}</td>
+                    <td>{{ n.site_id or '—' }}</td>
+                    <td>
+                        {% for t in n.tags %}
+                            <span class="badge bg-secondary">{{ t }}</span>
+                        {% endfor %}
+                    </td>
+                    <td><span class="badge bg-info">{{ n.camera_count }}</span></td>
+                    <td><code class="small">{{ n.updated_at or '—' }}</code></td>
+                    <td class="text-end">
+                        <form method="post"
+                              action="{{ url_for('nvr.toggle_enabled', internal_id=n.id) }}"
+                              class="d-inline">
+                            {% if n.enabled %}
+                                <button type="submit" class="btn btn-sm btn-outline-warning"
+                                        title="停用後背景掃描會跳過此 NVR">
+                                    ⏸ 停用
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-sm btn-outline-success"
+                                        title="啟用後下次背景掃描會包含此 NVR">
+                                    ▶ 啟用
+                                </button>
+                            {% endif %}
+                        </form>
+                        <a href="{{ url_for('nvr.edit', nvr_id=n.id) }}"
+                           class="btn btn-sm btn-outline-primary">編輯</a>
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                data-bs-toggle="modal" data-bs-target="#delModal{{ n.id }}">
+                            刪除
+                        </button>
+
+                        <div class="modal fade" id="delModal{{ n.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">確認刪除 NVR</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body text-start">
+                                        <p>確定要刪除 NVR「<strong>{{ n.nvr_id }}</strong>（{{ n.name }}）」嗎？</p>
+                                        <div class="alert alert-warning small">
+                                            ⚠ 此操作會：
+                                            <ul class="mb-0">
+                                                <li>刪除此 NVR（id={{ n.id }}）</li>
+                                                <li>刪除 <strong>{{ n.camera_count }}</strong> 台相關 cameras</li>
+                                                <li>保留 scan_runs 與 events 歷史</li>
+                                            </ul>
+                                        </div>
+                                        <p class="text-muted small mb-0">此操作無法復原。</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                                        <form method="post" action="{{ url_for('nvr.delete', nvr_id=n.id) }}" class="d-inline">
+                                            <button type="submit" class="btn btn-danger">確認刪除</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        {% if total_pages > 1 %}
+        <nav>
+            <ul class="pagination pagination-sm justify-content-center">
+                <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('nvr.list', page=page-1, q=q) }}">‹ 上一頁</a>
+                </li>
+                {% for p in range(1, total_pages + 1) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('nvr.list', page=p, q=q) }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('nvr.list', page=page+1, q=q) }}">下一頁 ›</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="alert alert-info">
+            {% if q %}搜尋「{{ q }}」無符合的 NVR。{% else %}尚無 NVR 紀錄。{% endif %}
+            <a href="{{ url_for('nvr.new') }}" class="btn btn-sm btn-primary ms-2">新增第一台 NVR</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

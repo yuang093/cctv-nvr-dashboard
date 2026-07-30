@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批次匯入 NVR · Clips 8555</title>
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    {% if dark %}
+    <style>
+        body { background: #0c1220; color: #f1f5f9; --bs-body-color: #f1f5f9; }
+        .navbar { background: #0c1220 !important; border-bottom: 1px solid #334155; }
+        .navbar-brand, .nav-link, .navbar-text { color: #f1f5f9 !important; }
+        .navbar-text.small.text-muted { color: #cbd5e1 !important; }
+        .card { background: #1a1a2e; border-color: #334155; color: #f1f5f9; }
+        .form-control { background: #1a1a2e; color: #f1f5f9; border-color: #334155; }
+        .form-control::placeholder { color: #94a3b8; opacity: 1; }
+        .form-control:focus { background: #1a1a2e; color: #f1f5f9; border-color: #3b82f6; box-shadow: 0 0 0 .2rem rgba(59,130,246,.25); }
+        .btn-outline-secondary, .btn-secondary { color: #cbd5e1; border-color: #64748b; }
+        .btn-outline-secondary:hover, .btn-secondary:hover { background: #334155; color: #f1f5f9; border-color: #94a3b8; }
+        .btn-outline-primary { color: #93c5fd; border-color: #3b82f6; }
+        .btn-outline-primary:hover { background: #1e3a8a; color: #dbeafe; border-color: #60a5fa; }
+        .text-muted { color: #cbd5e1 !important; }
+        code { color: #f0abfc; }
+        a { color: #93c5fd; }
+        a:hover { color: #bfdbfe; }
+        hr { border-color: #334155; }
+        small { color: #cbd5e1; }
+        .alert-danger { background: #7f1d1d; color: #fecaca; border-color: #dc2626; }
+    </style>
+    {% endif %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/nvrs">🖥️ NVR 清單</a>
+            <span class="navbar-text small text-muted me-auto">Phase 2.7 · port 8555</span>
+            <form method="POST" action="{{ url_for('dark_toggle') }}" style="display:inline">
+                <button type="submit" class="nav-link"
+                        style="background:none;border:none;cursor:pointer;padding:5px 10px;
+                               font-size:0.8125rem;font-weight:500;
+                               color:{{ '#93c5fd' if dark else '#94a3b8' }}">
+                    {% if dark %}☀️{% else %}🌙{% endif %}
+                </button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="mb-0">📥 批次匯入 NVR</h1>
+            <a href="{{ url_for('nvr.list') }}" class="btn btn-outline-secondary">← 回到清單</a>
+        </div>
+
+        {% if errors %}
+        <div class="alert alert-danger">
+            <strong>✗ 匯入失敗（共 {{ errors|length }} 個錯誤）</strong>
+            <ul class="mb-0 mt-2">
+                {% for err in errors %}<li>{{ err }}</li>{% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" class="card card-body">
+            <h5>步驟 1：下載範本</h5>
+            <p class="small text-muted">先下載範本、填寫、再上傳。</p>
+            <div class="mb-3">
+                <a href="{{ url_for('nvr.import_template_csv') }}"
+                   class="btn btn-sm btn-outline-secondary">📥 下載 CSV 範本</a>
+                <a href="{{ url_for('nvr.import_template_json') }}"
+                   class="btn btn-sm btn-outline-secondary">📥 下載 JSON 範本</a>
+                <a href="{{ url_for('nvr.export_csv') }}"
+                   class="btn btn-sm btn-outline-primary">📤 匯出目前清單 (CSV)</a>
+                <a href="{{ url_for('nvr.export_json') }}"
+                   class="btn btn-sm btn-outline-primary">📤 匯出目前清單 (JSON)</a>
+            </div>
+            <p class="small text-muted">
+                💡 <strong>Round-trip 流程：</strong>
+                「📤 匯出目前清單」取得現有 NVR → 編輯後再上傳匯入 → 批次維護完成。
+            </p>
+
+            <hr>
+            <h5>步驟 2：上傳檔案</h5>
+            <p class="small text-muted">
+                支援 <strong>CSV</strong>（欄位：id, name, host, port, username, password, verify_ssl, site_id, tags）
+                或 <strong>JSON</strong>（array of objects）。
+                必填欄位：<code>id</code>, <code>name</code>, <code>host</code>, <code>username</code>, <code>password</code>。
+            </p>
+            <div class="mb-3">
+                <input type="file" name="file" accept=".csv,.json,text/csv,application/json"
+                       class="form-control" required>
+            </div>
+
+            <hr>
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{{ url_for('nvr.list') }}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-primary">📥 上傳並匯入</button>
+            </div>
+        </form>
+
+        <div class="card card-body mt-3">
+            <h6>⚠ 注意</h6>
+            <ul class="small mb-0">
+                <li>整批 <strong>all-or-nothing transaction</strong>：任一筆欄位錯 → 整批 rollback</li>
+                <li><strong>Upsert 語意</strong>：<code>id</code> 已存在 → 更新該筆；不存在 → 新增（支援 round-trip）</li>
+                <li><code>password</code> 留空 → 保留原值（不會清空既有密碼）</li>
+                <li><code>tags</code> 用 <code>;</code> 分隔（CSV）或 list（JSON）</li>
+                <li>支援自動偵測 delimiter：<code>,</code> 或 <code>\t</code>（Excel 另存的 TSV）</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
