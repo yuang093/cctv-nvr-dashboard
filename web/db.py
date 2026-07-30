@@ -505,6 +505,7 @@ def get_wall_cameras(db_path: str, filter_kind: str = "all") -> list[dict]:
                 ) AS latest_topic
             FROM cameras c
             JOIN nvr_servers n ON n.id = c.nvr_id
+            WHERE c.is_ghost = 0
             ORDER BY n.name, c.camera_name, c.device_id
             """
         ).fetchall()
@@ -572,11 +573,13 @@ def get_wall_cameras_with_snapshots(
         filter_kind = "all"
 
     # nvr_id 篩選（Task 1：給 /fleet 取單一 NVR 的 cam 清單；向後相容：None → 全部）
-    extra_where = ""
+    # 2026-07-30：預設過濾 is_ghost = 0（NVR 已不再管理的 cam）
+    extra_where_parts = ["c.is_ghost = 0"]
     extra_params: list[Any] = []
     if nvr_id is not None:
-        extra_where = " WHERE c.nvr_id = ?"
+        extra_where_parts.append("c.nvr_id = ?")
         extra_params.append(nvr_id)
+    extra_where = " WHERE " + " AND ".join(extra_where_parts)
 
     conn = _connect(db_path)
     try:
