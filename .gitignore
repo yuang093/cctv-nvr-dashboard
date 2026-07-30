@@ -1,0 +1,30 @@
+# === 機密設定（絕對不要 commit） ===
+.env
+.env.*
+!.env.example
+
+# === 真正的 nvr_config（帳密明碼，建議改用 .env 覆蓋） ===
+nvr_config.json
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# === 掃描輸出 ===
+*.db
+*.db-journal
+*.log
+
+# === 歸檔的 PDF 報告（每次掃描自動產生，不入版控） ===
+reports/
+
+# === 一次性維運工具（任務完成後不需版控） ===
+dedup_nvr_db.py
+verify_dedup_after_cleanup.py
+cleanup_orphan_nvr1.py
+

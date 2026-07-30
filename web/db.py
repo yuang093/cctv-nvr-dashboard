@@ -725,8 +725,8 @@ def get_top_missing_cameras(db_path: str, limit: int = 5) -> list[dict]:
             FROM recording_status rs
             LEFT JOIN cameras c
                 ON c.nvr_id = rs.nvr_id AND c.device_id = rs.camera_id
-            LEFT JOIN nvr_servers n
-                ON n.id = rs.nvr_id
+            INNER JOIN nvr_servers n
+                ON n.id = rs.nvr_id AND n.enabled = 1
             ORDER BY rs.missing_seconds DESC
             LIMIT ?
             """,
