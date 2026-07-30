@@ -1080,11 +1080,11 @@ def get_abnormal_cameras_grouped(db_path: str) -> list[dict]:
                    e.event_topic,
                    e.detected_at
             FROM events e
-            LEFT JOIN cameras c
+            INNER JOIN cameras c
                 ON e.nvr_id = c.nvr_id AND e.device_id = c.device_id
-            LEFT JOIN nvr_servers n ON e.nvr_id = n.id
+            INNER JOIN nvr_servers n ON e.nvr_id = n.id
             WHERE e.resolved_at IS NULL
-            ORDER BY COALESCE(n.name, '(已刪除 NVR)'), e.detected_at
+            ORDER BY n.name, e.detected_at
             """,
         ).fetchall()
     finally:
