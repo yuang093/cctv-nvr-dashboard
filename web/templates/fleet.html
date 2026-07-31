@@ -23,7 +23,20 @@
             </div>
         </div>
     </div>
-    <div class="col-md-8">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">☁️ 雲端覆蓋（縮圖）</h5>
+                <div style="position: relative; height: 220px;">
+                    <canvas id="thumbnail-donut"></canvas>
+                </div>
+                <p class="text-center text-muted mb-0 mt-2">
+                    <strong>{{ thumb_cov.with_thumbnail }}</strong> / {{ thumb_cov.total }} 台有雲端縮圖
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
         <div class="card h-100">
             <div class="card-body">
                 <h5 class="card-title">圖例</h5>
@@ -177,6 +190,37 @@
       plugins: {
         legend: { display: false },  // 我們自己用右側 legend card
       },
+      cutout: '60%',
+    },
+  });
+})();
+
+// Spec B+：雲端覆蓋 donut（cam 有/無縮圖）
+(function () {
+  const ctx = document.getElementById('thumbnail-donut');
+  if (!ctx) return;
+  const withThumb = {{ thumb_cov.with_thumbnail }};
+  const withoutThumb = {{ thumb_cov.without_thumbnail }};
+  const total = withThumb + withoutThumb;
+  if (total === 0) {
+    ctx.parentElement.innerHTML =
+      '<p class="text-muted text-center my-5">尚無 cam 資料</p>';
+    return;
+  }
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['有縮圖', '無縮圖'],
+      datasets: [{
+        data: [withThumb, withoutThumb],
+        backgroundColor: ['#3b82f6', '#9ca3af'],
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
       cutout: '60%',
     },
   });

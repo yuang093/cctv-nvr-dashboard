@@ -120,3 +120,47 @@ def _count_ghost_cameras(db_path: str) -> int:
         ).fetchone()[0]
     finally:
         conn.close()
+
+
+# === Spec B+（2026-07-31）：雲端覆蓋（cam 有/無 thumbnail）===
+def get_thumbnail_coverage(db_path: str) -> dict:
+    """跨 NVR 合計 cam 的雲端覆蓋（過濾 ghost cam）。
+
+    「雲端覆蓋」= cam 在 `image_health_checks` 表是否有紀錄。
+    - 有紀錄 = 「有縮圖」（雲端有資料）
+    - 沒紀錄 = 「無縮圖」（雲端沒資料）
+
+    注意：image_health_checks.camera_id 是 TEXT（無 FK），
+    透過 cameras.device_id 對應；只看 is_ghost=0 的 cam。
+
+    Returns:
+        {
+            "with_thumbnail": int,    # 有 image_health_checks 紀錄的 cam 數
+            "without_thumbnail": int, # 沒紀錄的 cam 數
+            "total": int,             # = with + without
+            "ghost_count": int,       # 被過濾掉的 ghost cam 數
+        }
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        total, with_thumb = conn.execute(
+            """
+            SELECT
+                COUNT(*),
+                COUNT(CASE WHEN h.id IS NOT NULL THEN 1 END)
+            FROM cameras c
+            LEFT JOIN image_health_checks h
+                ON h.camera_id = c.device_id
+            WHERE c.is_ghost = 0
+            """
+        ).fetchone()
+        total = total or 0
+        with_thumb = with_thumb or 0
+        return {
+            "with_thumbnail": with_thumb,
+            "without_thumbnail": total - with_thumb,
+            "total": total,
+            "ghost_count": _count_ghost_cameras(db_path),
+        }
+    finally:
+        conn.close()
