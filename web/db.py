@@ -192,6 +192,7 @@ def get_run_events(db_path: str, run_id: int) -> list[dict]:
                 ON e.nvr_id = c.nvr_id AND e.device_id = c.device_id
             LEFT JOIN nvr_servers n ON e.nvr_id = n.id
             WHERE e.scan_run_id = ?
+              AND (c.id IS NULL OR c.is_ghost = 0)
             ORDER BY e.id
             """,
             (run_id,),
@@ -223,6 +224,7 @@ def get_run_cameras(db_path: str, run_id: int) -> list[dict]:
                 ON e.nvr_id = c.nvr_id AND e.device_id = c.device_id
             JOIN nvr_servers n ON e.nvr_id = n.id
             WHERE e.scan_run_id = ?
+              AND c.is_ghost = 0
             ORDER BY n.name, c.device_id
             """,
             (run_id,),
@@ -341,8 +343,8 @@ def get_nvrs(db_path: str) -> list[dict]:
             """
             SELECT n.id, n.nvr_id, n.name, n.host, n.port, n.site_id, n.tags,
                    n.verify_ssl, n.enabled, n.updated_at,
-                   (SELECT COUNT(*) FROM cameras WHERE nvr_id = n.id) AS camera_count,
-                   (SELECT MAX(last_seen_at) FROM cameras WHERE nvr_id = n.id)
+                   (SELECT COUNT(*) FROM cameras WHERE nvr_id = n.id AND is_ghost = 0) AS camera_count,
+                   (SELECT MAX(last_seen_at) FROM cameras WHERE nvr_id = n.id AND is_ghost = 0)
                        AS last_seen_at
             FROM nvr_servers n
             ORDER BY n.name
@@ -405,7 +407,7 @@ def get_nvrs_paginated(
             f"""
             SELECT n.id, n.nvr_id, n.name, n.host, n.port, n.site_id, n.tags,
                    n.verify_ssl, n.enabled, n.updated_at,
-                   (SELECT COUNT(*) FROM cameras WHERE nvr_id = n.id) AS camera_count
+                   (SELECT COUNT(*) FROM cameras WHERE nvr_id = n.id AND is_ghost = 0) AS camera_count
             FROM nvr_servers n
             {where}
             ORDER BY n.name
@@ -1113,6 +1115,7 @@ def get_abnormal_cameras_grouped(db_path: str) -> list[dict]:
                 ON e.nvr_id = c.nvr_id AND e.device_id = c.device_id
             INNER JOIN nvr_servers n ON e.nvr_id = n.id
             WHERE e.resolved_at IS NULL
+              AND c.is_ghost = 0
             ORDER BY n.name, e.detected_at
             """,
         ).fetchall()
@@ -1498,6 +1501,7 @@ def get_events_filtered(
             JOIN nvr_servers n ON e.nvr_id = n.id
             JOIN scan_runs s ON e.scan_run_id = s.id
             WHERE e.detected_at >= ?
+              AND (c.id IS NULL OR c.is_ghost = 0)
         """
         params: list[Any] = []
         cutoff = (
