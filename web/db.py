@@ -64,7 +64,12 @@ def get_overall_stats(db_path: str) -> dict:
     conn = _connect(db_path)
     try:
         nvrs = conn.execute("SELECT COUNT(*) FROM nvr_servers").fetchone()[0]
-        cams = conn.execute("SELECT COUNT(*) FROM cameras").fetchone()[0]
+        # Phase 2.8（Arisan 補 2026-07-31）：排除 ghost cam（is_ghost=1，
+        # 表示 NVR 已不再管理但 scanner 曾撈到）。Dashboard 統計語意是
+        # 「仍被管理的攝影機」，不應包含幽靈。
+        cams = conn.execute(
+            "SELECT COUNT(*) FROM cameras WHERE is_ghost = 0"
+        ).fetchone()[0]
         # 24 小時內的 event 數
         cutoff = (
             datetime.now(timezone.utc) - timedelta(hours=24)
@@ -732,6 +737,10 @@ def get_top_missing_cameras(db_path: str, limit: int = 5) -> list[dict]:
                 ON c.nvr_id = rs.nvr_id AND c.device_id = rs.camera_id
             INNER JOIN nvr_servers n
                 ON n.id = rs.nvr_id AND n.enabled = 1
+            -- Phase 2.8（Arisan 補 2026-07-31）：排除 ghost cam。
+            -- 保留 LEFT JOIN：NVR 剛 upsert_recording_status 但 cam row 還沒建
+            -- 也合法（NULL 通過）；只要匹配到的 cam 不是 ghost 就保留。
+            WHERE c.id IS NULL OR c.is_ghost = 0
             ORDER BY rs.missing_seconds DESC
             LIMIT ?
             """,
