@@ -1543,7 +1543,7 @@ def get_devices_paginated(
         (rows, total)；rows 每筆含 nvr_name / device_id / camera_name /
         latest_topic / latest_topic_zh / category / nvr_id。
     """
-    where = ["1=1"]
+    where = ["c.is_ghost = 0"]
     params: list = []
     if nvr_filter:
         where.append("c.nvr_id = ?")
