@@ -814,7 +814,8 @@ def list_cameras_for_nvr(db_path: str, internal_id: int) -> list[dict]:
     conn = _connect(db_path)
     try:
         rows = conn.execute(
-            "SELECT device_id, camera_name FROM cameras WHERE nvr_id = ? "
+            "SELECT device_id, camera_name FROM cameras "
+            "WHERE nvr_id = ? AND is_ghost = 0 "
             "ORDER BY camera_name, device_id",
             (internal_id,),
         ).fetchall()
