@@ -8,6 +8,52 @@
     </span>
 </div>
 
+{# === Spec B（2026-07-31）：相機健康分布 donut 圖表 === #}
+<div class="row mb-3">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">📊 相機健康分布</h5>
+                <div style="position: relative; height: 220px;">
+                    <canvas id="health-donut"></canvas>
+                </div>
+                <p class="text-center text-muted mb-0 mt-2">
+                    總計 <strong>{{ health_dist.total }}</strong> 台 cam
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">圖例</h5>
+                <ul class="list-unstyled mb-1">
+                    <li class="mb-2">
+                        <span class="badge bg-success">●</span>
+                        <strong>在線 (online)</strong> — {{ health_dist.online }} 台
+                        <p class="text-muted small mb-0 ms-4">connection 正常 + 無異常事件</p>
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-warning text-dark">●</span>
+                        <strong>訊號斷 (signal_lost)</strong> — {{ health_dist.signal_lost }} 台
+                        <p class="text-muted small mb-0 ms-4">cam 仍在但無影像訊號</p>
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-danger">●</span>
+                        <strong>無訊號 (no_signal)</strong> — {{ health_dist.no_signal }} 台
+                        <p class="text-muted small mb-0 ms-4">cam 已 disconnect / 離線</p>
+                    </li>
+                </ul>
+                {% if health_dist.ghost_count > 0 %}
+                <p class="small text-warning mb-0 mt-2">
+                    ⚠ {{ health_dist.ghost_count }} 台 ghost cam（已被 NVR 移除）不計入
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 {% if nvrs %}
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
     {% for n in nvrs %}
@@ -96,4 +142,44 @@
 }
 {% endif %}
 </style>
+
+{# Chart.js 4.x for Spec B donut（CDN，僅本頁引入）#}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  const ctx = document.getElementById('health-donut');
+  if (!ctx) return;
+  const data = [
+    {{ health_dist.online }},
+    {{ health_dist.signal_lost }},
+    {{ health_dist.no_signal }},
+  ];
+  const total = data.reduce((a, b) => a + b, 0);
+  if (total === 0) {
+    // 沒資料：在 canvas 上方顯示提示（不畫 donut）
+    ctx.parentElement.innerHTML =
+      '<p class="text-muted text-center my-5">尚無 cam 資料</p>';
+    return;
+  }
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['在線', '訊號斷', '無訊號'],
+      datasets: [{
+        data: data,
+        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },  // 我們自己用右側 legend card
+      },
+      cutout: '60%',
+    },
+  });
+})();
+</script>
 {% endblock %}

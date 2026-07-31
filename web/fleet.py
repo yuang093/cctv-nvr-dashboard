@@ -4,10 +4,12 @@ web/fleet.py
 2026-07-29 新功能：/fleet 頁伺服器概覽資料聚合。
 
 對應 spec：docs/superpowers/specs/2026-07-29-fleet-view-design.md
+2026-07-31 新功能：相機健康分布 donut 圖表（Spec B 最小可行）。
 """
 from __future__ import annotations
 
 import logging
+import sqlite3
 import time
 
 from web.db import get_nvrs, get_wall_cameras_with_snapshots
@@ -81,3 +83,40 @@ def clear_cache() -> None:
     _CACHE["db_path"] = None
     _CACHE["data"] = None
     _CACHE["ts"] = 0.0
+
+
+# === Spec B（2026-07-31）：相機健康分布 donut 圖表 ===
+def get_camera_health_distribution(db_path: str) -> dict:
+    """跨 NVR 合計 cam 的健康分布（過濾 ghost cam）。
+
+    Returns:
+        {
+            "online": int,        # connection 正常 + 無異常事件
+            "signal_lost": int,   # 訊號斷（cam 仍在但無影像）
+            "no_signal": int,     # cam 已 disconnect / 離線
+            "total": int,         # = online + signal_lost + no_signal
+            "ghost_count": int,   # 被過濾掉的 ghost cam 數（顯示在 legend）
+        }
+    """
+    cams = get_wall_cameras_with_snapshots(db_path, filter_kind="all")
+    online = sum(1 for c in cams if c["category"] == "online")
+    signal_lost = sum(1 for c in cams if c["category"] == "signal_lost")
+    no_signal = sum(1 for c in cams if c["category"] == "no_signal")
+    return {
+        "online": online,
+        "signal_lost": signal_lost,
+        "no_signal": no_signal,
+        "total": online + signal_lost + no_signal,
+        "ghost_count": _count_ghost_cameras(db_path),
+    }
+
+
+def _count_ghost_cameras(db_path: str) -> int:
+    """輔助：總 ghost cam 數（被過濾的）。"""
+    conn = sqlite3.connect(db_path)
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM cameras WHERE is_ghost = 1"
+        ).fetchone()[0]
+    finally:
+        conn.close()
