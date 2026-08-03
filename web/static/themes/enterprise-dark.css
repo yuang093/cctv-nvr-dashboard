@@ -1,0 +1,9 @@
+/* enterprise-dark.css — 2026-08-03 Spec E */
+/* enterprise 品牌色：企業藍（從 light theme 抽出） */
+
+[data-theme="dark"] {
+    --primary: #3b82f6;
+    --primary-hover: #60a5fa;
+    --text-link: #3b82f6;
+    --text-link-hover: #60a5fa;
+}
