@@ -1,0 +1,9 @@
+/* eink-dark.css — 2026-08-03 Spec E */
+/* eink 品牌色：純白（e-ink 黑白感） */
+
+[data-theme="dark"] {
+    --primary: #ffffff;
+    --primary-hover: #cccccc;
+    --text-link: #ffffff;
+    --text-link-hover: #cccccc;
+}
