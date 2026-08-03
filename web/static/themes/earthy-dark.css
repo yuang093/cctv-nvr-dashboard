@@ -1,0 +1,9 @@
+/* earthy-dark.css — 2026-08-03 Spec E */
+/* earthy 品牌色：森林綠（從 light theme 抽出） */
+
+[data-theme="dark"] {
+    --primary: #87a878;
+    --primary-hover: #4a6741;
+    --text-link: #4a6741;
+    --text-link-hover: #87a878;
+}
