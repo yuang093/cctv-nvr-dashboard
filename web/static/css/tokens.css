@@ -1,0 +1,98 @@
+/* ============================================
+ * Design Tokens — 8444 / 8555 統一設計變數
+ * 2026-08-03 建立
+ * 維護原則：新增設計值一律在此宣告；不要在 template inline CSS 寫 hardcode。
+ * ============================================ */
+
+/* === 淺色主題（預設）=== */
+:root {
+    /* 色票 - 背景 */
+    --bg-primary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-input: #ffffff;
+    --bg-table-striped: #f8fafc;
+    --bg-modal: #ffffff;
+    --bg-secondary: #f1f5f9;
+
+    /* 色票 - 文字 */
+    --text-primary: #1e293b;
+    --text-muted: #64748b;
+    --text-link: #2563eb;
+    --text-link-hover: #1d4ed8;
+    --text-code: #be185d;
+
+    /* 色票 - 邊框 */
+    --border-primary: #e2e8f0;
+    --border-secondary: #cbd5e1;
+
+    /* 色票 - 狀態（淺色版） */
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --danger-bg: #fef2f2;
+    --danger-text: #991b1b;
+    --danger-border: #fecaca;
+    --warning-bg: #fffbeb;
+    --warning-text: #92400e;
+    --warning-border: #fde68a;
+    --success-bg: #f0fdf4;
+    --success-text: #166534;
+    --success-border: #bbf7d0;
+
+    /* 字體 */
+    --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+
+    /* 間距（4px 進位） */
+    --spacing-1: 0.25rem;
+    --spacing-2: 0.5rem;
+    --spacing-3: 0.75rem;
+    --spacing-4: 1rem;
+    --spacing-5: 1.5rem;
+    --spacing-6: 2rem;
+
+    /* 圓角 */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+}
+
+/* === 深色主題（由 [data-theme="dark"] 觸發）=== */
+[data-theme="dark"] {
+    /* 色票 - 背景 */
+    --bg-primary: #0c1220;
+    --bg-card: #1a1a2e;
+    --bg-input: #1a1a2e;
+    --bg-table-striped: #16213e;
+    --bg-modal: #1a1a2e;
+    --bg-secondary: #1e293b;
+
+    /* 色票 - 文字 */
+    --text-primary: #f1f5f9;
+    --text-muted: #cbd5e1;
+    --text-link: #93c5fd;
+    --text-link-hover: #bfdbfe;
+    --text-code: #f0abfc;
+
+    /* 色票 - 邊框 */
+    --border-primary: #334155;
+    --border-secondary: #475569;
+
+    /* 色票 - 狀態（深色版） */
+    --primary: #3b82f6;
+    --primary-hover: #60a5fa;
+    --danger-bg: #7f1d1d;
+    --danger-text: #fecaca;
+    --danger-border: #dc2626;
+    --warning-bg: #78350f;
+    --warning-text: #fde68a;
+    --warning-border: #d97706;
+    --success-bg: #14532d;
+    --success-text: #bbf7d0;
+    --success-border: #166534;
+}
