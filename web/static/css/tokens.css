@@ -13,10 +13,15 @@
     --bg-table-striped: #f8fafc;
     --bg-modal: #ffffff;
     --bg-secondary: #f1f5f9;
+    --bg-info: #dbeafe;
+    --bg-danger: #fef2f2;
+    --bg-warning: #fffbeb;
+    --bg-success: #f0fdf4;
 
     /* 色票 - 文字 */
     --text-primary: #1e293b;
     --text-muted: #64748b;
+    --text-secondary: #475569;
     --text-link: #2563eb;
     --text-link-hover: #1d4ed8;
     --text-code: #be185d;
@@ -71,10 +76,15 @@
     --bg-table-striped: #16213e;
     --bg-modal: #1a1a2e;
     --bg-secondary: #1e293b;
+    --bg-info: #1e3a5f;
+    --bg-danger: #450a0a;
+    --bg-warning: #451a03;
+    --bg-success: #14532d;
 
     /* 色票 - 文字 */
     --text-primary: #f1f5f9;
     --text-muted: #cbd5e1;
+    --text-secondary: #94a3b8;
     --text-link: #93c5fd;
     --text-link-hover: #bfdbfe;
     --text-code: #f0abfc;
