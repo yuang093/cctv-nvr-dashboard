@@ -263,12 +263,14 @@
       datasets: [{
         data: data,
         backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
-        borderWidth: 0,
+        borderColor: '#ffffff',  // 2026-08-03 fix: 100% 同色時 segment 邊界不可見，加白邊
+        borderWidth: 2,
       }],
     },
     options: {
       responsive: true,
-      maintainAspectRatio: false,
+      maintainAspectRatio: true,  // 2026-08-03 fix: 維持正方形（高度 220 + 寬度 184 → 變橢圓）
+      aspectRatio: 1,             // 2026-08-03 fix: 強制 1:1 避免縱向拉伸
       plugins: {
         legend: { display: false },  // 我們自己用右側 legend card
       },
@@ -296,12 +298,14 @@
       datasets: [{
         data: [withThumb, withoutThumb],
         backgroundColor: ['#3b82f6', '#9ca3af'],
-        borderWidth: 0,
+        borderColor: '#ffffff',  // 2026-08-03 fix: 同上
+        borderWidth: 2,
       }],
     },
     options: {
       responsive: true,
-      maintainAspectRatio: false,
+      maintainAspectRatio: true,  // 2026-08-03 fix: 同上
+      aspectRatio: 1,             // 2026-08-03 fix: 強制 1:1
       plugins: { legend: { display: false } },
       cutout: '60%',
     },
