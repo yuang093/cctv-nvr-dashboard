@@ -27,4 +27,44 @@ reports/
 dedup_nvr_db.py
 verify_dedup_after_cleanup.py
 cleanup_orphan_nvr1.py
+# 2026-08-03 整理：補一批一次性工具（重構 / dump / 探勘）
+rebuild_app.py
+reconstruct_app.py
+reconstruct_v2.py
+seed_resolved_test.py
+discover_clip_origin.py
+discover_media_api_8443.py
+# 一次性 fix 紀錄（8 個 txt）
+fix01.txt
+fix02.txt
+fix03.txt
+fix04.txt
+fix05.txt
+fix06.txt
+fix07.txt
+fix08.txt
+# 一次性 dump（重構時整個 app.py 內容）
+full_app_read.txt
+reconstructed_app_lines.txt
+reconstructed_app_section.txt
+# 一次性探勘輸出
+6.0
+API.txt
+web_endpoint_api_2026-05-15-16-34-39.pdf
+
+# === 執行階段 artifacts（2026-08-03 補）===
+# Flask / Playwright / PyInstaller 輸出
+*.out
+*.err
+*.exe
+*.rar
+.playwright-mcp/
+.playwright-report/
+build/
+dist/
+deploy/
+
+# === 規格設計原始 mockup（保留 021.PNG 在 docs）===
+# 其它 .png 截圖選擇性 add（驗證測試結果）；不強制 ignore
+
 
