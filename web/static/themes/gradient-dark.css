@@ -1,0 +1,9 @@
+/* gradient-dark.css — 2026-08-03 Spec E */
+/* gradient 品牌色：紫→藍漸層 */
+
+[data-theme="dark"] {
+    --primary: #8b5cf6;
+    --primary-hover: #3b82f6;
+    --text-link: #8b5cf6;
+    --text-link-hover: #3b82f6;
+}
