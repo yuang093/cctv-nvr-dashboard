@@ -1,0 +1,9 @@
+/* cyberpunk-dark.css — 2026-08-03 Spec E */
+/* cyberpunk 品牌色：青色 + 螢光綠（從 light theme 抽出） */
+
+[data-theme="dark"] {
+    --primary: #00d2f7;
+    --primary-hover: #00ff9d;
+    --text-link: #00d2f7;
+    --text-link-hover: #00ff9d;
+}
