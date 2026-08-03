@@ -1,0 +1,9 @@
+/* glass-dark.css — 2026-08-03 Spec E */
+/* glass 品牌色：紫（玻璃透明感） */
+
+[data-theme="dark"] {
+    --primary: #a78bfa;
+    --primary-hover: #c4b5fd;
+    --text-link: #a78bfa;
+    --text-link-hover: #c4b5fd;
+}
