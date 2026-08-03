@@ -1,5 +1,4 @@
 """驗證 web/static/css/tokens.css 內容齊全。"""
-import os
 import re
 from pathlib import Path
 
