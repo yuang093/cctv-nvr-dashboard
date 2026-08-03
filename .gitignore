@@ -72,6 +72,11 @@ deploy/
 0[0-9][0-9].PNG
 0[0-9][0-9].png
 
+# === 開發過程 Playwright 全頁截圖（8444_*.png / donut_zoom_*.png） ===
+# 驗證測試用，截圖佔空間；保留磁碟檔案但不入版控
+8444_*.png
+donut_zoom_*.png
+
 # === 廠商使用手冊 / 中文參考文件（不入版控） ===
 Arisan-Gateway-*.pdf
 文件資訊.txt
