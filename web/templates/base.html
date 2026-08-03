@@ -25,6 +25,32 @@
     {% elif theme == 'eink' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='themes/eink.css') }}">
     {% endif %}
+    {# 11 主題的 dark 版本（accent 覆寫，必須在 fintech-dark.css 之後載入以保最高優先級）#}
+    {% if dark and theme == 'nordic' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/nordic-dark.css') }}">
+    {% elif dark and theme == 'brutal' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/brutal-dark.css') }}">
+    {% elif dark and theme == 'fintech' %}
+    {# fintech-dark.css 已載入，跳過 #}
+    {% elif dark and theme == 'earthy' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/earthy-dark.css') }}">
+    {% elif dark and theme == 'editorial' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/editorial-dark.css') }}">
+    {% elif dark and theme == 'eink' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/eink-dark.css') }}">
+    {% elif dark and theme == 'enterprise' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/enterprise-dark.css') }}">
+    {% elif dark and theme == 'glass' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/glass-dark.css') }}">
+    {% elif dark and theme == 'gradient' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/gradient-dark.css') }}">
+    {% elif dark and theme == 'minimal' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/minimal-dark.css') }}">
+    {% elif dark and theme == 'cyberpunk' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/cyberpunk-dark.css') }}">
+    {% elif dark and theme == 'terminal' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/terminal-dark.css') }}">
+    {% endif %}
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
