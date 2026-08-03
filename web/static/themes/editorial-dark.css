@@ -1,0 +1,9 @@
+/* editorial-dark.css — 2026-08-03 Spec E */
+/* editorial 品牌色：黑/灰（編輯簡潔感） */
+
+[data-theme="dark"] {
+    --primary: #525252;
+    --primary-hover: #1a1a1a;
+    --text-link: #1a1a1a;
+    --text-link-hover: #525252;
+}
