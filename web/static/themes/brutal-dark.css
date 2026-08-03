@@ -1,0 +1,10 @@
+/* brutal-dark.css — 2026-08-03 Spec E */
+/* brutal 品牌色：亮黃系（從 light theme 抽出） */
+/* 底色由 fintech-dark.css 提供 */
+
+[data-theme="dark"] {
+    --primary: #ffff00;
+    --primary-hover: #facc15;
+    --text-link: #facc15;
+    --text-link-hover: #fde047;
+}
