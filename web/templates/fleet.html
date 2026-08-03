@@ -220,20 +220,20 @@
 .fleet-bar-warn { background: #ffc107; }
 .fleet-bar-crit { background: #dc3545; }
 
-/* Dark mode overrides */
+/* Dark mode overrides — 引用 design tokens */
 {% if dark %}
 .fleet-card {
-    background: #1a1a2e;
-    border-color: #334155;
+    background: var(--bg-card);
+    border-color: var(--border-primary);
 }
 .fleet-card:hover {
     box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.5);
 }
 .fleet-bar {
-    background: #0f172a;
+    background: var(--bg-secondary);
 }
 .fleet-dot {
-    border-color: #1a1a2e;
+    border-color: var(--bg-card);
 }
 {% endif %}
 </style>
