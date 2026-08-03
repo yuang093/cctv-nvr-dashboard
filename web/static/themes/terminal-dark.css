@@ -1,0 +1,9 @@
+/* terminal-dark.css — 2026-08-03 Spec E */
+/* terminal 品牌色：終端機藍（github dark 配色） */
+
+[data-theme="dark"] {
+    --primary: #79c0ff;
+    --primary-hover: #388bfd;
+    --text-link: #79c0ff;
+    --text-link-hover: #388bfd;
+}
