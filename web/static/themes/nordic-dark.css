@@ -1,0 +1,9 @@
+/* nordic-dark.css — 2026-08-03 Spec E */
+/* nordic 品牌色：北歐深藍 */
+
+[data-theme="dark"] {
+    --primary: #1e40af;
+    --primary-hover: #3b82f6;
+    --text-link: #1e40af;
+    --text-link-hover: #3b82f6;
+}
