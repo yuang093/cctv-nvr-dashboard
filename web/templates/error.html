@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}錯誤 {{ code }} · NVR Scanner{% endblock %}
+{% block content %}
+<div class="alert alert-danger mt-4">
+    <h1 class="alert-heading">錯誤 {{ code }}</h1>
+    <p class="mb-0">{{ message }}</p>
+</div>
+<p>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">← 回到 Dashboard</a>
+</p>
+{% endblock %}

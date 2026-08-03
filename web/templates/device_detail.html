@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ cam.camera_name }} · 設備詳情{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">📷 {{ cam.camera_name }}</h1>
+    <a href="{{ url_for('devices_list') }}" class="btn btn-outline-secondary btn-sm">← 返回設備總覽</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">基本資訊</h5>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">NVR</dt>
+                    <dd class="col-sm-8">{{ cam.nvr_name }} <code class="text-muted">({{ cam.nvr_host }})</code></dd>
+                    <dt class="col-sm-4">device_id</dt>
+                    <dd class="col-sm-8"><code>{{ cam.device_id }}</code></dd>
+                    <dt class="col-sm-4">最後掃描</dt>
+                    <dd class="col-sm-8"><code>{{ cam.last_seen_at or "—" }}</code></dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">目前狀態</h5>
+                <p>
+                    {% if cam.category == 'online' %}
+                        <span class="badge bg-success">✓ 在線</span>
+                    {% elif cam.category == 'signal_lost' %}
+                        <span class="badge bg-danger">⚠ 訊號中斷</span>
+                    {% elif cam.category == 'no_signal' %}
+                        <span class="badge bg-warning text-dark">⚠ 無訊號</span>
+                    {% endif %}
+                </p>
+                {% if cam.latest_topic_zh %}
+                <p class="mb-0">最新未解事件：<span class="badge bg-secondary">{{ cam.latest_topic_zh }}</span></p>
+                {% else %}
+                <p class="text-muted mb-0">沒有未解事件。</p>
+                {% endif %}
+                <p class="mt-3 mb-0">
+                    <a href="{{ url_for('camera_health_history', device_id=cam.device_id) }}"
+                       class="btn btn-sm btn-outline-primary">📈 健康歷史</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# 影像健康卡 #}
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">影像健康（最近一次）</h5>
+        {% if cam.last_checked_at %}
+            <p class="text-muted small">檢查時間：<code>{{ cam.last_checked_at }}</code></p>
+            {% if cam.latest_metrics %}
+                {% set m = cam.latest_metrics %}
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <div class="border rounded p-2 text-center">
+                            <small class="text-muted d-block">模糊度（blur_var）</small>
+                            <strong>{{ "%.1f" | format(m.blur_var | default(0)) }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-2 text-center">
+                            <small class="text-muted d-block">平均亮度</small>
+                            <strong>{{ "%.2f" | format(m.mean_luma | default(0)) }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-2 text-center">
+                            <small class="text-muted d-block">過曝</small>
+                            <strong>{% if m.is_overexposed %}⚠ 是{% else %}✓ 否{% endif %}</strong>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-2 text-center">
+                            <small class="text-muted d-block">凍結</small>
+                            <strong>{% if m.is_frozen %}⚠ 是{% else %}✓ 否{% endif %}</strong>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <p class="text-muted">無指標資料。</p>
+            {% endif %}
+        {% else %}
+            <div class="alert alert-info mb-0">
+                尚無影像健康檢查紀錄。執行 <code>NVR_IMAGE_HEALTH=1 python nvr_scanner.py</code> 啟用。
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{# 錄影 24h 完整率卡 #}
+<div class="card mt-3">
+    <div class="card-body">
+        <h5 class="card-title">錄影 24h 完整率</h5>
+        {% if cam.recording_status %}
+            <p class="text-muted small mb-2">
+                視窗：<code>{{ cam.recording_status.window_start }}</code> → <code>{{ cam.recording_status.window_end }}</code>
+                <br>
+                檢查時間：<code>{{ cam.recording_status.checked_at }}</code>
+            </p>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <div class="border rounded p-2 text-center">
+                        <small class="text-muted d-block">完整率</small>
+                        <strong>{{ '{:.1%}'.format(cam.recording_status.completeness) }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border rounded p-2 text-center">
+                        <small class="text-muted d-block">缺段小時數</small>
+                        <strong>{{ cam.recording_status.missing_hours }}</strong>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-info mb-0">
+                尚無錄影完整率紀錄。執行 worker 啟用 24h `/timeline` 監測。
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

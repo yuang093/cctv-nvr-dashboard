@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}探索網段 · NVR Scanner{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">🔍 探索網段</h1>
+    <a href="{{ url_for('devices_list') }}" class="btn btn-outline-secondary btn-sm">← 返回設備總覽</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="post" action="{{ url_for('devices_discover') }}">
+            <div class="mb-3">
+                <label class="form-label">CIDR</label>
+                <input type="text" name="cidr" value="{{ cidr }}"
+                       class="form-control" placeholder="192.168.0.0/24" required>
+                <small class="form-text text-muted">例如 <code>192.168.0.0/24</code>、<code>10.0.0.0/24</code>。最大支援 /16。</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Port</label>
+                <input type="number" name="port" value="{{ port }}"
+                       class="form-control" min="1" max="65535">
+                <small class="form-text text-muted">Avigilon 預設 8443。</small>
+            </div>
+            {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+            <button type="submit" class="btn btn-primary">開始探索</button>
+        </form>
+    </div>
+</div>
+
+<div class="alert alert-info">
+    ℹ️ 探測以 <code>ThreadPoolExecutor(8 workers)</code> 對 CIDR 內每個 host
+    發 <code>GET https://&lt;ip&gt;:&lt;port&gt;/</code>，<strong>3 秒 timeout</strong>。
+    <ul class="mb-0 mt-2">
+        <li>Server / X-Powered-By header 含 <code>Avigilon</code> → 標記為 Avigilon NVR。</li>
+        <li>既有 <code>nvr_servers</code> 內 IP 直接 <code>skipped</code>（不重複探測）。</li>
+        <li>CIDR prefix &lt; /16 一律拒絕（防 DoS）。</li>
+        <li>背景 thread 執行，<code>/24</code> 預期 ~96 秒；結果頁可即時重整觀察進度。</li>
+    </ul>
+</div>
+{% endblock %}

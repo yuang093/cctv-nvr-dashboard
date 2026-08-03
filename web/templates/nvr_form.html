@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'new' %}新增 NVR{% else %}編輯 NVR{% endif %} · NVR Scanner{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">
+        {% if mode == 'new' %}新增 NVR
+        {% else %}編輯 NVR：<code>{{ nvr.nvr_id }}</code>
+        {% endif %}
+    </h1>
+    <a href="{{ url_for('nvrs_list') }}" class="btn btn-outline-secondary">← 回到清單</a>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<form method="post" class="card card-body">
+    <div class="mb-3">
+        <label class="form-label">ID <span class="text-danger">*</span></label>
+        <input type="text" name="nvr_id"
+               value="{{ nvr.nvr_id or '' }}"
+               class="form-control"
+               {% if mode == 'edit' %}readonly{% endif %}
+               placeholder="ACC8-P4（儲存後不可改）" required>
+        <div class="form-text">英數字與 <code>-</code>；DB UNIQUE 約束</div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">名稱 <span class="text-danger">*</span></label>
+        <input type="text" name="name"
+               value="{{ nvr.name or '' }}"
+               class="form-control" required>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-8">
+            <label class="form-label">Host <span class="text-danger">*</span></label>
+            <input type="text" name="host"
+                   value="{{ nvr.host or '' }}"
+                   class="form-control" required
+                   placeholder="192.168.133.141 或 nvr.example.com">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Port <span class="text-danger">*</span></label>
+            <input type="number" name="port"
+                   value="{{ nvr.port or 8443 }}"
+                   class="form-control" min="1" max="65535" required>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-md-6">
+            <label class="form-label">Username <span class="text-danger">*</span></label>
+            <input type="text" name="username"
+                   value="{{ nvr.username or '' }}"
+                   class="form-control" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">
+                Password
+                {% if mode == 'edit' %}<small class="text-muted">（留空=不變更）</small>{% else %}<span class="text-danger">*</span>{% endif %}
+            </label>
+            <input type="password" name="password"
+                   value=""
+                   class="form-control"
+                   placeholder="{% if mode == 'edit' %}原密碼已隱藏；填新值才會覆寫{% else %}必填{% endif %}"
+                   {% if mode == 'new' %}required{% endif %}>
+            {% if mode == 'edit' %}
+            <div class="form-text text-warning">
+                🔒 安全考量：永遠不在 UI 顯示舊密碼
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-md-6">
+            <label class="form-label">Site ID <small class="text-muted">（選填）</small></label>
+            <input type="text" name="site_id"
+                   value="{{ nvr.site_id or '' }}"
+                   class="form-control">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Tags <small class="text-muted">（用 <code>;</code> 分隔）</small></label>
+            {% set tags_str = '' %}
+            {% if nvr.tags is iterable and nvr.tags is not string %}
+                {% set tags_str = nvr.tags | join(';') %}
+            {% elif nvr.tags %}
+                {% set tags_str = nvr.tags %}
+            {% endif %}
+            <input type="text" name="tags"
+                   value="{{ tags_str }}"
+                   class="form-control"
+                   placeholder="branch;taipei">
+        </div>
+    </div>
+
+    <div class="form-check mt-3">
+        <input type="checkbox" name="verify_ssl" id="verify_ssl"
+               class="form-check-input"
+               {% if nvr.verify_ssl %}checked{% endif %}>
+        <label class="form-check-label" for="verify_ssl">
+            驗證 SSL 憑證（不勾 = 接受自簽憑證，預設）
+        </label>
+    </div>
+
+    <hr>
+    <h5>🔌 測試連線</h5>
+    <p class="small text-muted">用目前 form 內的 host / port / username / password 測試是否連得到 NVR。
+       不寫入 DB，純前端驗證。需要伺服器已設定 <code>AVIGILON_USER_NONCE</code> / <code>AVIGILON_USER_KEY</code>。</p>
+    <button type="button" id="btn-test-conn" class="btn btn-outline-info">
+        🔌 測試連線
+    </button>
+    <div id="test-result" class="mt-2"></div>
+
+    <script>
+    document.getElementById('btn-test-conn').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-test-conn');
+        const out = document.getElementById('test-result');
+        btn.disabled = true;
+        btn.textContent = '測試中...';
+        out.innerHTML = '<div class="text-muted small">連線中，請稍候（最多 5 秒）...</div>';
+
+        const data = {
+            host: document.querySelector('[name="host"]').value,
+            port: parseInt(document.querySelector('[name="port"]').value, 10),
+            username: document.querySelector('[name="username"]').value,
+            password: document.querySelector('[name="password"]').value,
+            verify_ssl: document.getElementById('verify_ssl').checked,
+        };
+
+        try {
+            const resp = await fetch('{{ url_for("nvr_test_connection") }}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data),
+            });
+            const result = await resp.json();
+            if (result.ok) {
+                out.innerHTML = `<div class="alert alert-success">✓ ${result.message}</div>`;
+            } else {
+                out.innerHTML = `<div class="alert alert-danger">✗ ${result.message}</div>`;
+            }
+        } catch (e) {
+            out.innerHTML = `<div class="alert alert-danger">✗ 請求失敗：${e.message}</div>`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔌 測試連線';
+        }
+    });
+    </script>
+
+    <hr>
+    <div class="d-flex justify-content-end gap-2">
+        <a href="{{ url_for('nvrs_list') }}" class="btn btn-secondary">取消</a>
+        <button type="submit" class="btn btn-primary">
+            {% if mode == 'new' %}✅ 建立{% else %}💾 儲存{% endif %}
+        </button>
+    </div>
+</form>
+
+{% if mode == 'edit' %}
+<div class="card card-body mt-4 border-danger">
+    <h5 class="text-danger">⚠ 危險區</h5>
+    <p class="small">刪除此 NVR 會連同 cameras 一起刪除；scan_runs / events 歷史會保留。</p>
+    <button type="button" class="btn btn-outline-danger"
+            data-bs-toggle="modal" data-bs-target="#editDelModal">
+        🗑️ 刪除此 NVR
+    </button>
+
+    <div class="modal fade" id="editDelModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">確認刪除 NVR</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-start">
+                    <p>確定要刪除 NVR「<strong>{{ nvr.nvr_id }}</strong>（{{ nvr.name }}）」嗎？</p>
+                    <div class="alert alert-warning small">
+                        ⚠ 此操作會：
+                        <ul class="mb-0">
+                            <li>刪除此 NVR 本身</li>
+                            <li>刪除相關 cameras</li>
+                            <li>保留 scan_runs / events 歷史</li>
+                        </ul>
+                    </div>
+                    <p class="text-muted small mb-0">此操作無法復原。</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <form method="post" action="{{ url_for('nvr_delete', nvr_id=nvr.id) }}" class="d-inline">
+                        <button type="submit" class="btn btn-danger">確認刪除</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

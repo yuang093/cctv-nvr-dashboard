@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Ad-hoc Query · NVR Scanner{% endblock %}
+{% block content %}
+<h1 class="mb-4">Ad-hoc Query（唯讀 SELECT）</h1>
+
+<div class="alert alert-warning small">
+    <strong>使用須知</strong>：本頁只允許 SELECT / WITH 查詢。
+    其他語句（INSERT/UPDATE/DELETE/DROP/PRAGMA 等）、多 statement 會被擋下。
+    最多回傳 500 筆。
+</div>
+
+<form method="post" class="mb-4">
+    <label class="form-label small text-muted">SQL（必填，建議加 LIMIT）</label>
+    <textarea name="sql" rows="8" class="form-control font-monospace"
+              placeholder="輸入你的 SELECT 查詢">{{ sql or '' }}</textarea>
+    <div class="mt-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">執行</button>
+        <a href="{{ url_for('adhoc_query') }}" class="btn btn-outline-secondary">清除</a>
+    </div>
+</form>
+
+<div class="mb-4">
+    <small class="text-muted">範例：</small>
+    <pre class="bg-light p-2 small"><code>{{ example_sql }}</code></pre>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">
+    <strong>查詢失敗</strong>：{{ error }}
+</div>
+{% endif %}
+
+{% if result %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>
+            共 {{ result.row_count }} 筆
+            {% if result.truncated %}<span class="badge bg-warning text-dark">截斷</span>{% endif %}
+        </span>
+        <small class="text-muted">最多 500 筆</small>
+    </div>
+    <div class="table-responsive" style="max-height: 600px; overflow: auto;">
+        <table class="table table-sm table-striped mb-0">
+            <thead class="position-sticky top-0 bg-light">
+                <tr>
+                    {% for c in result.columns %}
+                        <th>{{ c }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in result.rows %}
+                <tr>
+                    {% for cell in row %}
+                        <td><code class="small">{{ cell if cell is not none else 'NULL' }}</code></td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

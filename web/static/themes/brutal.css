@@ -1,0 +1,221 @@
+/* THEME: Neo-Brutalism
+ * 大膽粗黑邊框，硬陰影 (4px 4px 0 black)，高對比亮色強調
+ * 無圓角（或統一 2px），無漸層，無毛玻璃
+ */
+body {
+    background: #fffffe !important;
+    color: #1a1a1a;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.9375rem;
+}
+
+/* ── Navbar ── */
+.navbar, .bg-dark, .navbar-dark {
+    background: #fffffe !important;
+    border-bottom: 3px solid #1a1a1a !important;
+    box-shadow: none !important;
+}
+.navbar-brand {
+    color: #1a1a1a !important;
+    font-weight: 900;
+    font-size: 1.1rem;
+    letter-spacing: -0.5px;
+}
+.nav-link {
+    color: #1a1a1a !important;
+    font-size: 0.875rem;
+    font-weight: 700;
+    padding: 6px 14px !important;
+    border: 2px solid transparent;
+    border-radius: 2px !important;
+    transition: all 0.1s;
+}
+.nav-link:hover {
+    border-color: #1a1a1a !important;
+    background: #fff59d !important;
+}
+.nav-link.theme-nav {
+    border: 2.5px solid #1a1a1a;
+    color: #1a1a1a !important;
+    font-weight: 800;
+}
+.nav-link.theme-nav:hover {
+    background: #ffff00;
+}
+
+/* ── Typography ── */
+h1, h2, h3, h4 { color: #1a1a1a; font-weight: 900; letter-spacing: -0.5px; }
+small, .text-muted { color: #5c5c5c !important; }
+code {
+    color: #1a1a1a !important;
+    background: #fff59d !important;
+    border: 1.5px solid #1a1a1a !important;
+    border-radius: 0 !important;
+    padding: 1px 5px;
+    font-size: 0.85em;
+    font-weight: 700;
+}
+hr { border-color: #1a1a1a !important; border-width: 2px !important; }
+
+/* ── Cards (stat boxes) ── */
+.card {
+    background: #fffffe !important;
+    border: 2.5px solid #1a1a1a !important;
+    border-radius: 2px !important;
+    box-shadow: 4px 4px 0 0 #1a1a1a !important;
+}
+.card-body { background: transparent !important; }
+.card-title {
+    font-size: 0.6875rem !important;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #1a1a1a !important;
+    margin-bottom: 0.4rem;
+}
+.display-6 {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: #1a1a1a !important;
+    letter-spacing: -1px;
+}
+
+/* Stat variants — 粗黑邊 + 不同強調色 */
+.text-bg-primary  { background: #ffff00 !important; color: #1a1a1a !important; border: 2.5px solid #1a1a1a !important; box-shadow: 4px 4px 0 0 #1a1a1a !important; }
+.text-bg-info     { background: #00e5ff !important; color: #1a1a1a !important; border: 2.5px solid #1a1a1a !important; box-shadow: 4px 4px 0 0 #1a1a1a !important; }
+.text-bg-warning  { background: #ff9100 !important; color: #1a1a1a !important; border: 2.5px solid #1a1a1a !important; box-shadow: 4px 4px 0 0 #1a1a1a !important; }
+.text-bg-success  { background: #76ff03 !important; color: #1a1a1a !important; border: 2.5px solid #1a1a1a !important; box-shadow: 4px 4px 0 0 #1a1a1a !important; }
+.text-bg-danger   { background: #ff1744 !important; color: #ffffff !important; border: 2.5px solid #1a1a1a !important; box-shadow: 4px 4px 0 0 #1a1a1a !important; }
+.text-bg-secondary{ background: #eeeeee !important; color: #1a1a1a !important; border: 2.5px solid #1a1a1a !important; box-shadow: 4px 4px 0 0 #1a1a1a !important; }
+
+/* ── Tables ── */
+.table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.875rem;
+    border: 2.5px solid #1a1a1a;
+}
+.table thead th {
+    background: #1a1a1a !important;
+    color: #fffffe !important;
+    font-size: 0.6875rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 10px 14px;
+    border-bottom: 2.5px solid #1a1a1a !important;
+    border-right: 1px solid #3a3a3a;
+}
+.table tbody tr {
+    border-bottom: 1.5px solid #1a1a1a;
+    transition: background 0.08s;
+}
+.table tbody tr:hover td { background: #fff59d !important; }
+.table td {
+    padding: 10px 14px;
+    color: #1a1a1a;
+    font-weight: 600;
+    border-bottom: none;
+    border-right: 1px solid #e0e0e0;
+    vertical-align: middle;
+}
+.table-secondary > * {
+    background: #eeeeee !important;
+    color: #1a1a1a !important;
+    font-weight: 900;
+    font-size: 0.8125rem;
+    border-bottom: 2px solid #1a1a1a;
+}
+
+/* ── Badges ── */
+.badge {
+    font-size: 0.6875rem;
+    font-weight: 900;
+    padding: 3px 8px;
+    border-radius: 0 !important;
+    letter-spacing: 0.5px;
+    border: 1.5px solid #1a1a1a;
+}
+.bg-success    { background: #76ff03 !important; color: #1a1a1a !important; }
+.bg-warning    { background: #ffff00 !important; color: #1a1a1a !important; }
+.bg-danger     { background: #ff1744 !important; color: #ffffff !important; }
+.bg-secondary  { background: #eeeeee !important; color: #1a1a1a !important; }
+
+/* ── Buttons ── */
+.btn {
+    font-size: 0.875rem;
+    font-weight: 900;
+    border-radius: 0 !important;
+    padding: 8px 18px;
+    border: 2.5px solid #1a1a1a !important;
+    box-shadow: 3px 3px 0 0 #1a1a1a;
+    transition: all 0.08s;
+    letter-spacing: 0.3px;
+}
+.btn:active { box-shadow: 1px 1px 0 0 #1a1a1a; transform: translate(2px, 2px); }
+.btn-primary { background: #1a1a1a; color: #fffffe; }
+.btn-primary:hover { background: #3a3a3a; color: #fff; }
+.btn-outline-primary { color: #1a1a1a; background: #fffffe; border-color: #1a1a1a !important; }
+.btn-outline-primary:hover { background: #ffff00; }
+.btn-outline-warning { color: #1a1a1a; background: #fff; border-color: #1a1a1a !important; }
+.btn-outline-warning:hover { background: #ff9100; color: #fff; }
+.btn-outline-secondary { color: #1a1a1a; background: #fffffe; border-color: #1a1a1a !important; }
+.btn-outline-secondary:hover { background: #eeeeee; }
+.btn-danger { background: #ff1744; color: #ffffff; }
+.btn-danger:hover { background: #d50000; }
+.btn-sm { font-size: 0.75rem; padding: 4px 10px; border-radius: 0 !important; box-shadow: 2px 2px 0 0 #1a1a1a; }
+
+/* ── Alerts ── */
+.alert {
+    border-radius: 0 !important;
+    font-size: 0.875rem;
+    border: 2.5px solid #1a1a1a !important;
+    box-shadow: 3px 3px 0 0 #1a1a1a !important;
+}
+.alert-info    { background: #00e5ff; color: #1a1a1a; }
+.alert-success { background: #76ff03; color: #1a1a1a; }
+.alert-warning { background: #ffff00; color: #1a1a1a; }
+.alert-danger  { background: #ff1744; color: #ffffff; }
+
+/* ── Forms ── */
+.form-control, .form-select {
+    border: 2px solid #1a1a1a !important;
+    border-radius: 0 !important;
+    font-size: 0.875rem;
+    padding: 8px 12px;
+    background: #fffffe !important;
+    color: #1a1a1a !important;
+    box-shadow: none !important;
+}
+.form-control:focus, .form-select:focus {
+    border-color: #1a1a1a !important;
+    outline: 3px solid #ffff00;
+    outline-offset: 0;
+    box-shadow: 3px 3px 0 0 #1a1a1a !important;
+}
+.form-label {
+    font-size: 0.75rem;
+    font-weight: 900;
+    color: #1a1a1a;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* ── Footer ── */
+footer {
+    border-top: 2.5px solid #1a1a1a !important;
+    color: #5c5c5c !important;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 8px; background: #fffffe; }
+::-webkit-scrollbar-thumb { background: #1a1a1a; }
+
+/* ── Spinner ── */
+.spinner-border-sm { border-color: #1a1a1a !important; border-right-color: transparent !important; border-bottom-color: transparent !important; }
+
+/* ── Details/summary ── */
+details { border: 2.5px solid #1a1a1a; border-radius: 0 !important; padding: 12px; box-shadow: 3px 3px 0 0 #1a1a1a; }
+summary { cursor: pointer; color: #1a1a1a; font-size: 0.875rem; font-weight: 700; }

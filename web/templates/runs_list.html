@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}掃描紀錄 · NVR Scanner{% endblock %}
+{% block content %}
+<h1 class="mb-4">掃描紀錄（共 {{ total }} 筆）</h1>
+
+{% if runs %}
+<table class="table table-striped table-hover">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>狀態</th>
+            <th>開始時間</th>
+            <th>結束時間</th>
+            <th>NVR 成功/總數</th>
+            <th>失敗 NVR</th>
+            <th>異常/總相機</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in runs %}
+        <tr>
+            <td>#{{ r.id }}</td>
+            <td>
+                {% if r.status == 'success' %}<span class="badge bg-success">成功</span>
+                {% elif r.status == 'partial' %}<span class="badge bg-warning text-dark">部分成功</span>
+                {% elif r.status == 'failed' %}<span class="badge bg-danger">失敗</span>
+                {% elif r.status == 'running' %}<span class="badge bg-info">執行中</span>
+                {% else %}<span class="badge bg-secondary">{{ r.status }}</span>{% endif %}
+            </td>
+            <td><code>{{ r.started_at | taipei }}</code></td>
+            <td><code>{{ r.finished_at | taipei or '—' }}</code></td>
+            <td>
+                {% set ok = r.ok_nvrs or 0 %}
+                {% set total = r.total_nvrs or 0 %}
+                {% if total == 0 %}<span class="badge bg-secondary">— / —</span>
+                {% elif ok == total %}<span class="badge bg-success">✓ {{ ok }} / {{ total }}</span>
+                {% elif ok == 0 %}<span class="badge bg-danger">✗ 0 / {{ total }}</span>
+                {% else %}<span class="badge bg-warning text-dark">⚠ {{ ok }} / {{ total }}</span>{% endif %}
+            </td>
+            <td>
+                {% if r.failed_nvrs > 0 %}
+                    <span class="text-danger fw-bold">{{ r.failed_nvrs }}</span>
+                {% else %}
+                    0
+                {% endif %}
+            </td>
+            <td>
+                <span class="{% if r.abnormal_cameras > 0 %}text-danger fw-bold{% endif %}">
+                    {{ r.abnormal_cameras }} / {{ r.total_cameras }}
+                </span>
+            </td>
+            <td><a href="{{ url_for('run_detail', run_id=r.id) }}" class="btn btn-sm btn-outline-primary">詳情</a></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{# 分頁 #}
+<nav>
+    <ul class="pagination">
+        {% if page > 1 %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page - 1 }}">← 上一頁</a>
+        </li>
+        {% endif %}
+        <li class="page-item active">
+            <span class="page-link">{{ page }} / {{ total_pages }}</span>
+        </li>
+        {% if page < total_pages %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page + 1 }}">下一頁 →</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+
+{% else %}
+<div class="alert alert-info">尚無資料。</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>影片片段調閱 | NVR</title>
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <style>
+        body { background: #f5f7fa; }
+        .cam-name { font-size: .95rem; font-weight: 600; margin-top: .5rem; color: #222; }
+        .cam-id { font-size: .7rem; color: #aaa; font-family: monospace; word-break: break-all; }
+        /* 2×2 同步撥放視窗（2026-07-08） */
+        .sync-slot { background: #000; border-radius: .375rem; aspect-ratio: 4/3; display: flex; flex-direction: column; align-items: stretch; justify-content: center; overflow: hidden; }
+        .sync-slot.empty { background: #f0f0f0; color: #999; align-items: center; justify-content: center; display: flex; }
+        .sync-slot.loading { background: #000; }
+        .sync-slot.error { background: #fff5f5; }
+        .sync-slot .sync-video { width: 100%; height: 100%; object-fit: contain; }
+        .sync-slot .cam-name { color: #fff; background: rgba(0,0,0,.5); padding: .25rem .5rem; border-radius: .25rem; margin: -.5rem .5rem .5rem .5rem; position: relative; z-index: 1; }
+        .sync-slot.error .cam-name { background: transparent; color: #dc3545; }
+        #statusBar { min-height: 1.5rem; }
+        .form-label { color: #444; }
+        /* 相機多選 chip panel */
+        #camPanel { max-height: 220px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: .375rem; padding: .5rem; background: #fff; }
+        #camPanel .form-check { margin-bottom: .25rem; }
+        #camPanel:empty::before { content: "（請先選 NVR）"; color: #999; padding: .25rem; }
+        /* preset 按鈕群 */
+        .preset-group .btn { font-size: .8rem; }
+    </style>
+    {% if dark %}
+    <style>
+        body { background: #0c1220; color: #e2e8f0; }
+        .card { background: #1a1a2e; border-color: #334155; }
+        .form-label { color: #e2e8f0; }
+        .form-control, .form-select { background: #1a1a2e; color: #e2e8f0; border-color: #334155; }
+        .btn-outline-secondary { color: #94a3b8; border-color: #475569; }
+        .btn-outline-warning { color: #fbbf24; border-color: #a16207; }
+        .btn-outline-primary { color: #93c5fd; border-color: #1e40af; }
+        .text-muted { color: #94a3b8 !important; }
+        code { color: #f0abfc; }
+        .sync-slot.empty { background: #1a1a2e; color: #94a3b8; }
+        .sync-slot.error { background: #4c1d1d; }
+        #camPanel { background: #1a1a2e; border-color: #334155; }
+    </style>
+    {% endif %}
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/clips">🎬 影片片段調閱</a>
+        <span class="navbar-text small text-muted me-auto">Phase 2.7 · port 8555</span>
+        <form method="POST" action="{{ url_for('dark_toggle') }}" style="display:inline">
+            <button type="submit" class="nav-link"
+                    style="background:none;border:none;cursor:pointer;padding:5px 10px;
+                           font-size:0.8125rem;font-weight:500;
+                           color:{{ '#93c5fd' if dark else '#94a3b8' }}">
+                {% if dark %}☀️{% else %}🌙{% endif %}
+            </button>
+        </form>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <!-- 篩選區 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <!-- 1. NVR -->
+                <div class="col-md-4">
+                    <label for="nvrSel" class="form-label fw-semibold">① NVR</label>
+                    <select id="nvrSel" class="form-select">
+                        <option value="">（載入中…）</option>
+                    </select>
+                </div>
+
+                <!-- 2. 攝影機（多選 chip） -->
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold d-flex justify-content-between align-items-center">
+                        <span>② 攝影機（可多選）</span>
+                        <span>
+                            <a href="#" id="camAll" class="small text-decoration-none">全選</a> /
+                            <a href="#" id="camNone" class="small text-decoration-none">全清</a>
+                        </span>
+                    </label>
+                    <div id="camPanel"></div>
+                </div>
+
+                <!-- 3. 時間（台北時間到分鐘）+ preset -->
+                <div class="col-md-4">
+                    <label for="tIn" class="form-label fw-semibold">③ 事件時間（台北時間，UTC+8）</label>
+                    <input type="datetime-local" id="tIn" class="form-control" step="60">
+                    <div class="preset-group mt-2 d-flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-preset="now">現在</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-preset="1h">1 小時前</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-preset="3h">3 小時前</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-preset="yesterday">昨天同時間</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-preset="lastweek">上週同時間</button>
+                    </div>
+                    <!-- 微調：±5 分鐘（2026-07-08 user 加） -->
+                    <div class="fine-tune-group mt-2 d-flex flex-wrap gap-1 align-items-center">
+                        <span class="small text-muted me-1">微調：</span>
+                        <button type="button" class="btn btn-sm btn-outline-warning" data-fine="-5">◀ 前 5 分</button>
+                        <button type="button" class="btn btn-sm btn-outline-warning" data-fine="+5">後 5 分 ▶</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-12">
+                    <button id="syncPlayBtn" type="button" class="btn btn-success" disabled>
+                        ▶ 同步撥放（2×2，最多 4 台）
+                    </button>
+                    <span id="statusBar" class="small text-muted ms-2">請先選 NVR，再勾選攝影機（最多 4 台），最後選時間。</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 同步撥放視窗：2×2 grid（2026-07-08 user 加；同時看 4 台） -->
+    <div id="syncPlaySection" class="card mb-4 d-none">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0">🎞️ 同步撥放視窗 <small class="text-muted">（2×2 · 最多 4 台）</small></h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <span id="syncCenterLabel" class="small text-muted">中心 —</span>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="syncPrevBtn">⏮ 上一段（-5 分）</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="syncNextBtn">⏭ 下一段（+5 分）</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="syncCloseAllBtn">⏹ 全部關閉</button>
+                </div>
+            </div>
+            <div id="syncGrid" class="row g-2">
+                <!-- JS 動態填入 4 格 -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    "use strict";
+
+    var $nvr = document.getElementById("nvrSel");
+    var $camPanel = document.getElementById("camPanel");
+    var $camAll = document.getElementById("camAll");
+    var $camNone = document.getElementById("camNone");
+    var $t = document.getElementById("tIn");
+    var $syncPlayBtn = document.getElementById("syncPlayBtn");
+    var $syncSection = document.getElementById("syncPlaySection");
+    var $syncGrid = document.getElementById("syncGrid");
+    var $syncCenterLabel = document.getElementById("syncCenterLabel");
+    var $syncPrevBtn = document.getElementById("syncPrevBtn");
+    var $syncNextBtn = document.getElementById("syncNextBtn");
+    var $syncCloseAllBtn = document.getElementById("syncCloseAllBtn");
+    var $status = document.getElementById("statusBar");
+
+    // 同步撥放狀態：目前 4 個 slot 對應的 camera + 中心時間
+    // slot = { device_id, name, blobUrl, tCenterIso }
+    var syncSlots = [null, null, null, null];
+    var syncCenterIso = null;  // 所有 slot 共用同一個中心時間
+
+    var camerasByNvr = {};   // {internal_id: [{device_id, name}, ...]}
+
+    // ===== 預設時間：當下台北時間（datetime-local step=60 → 不顯示秒） =====
+    function nowTaipeiForInput() {
+        var parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Taipei",
+            year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit", hour12: false,
+        }).formatToParts(new Date());
+        var p = {};
+        parts.forEach(function(x) { p[x.type] = x.value; });
+        return p.year + "-" + p.month + "-" + p.day + "T" + p.hour + ":" + p.minute;
+    }
+    $t.value = nowTaipeiForInput();
+
+    // preset 按鈕：算出對應台北時間，填回 input（仍到分鐘）
+    document.querySelectorAll("button[data-preset]").forEach(function(b) {
+        b.addEventListener("click", function() {
+            var now = new Date();
+            var d = new Date(now);
+            switch (b.dataset.preset) {
+                case "now":       break;
+                case "1h":        d.setHours(d.getHours() - 1); break;
+                case "3h":        d.setHours(d.getHours() - 3); break;
+                case "yesterday": d.setDate(d.getDate() - 1); break;
+                case "lastweek":  d.setDate(d.getDate() - 7); break;
+            }
+            // 把 Date 轉成台北時間字串
+            var parts = new Intl.DateTimeFormat("en-CA", {
+                timeZone: "Asia/Taipei",
+                year: "numeric", month: "2-digit", day: "2-digit",
+                hour: "2-digit", minute: "2-digit", hour12: false,
+            }).formatToParts(d);
+            var p = {};
+            parts.forEach(function(x) { p[x.type] = x.value; });
+            $t.value = p.year + "-" + p.month + "-" + p.day + "T" + p.hour + ":" + p.minute;
+        });
+    });
+
+    // 微調按鈕：±5 分鐘，基於當前 input 值
+    // 2026-07-08 user 加：搜尋出來時間差一點點時不想重新選時間，用微調
+    function _parseTaipeiLocalToDate(s) {
+        // "YYYY-MM-DDTHH:MM" 視為台北時間（UTC+8），回 Date
+        var padded = /:\d{2}$/.test(s) ? s : s + ":00";
+        return new Date(padded + "+08:00");
+    }
+    function _formatDateToTaipeiLocalInput(d) {
+        // Date → "YYYY-MM-DDTHH:MM"
+        var parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Taipei",
+            year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit", hour12: false,
+        }).formatToParts(d);
+        var p = {};
+        parts.forEach(function(x) { p[x.type] = x.value; });
+        return p.year + "-" + p.month + "-" + p.day + "T" + p.hour + ":" + p.minute;
+    }
+    document.querySelectorAll("button[data-fine]").forEach(function(b) {
+        b.addEventListener("click", function() {
+            var action = b.dataset.fine;
+            // -5 或 +5
+            if (!$t.value) { setStatus("請先選時間", "err"); return; }
+            var cur = _parseTaipeiLocalToDate($t.value);
+            if (isNaN(cur.getTime())) { setStatus("時間格式錯誤", "err"); return; }
+            var delta = parseInt(action, 10);  // -5 or +5
+            cur.setMinutes(cur.getMinutes() + delta);
+            $t.value = _formatDateToTaipeiLocalInput(cur);
+            setStatus("已微調 " + (delta > 0 ? "+" : "") + delta + " 分鐘（" +
+                utcIsoToTaipeiHHMMSS(cur.toISOString()) + "）", "ok");
+        });
+    });
+
+    function setStatus(msg, kind) {
+        $status.textContent = msg || "";
+        $status.className = "small ms-2 " + (
+            kind === "err" ? "text-danger" :
+            kind === "ok" ? "text-success" :
+            "text-muted"
+        );
+    }
+
+    // ===== 載入 NVR 清單 =====
+    fetch("/clips/nvrs")
+        .then(function(r) { return r.json(); })
+        .then(function(list) {
+            $nvr.innerHTML = "";
+            if (!list.length) {
+                $nvr.innerHTML = '<option value="">（無 NVR）</option>';
+                return;
+            }
+            var opt = document.createElement("option");
+            opt.value = "";
+            opt.textContent = "— 請選擇 NVR —";
+            $nvr.appendChild(opt);
+            list.forEach(function(n) {
+                var o = document.createElement("option");
+                o.value = n.internal_id;
+                o.textContent = n.name + " (" + n.camera_count + " cam)";
+                o.dataset.nvrId = n.nvr_id;
+                $nvr.appendChild(o);
+            });
+            $syncPlayBtn.disabled = false;
+        })
+        .catch(function(e) {
+            $nvr.innerHTML = '<option value="">（載入失敗）</option>';
+            setStatus("NVR 清單載入失敗：" + e, "err");
+        });
+
+    // ===== 選 NVR → 載入 cameras → 填入多選 panel =====
+    $nvr.addEventListener("change", function() {
+        var internalId = $nvr.value;
+        $camPanel.innerHTML = "";
+        if (!internalId) return;
+        fetch("/clips/cameras?nvr_id=" + encodeURIComponent(internalId))
+            .then(function(r) { return r.json(); })
+            .then(function(cams) {
+                camerasByNvr[internalId] = cams;
+                cams.forEach(function(c) {
+                    var div = document.createElement("div");
+                    div.className = "form-check";
+                    var cb = document.createElement("input");
+                    cb.type = "checkbox";
+                    cb.className = "form-check-input cam-cb";
+                    cb.value = c.device_id;
+                    cb.id = "cam-" + c.device_id;
+                    cb.dataset.name = c.name;
+                    var label = document.createElement("label");
+                    label.className = "form-check-label";
+                    label.setAttribute("for", cb.id);
+                    label.innerHTML = esc(c.name) +
+                        ' <span class="text-muted small">(' + esc(c.device_id.slice(-8)) + ')</span>';
+                    div.appendChild(cb);
+                    div.appendChild(label);
+                    $camPanel.appendChild(div);
+                });
+            })
+            .catch(function(e) {
+                setStatus("攝影機載入失敗：" + e, "err");
+            });
+    });
+
+    $camAll.addEventListener("click", function(ev) {
+        ev.preventDefault();
+        // 2026-07-08 限制：同步撥放 2x2 最多 4 台 → 全選也只勾前 4 台
+        var boxes = Array.from($camPanel.querySelectorAll(".cam-cb"));
+        boxes.forEach(function(cb) { cb.checked = false; });
+        boxes.slice(0, 4).forEach(function(cb) { cb.checked = true; });
+    });
+    $camNone.addEventListener("click", function(ev) {
+        ev.preventDefault();
+        $camPanel.querySelectorAll(".cam-cb").forEach(function(cb) { cb.checked = false; });
+    });
+
+    // 2026-07-08：限制勾選數 ≤ 4（同步撥放 2x2 上限）
+    // 用 change event 統一控管；超 4 個就 disable 沒勾的並提示
+    $camPanel.addEventListener("change", function() {
+        var boxes = Array.from($camPanel.querySelectorAll(".cam-cb"));
+        var checkedCount = boxes.filter(function(cb) { return cb.checked; }).length;
+        if (checkedCount > 4) {
+            // 把最早勾的那個取消
+            var firstChecked = boxes.find(function(cb) { return cb.checked; });
+            if (firstChecked) firstChecked.checked = false;
+            setStatus("最多 4 台（2×2 視窗）— 已自動取消最早勾選", "err");
+            checkedCount = 4;
+        }
+        // disable 沒勾的（如果已達 4 個）
+        boxes.forEach(function(cb) {
+            if (checkedCount >= 4 && !cb.checked) {
+                cb.disabled = true;
+            } else {
+                cb.disabled = false;
+            }
+        });
+    });
+
+    function getSelectedCameras() {
+        var out = [];
+        $camPanel.querySelectorAll(".cam-cb:checked").forEach(function(cb) {
+            out.push({ device_id: cb.value, name: cb.dataset.name });
+        });
+        return out;
+    }
+
+    // ===== 同步撥放（2×2 視窗）=====
+    // 2026-07-08 user 加：最多 4 台同時撥放 30s 影片，⏮/⏭ 同步切段
+    // 設計：
+    //   - 4 個 slot（fixed 順序：cam1=slot0, cam2=slot1, ...）
+    //   - 觸發：勾完 1~4 台後按「▶ 同步撥放」
+    //   - 共用同一個中心時間（syncCenterIso）
+    //   - 切段按鈕：4 個 slot 同步 +5/-5 分鐘重新 fetch
+    //   - 全部關閉：釋放所有 blob URL，重置 slots
+
+    function startSyncPlay() {
+        var nvrId = $nvr.value;
+        var tVal = $t.value;
+        if (!nvrId) { setStatus("請選 NVR", "err"); return; }
+        var selectedCams = getSelectedCameras();
+        if (!selectedCams.length) { setStatus("請至少勾選一台攝影機", "err"); return; }
+        if (selectedCams.length > 4) { setStatus("最多 4 台（2×2 視窗）", "err"); return; }
+        if (!tVal) { setStatus("請選時間", "err"); return; }
+        syncCenterIso = taipeiLocalToUtcIso(tVal);
+        $syncPlayBtn.disabled = true;
+        setStatus("同步撥放 " + selectedCams.length + " 台相機（中心 " + utcIsoToTaipeiHHMMSS(syncCenterIso) + "）…");
+
+        // 釋放舊 blob、重置 slots
+        syncSlots.forEach(function(s) { if (s && s.blobUrl) URL.revokeObjectURL(s.blobUrl); });
+        syncSlots = [null, null, null, null];
+        renderSyncSlotsLoading(selectedCams);
+
+        // 每台相機並行 fetch（各自 ±15s）
+        var promises = selectedCams.map(function(cam, idx) {
+            return fetchClipForCamera(cam, syncCenterIso)
+                .then(function(result) {
+                    syncSlots[idx] = {
+                        device_id: cam.device_id,
+                        name: cam.name,
+                        blobUrl: result.blobUrl,
+                        tCenterIso: syncCenterIso,
+                        actualDur: result.actualDur,
+                        truncated: result.truncated,
+                    };
+                })
+                .catch(function(e) {
+                    syncSlots[idx] = { device_id: cam.device_id, name: cam.name, error: e.message };
+                });
+        });
+        Promise.all(promises).then(function() {
+            renderSyncSlots();
+            $syncPlayBtn.disabled = false;
+            setStatus("完成：2×2 同步撥放中（中心 " + utcIsoToTaipeiHHMMSS(syncCenterIso) + "）", "ok");
+        });
+    }
+
+    // 抽出 fetch 一台相機的 ±15s clip 邏輯（給 sync play 與單台 video 共用概念，但 sync 自己 fetch 一次）
+    function fetchClipForCamera(cam, tCenterIso) {
+        var t = new Date(tCenterIso);
+        var start = new Date(t.getTime() - 15 * 1000).toISOString();
+        var end   = new Date(t.getTime() + 15 * 1000).toISOString();
+        return fetch("/clips/fetch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                nvr_id: parseInt($nvr.value, 10),
+                camera_id: cam.device_id,
+                start: start, end: end,
+            }),
+        }).then(function(r) {
+            if (!r.ok) {
+                return r.json().then(function(j) { throw new Error(j.error || r.statusText); });
+            }
+            return r.blob().then(function(blob) {
+                return {
+                    blobUrl: URL.createObjectURL(blob),
+                    actualDur: r.headers.get("X-Actual-Duration"),
+                    truncated: r.headers.get("X-Truncated") === "true",
+                };
+            });
+        });
+    }
+
+    // 渲染 2×2 grid：4 個 cell（沒資料的 slot 顯示空）
+    function renderSyncSlots() {
+        $syncSection.classList.remove("d-none");
+        $syncCenterLabel.textContent = "中心 " + utcIsoToTaipeiHHMMSS(syncCenterIso);
+        $syncGrid.innerHTML = "";
+        for (var i = 0; i < 4; i++) {
+            var s = syncSlots[i];
+            var col = document.createElement("div");
+            col.className = "col-12 col-md-6";  // 2x2 → 在 md+ 一排 2 個
+            if (!s) {
+                col.innerHTML = '<div class="sync-slot empty">（空）</div>';
+            } else if (s.error) {
+                col.innerHTML =
+                    '<div class="sync-slot error">' +
+                    '<div class="text-center text-muted my-3">' +
+                    '<div style="font-size:2.5rem;">📭</div>' +
+                    '<div class="fw-semibold">' + esc(s.name) + '</div>' +
+                    '<div class="small mt-1">' + esc(s.error) + '</div>' +
+                    '</div></div>';
+            } else {
+                col.innerHTML =
+                    '<div class="sync-slot">' +
+                    '<video controls autoplay muted playsinline src="' + s.blobUrl + '" preload="metadata" class="sync-video"></video>' +
+                    '<div class="cam-name small fw-semibold mt-1">' + esc(s.name) + '</div>' +
+                    '</div>';
+            }
+            $syncGrid.appendChild(col);
+        }
+    }
+
+    // 載入中：4 格都顯示 ⏳
+    function renderSyncSlotsLoading(cams) {
+        $syncSection.classList.remove("d-none");
+        $syncCenterLabel.textContent = "中心 " + utcIsoToTaipeiHHMMSS(syncCenterIso);
+        $syncGrid.innerHTML = "";
+        var names = cams.map(function(c) { return c.name; });
+        for (var i = 0; i < 4; i++) {
+            var col = document.createElement("div");
+            col.className = "col-12 col-md-6";
+            var label = names[i] || "（空）";
+            col.innerHTML =
+                '<div class="sync-slot loading">' +
+                '<div class="text-center text-white my-3">' +
+                '<div style="font-size:1.8rem;">⏳</div>' +
+                '<div class="small mt-1">' + esc(label) + ' 載入中…</div>' +
+                '</div></div>';
+            $syncGrid.appendChild(col);
+        }
+    }
+
+    // 切段：4 個 slot 同步 +5/-5 分鐘
+    function shiftSyncCenter(deltaMin) {
+        if (!syncCenterIso) return;
+        // 釋放舊 blob
+        syncSlots.forEach(function(s) { if (s && s.blobUrl) URL.revokeObjectURL(s.blobUrl); });
+        var newCenter = new Date(new Date(syncCenterIso).getTime() + deltaMin * 60 * 1000).toISOString();
+        syncCenterIso = newCenter;
+
+        // 收集目前有資料的相機
+        var cams = syncSlots.filter(function(s) { return s && !s.error; })
+            .map(function(s) { return { device_id: s.device_id, name: s.name }; });
+        if (!cams.length) { setStatus("沒有可切段的相機", "err"); return; }
+
+        renderSyncSlotsLoading(cams);
+        setStatus("同步切段至 " + utcIsoToTaipeiHHMMSS(syncCenterIso) + "（" + cams.length + " 台）…");
+
+        var promises = cams.map(function(cam) {
+            var idx = syncSlots.findIndex(function(s) { return s && s.device_id === cam.device_id; });
+            return fetchClipForCamera(cam, syncCenterIso)
+                .then(function(result) {
+                    syncSlots[idx] = {
+                        device_id: cam.device_id,
+                        name: cam.name,
+                        blobUrl: result.blobUrl,
+                        tCenterIso: syncCenterIso,
+                        actualDur: result.actualDur,
+                        truncated: result.truncated,
+                    };
+                })
+                .catch(function(e) {
+                    syncSlots[idx] = { device_id: cam.device_id, name: cam.name, error: e.message };
+                });
+        });
+        Promise.all(promises).then(function() { renderSyncSlots(); });
+    }
+
+    function closeAllSyncSlots() {
+        syncSlots.forEach(function(s) { if (s && s.blobUrl) URL.revokeObjectURL(s.blobUrl); });
+        syncSlots = [null, null, null, null];
+        syncCenterIso = null;
+        $syncSection.classList.add("d-none");
+        $syncGrid.innerHTML = "";
+        setStatus("已關閉 2×2 同步撥放", "ok");
+    }
+
+    $syncPlayBtn.addEventListener("click", startSyncPlay);
+    $syncPrevBtn.addEventListener("click", function() { shiftSyncCenter(-5); });
+    $syncNextBtn.addEventListener("click", function() { shiftSyncCenter(+5); });
+    $syncCloseAllBtn.addEventListener("click", closeAllSyncSlots);
+
+    // NVR 選完後啟用 sync play button（跟 preview 一樣）
+    $nvr.addEventListener("change", function() {
+        // 等相機 list 載入後再啟用（這裡只 reset sync slots）
+        closeAllSyncSlots();
+    });
+
+    function esc(s) {
+        return String(s).replace(/[&<>"']/g, function(c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c];
+        });
+    }
+
+    // 「YYYY-MM-DDTHH:MM」（視為台北時間）→ UTC ISO 8601
+    function taipeiLocalToUtcIso(localStr) {
+        // localStr 沒秒 → 補 :00
+        var padded = /:\d{2}$/.test(localStr) ? localStr : localStr + ":00";
+        var d = new Date(padded + "+08:00");
+        if (isNaN(d.getTime())) return padded + ".000Z";
+        return d.toISOString();
+    }
+    function utcIsoToTaipeiHHMMSS(utcIso) {
+        var d = new Date(utcIso);
+        if (isNaN(d.getTime())) return utcIso;
+        return new Intl.DateTimeFormat("en-GB", {
+            timeZone: "Asia/Taipei",
+            hour: "2-digit", minute: "2-digit", second: "2-digit",
+            hour12: false,
+        }).format(d);
+    }
+})();
+</script>
+</body>
+</html>

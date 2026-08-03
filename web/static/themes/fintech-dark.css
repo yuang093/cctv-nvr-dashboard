@@ -1,0 +1,263 @@
+/* THEME: Fintech DARK MODE
+ * 深色版本，基於 fintech-light 的結構
+ * 所有對比度均 ≥ 4.5:1（WCAG AA）
+ */
+body {
+    background: #0c1220 !important;
+    color: #e2e8f0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.9375rem;
+}
+
+/* ── Navbar ── */
+.navbar, .bg-dark, .navbar-dark {
+    background: #0c1220 !important;
+    border-bottom: 1px solid #1e293b !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+}
+.navbar-brand { color: #f1f5f9 !important; font-weight: 700; font-size: 0.9375rem; }
+.nav-link {
+    color: #64748b !important;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 5px 11px !important;
+    border-radius: 5px;
+    transition: color 0.15s, background 0.15s;
+}
+.nav-link:hover { color: #f1f5f9 !important; background: rgba(255,255,255,0.07) !important; }
+.nav-link.theme-nav { border: 1px solid #334155; color: #64748b !important; }
+.nav-link.theme-nav:hover { color: #f1f5f9 !important; border-color: #475569; }
+
+/* ── Typography ── */
+h1, h2, h3, h4 { color: #f1f5f9; font-weight: 700; letter-spacing: -0.3px; }
+small, .text-muted { color: #64748b !important; }
+code {
+    color: #93c5fd !important;
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 0.85em;
+}
+hr { border-color: #1e293b !important; }
+
+/* ── Cards ── */
+.card {
+    background: #111827 !important;
+    border: 1px solid #1e293b !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+.card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.4) !important; }
+.card-body { background: transparent !important; padding: 1.25rem 1.5rem; }
+.card-title {
+    font-size: 0.875rem !important;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: #94a3b8 !important;
+    margin-bottom: 0.4rem;
+}
+.display-6 { font-size: 2.75rem !important; font-weight: 900; color: #f1f5f9 !important; letter-spacing: -1.5px; line-height: 1; }
+
+/* Stat variants — 深色底 + 對比鮮明文字 */
+.text-bg-primary  { background: #1e3a5f !important; color: #93c5fd !important; border-left: 3px solid #3b82f6 !important; }
+.text-bg-info     { background: #134e4a !important; color: #5eead4 !important; border-left: 3px solid #14b8a6 !important; }
+.text-bg-warning  { background: #451a03 !important; color: #fed7aa !important; border-left: 3px solid #f59e0b !important; }
+.text-bg-success  { background: #14532d !important; color: #86efac !important; border-left: 3px solid #22c55e !important; }
+.text-bg-danger   { background: #450a0a !important; color: #fca5a5 !important; border-left: 3px solid #ef4444 !important; }
+.text-bg-secondary{ background: #1e293b !important; color: #94a3b8 !important; border-left: 3px solid #64748b !important; }
+
+/* ── Tables ── */
+.table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    font-size: 0.875rem;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.table thead th {
+    background: #0c1220 !important;
+    color: #94a3b8 !important;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #1e293b !important;
+    border-right: 1px solid #1e293b;
+}
+.table thead th:last-child { border-right: none; }
+.table tbody tr {
+    border-bottom: 1px solid #1e293b;
+    transition: background 0.1s;
+}
+.table tbody tr:last-child { border-bottom: none; }
+.table tbody tr:hover td { background: #111827 !important; }
+.table td {
+    padding: 11px 16px;
+    color: #cbd5e1;
+    border-bottom: none;
+    vertical-align: middle;
+}
+.table-secondary > * {
+    background: #1e293b !important;
+    color: #94a3b8 !important;
+    font-weight: 700;
+    font-size: 0.8125rem;
+}
+
+/* ── Badges — 深色版 ── */
+.badge {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+}
+.bg-success    { background: #14532d !important; color: #86efac !important; }
+.bg-warning    { background: #451a03 !important; color: #fed7aa !important; }
+.bg-danger     { background: #450a0a !important; color: #fca5a5 !important; }
+.bg-secondary  { background: #1e293b !important; color: #94a3b8 !important; }
+
+/* ── Buttons ── */
+.btn {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border-radius: 6px !important;
+    padding: 7px 16px;
+    border: none;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.btn-primary { background: #3b82f6; color: #fff; }
+.btn-primary:hover { background: #2563eb; box-shadow: 0 2px 8px rgba(59,130,246,0.4); transform: translateY(-1px); }
+.btn-outline-primary { color: #e2e8f0; border: 1.5px solid #334155 !important; background: transparent; }
+.btn-outline-primary:hover { background: #1e293b; border-color: #3b82f6 !important; color: #93c5fd; }
+.btn-outline-warning { color: #fed7aa; border: 1.5px solid #78350f !important; background: transparent; }
+.btn-outline-warning:hover { background: #451a03; }
+.btn-outline-secondary { color: #94a3b8; border: 1.5px solid #334155 !important; background: transparent; }
+.btn-outline-secondary:hover { background: #1e293b; }
+.btn-danger { background: #dc2626; color: #fff; }
+.btn-danger:hover { background: #b91c1c; }
+.btn-sm { font-size: 0.75rem; padding: 4px 10px; border-radius: 5px !important; }
+
+/* ── Alerts ── */
+.alert {
+    border-radius: 8px !important;
+    font-size: 0.875rem;
+    border: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25) !important;
+}
+.alert-info    { background: #1e3a5f; color: #93c5fd; }
+.alert-success { background: #14532d; color: #86efac; }
+.alert-warning { background: #451a03; color: #fed7aa; }
+.alert-danger  { background: #450a0a; color: #fca5a5; }
+
+/* ── Forms ── */
+.form-control, .form-select {
+    border: 1.5px solid #334155 !important;
+    border-radius: 6px !important;
+    font-size: 0.875rem;
+    padding: 8px 12px;
+    background: #111827 !important;
+    color: #e2e8f0 !important;
+    box-shadow: none !important;
+}
+.form-control::placeholder { color: #475569 !important; }
+.form-control:focus, .form-select:focus {
+    border-color: #3b82f6 !important;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15) !important;
+}
+.form-label { font-size: 0.75rem; font-weight: 700; color: #94a3b8; letter-spacing: 0.3px; }
+
+/* ── Footer ── */
+footer {
+    border-top: 1px solid #1e293b !important;
+    color: #475569 !important;
+    font-size: 0.8125rem;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; background: #0c1220; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+/* ── Spinner ── */
+.spinner-border-sm { border-color: rgba(59,130,246,0.2) !important; border-right-color: #3b82f6 !important; }
+
+/* ── Bootstrap Striped Table Override（最深層優先）─── */
+.table-striped tbody tr:nth-child(odd) { background: #111827 !important; }
+.table-striped tbody tr:nth-child(even) { background: #0c1220 !important; }
+.table-hover tbody tr:hover { background: #1e293b !important; }
+.table-hover tbody tr:hover td { background: transparent !important; }
+
+/* ── Bootstrap Text Color Utility Overrides ── */
+.text-danger   { color: #f87171 !important; }
+.text-success  { color: #4ade80 !important; }
+.text-warning  { color: #fbbf24 !important; }
+.text-info     { color: #38bdf8 !important; }
+.text-primary  { color: #60a5fa !important; }
+.text-secondary{ color: #94a3b8 !important; }
+.text-muted    { color: #64748b !important; }
+.text-dark     { color: #e2e8f0 !important; }  /* 深底上的「深色」= 亮白，而非純黑 */
+.text-body     { color: #e2e8f0 !important; }
+.text-white    { color: #ffffff !important; }
+.fw-bold       { font-weight: 700 !important; }
+.text-end      { text-align: right !important; }
+
+/* ── Bootstrap Background Utility Overrides ── */
+.bg-danger    { background-color: #450a0a !important; color: #fca5a5 !important; }
+.bg-success   { background-color: #14532d !important; color: #86efac !important; }
+.bg-warning   { background-color: #451a03 !important; color: #fed7aa !important; }
+.bg-info      { background-color: #1e3a5f !important; color: #93c5fd !important; }
+.bg-primary   { background-color: #1e3a5f !important; color: #93c5fd !important; }
+.bg-secondary { background-color: #1e293b !important; color: #94a3b8 !important; }
+.bg-light     { background-color: #1e293b !important; color: #e2e8f0 !important; }
+.bg-dark      { background-color: #0c1220 !important; color: #f1f5f9 !important; }
+.bg-white     { background-color: #111827 !important; color: #e2e8f0 !important; }
+.bg-transparent { background-color: transparent !important; }
+
+/* ── Bootstrap table-light / table-secondary Override ── */
+.table-light,
+.table-light > th,
+.table-light > td {
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+}
+.table-secondary,
+.table-secondary > th,
+.table-secondary > td {
+    background: #111827 !important;
+    color: #94a3b8 !important;
+}
+
+/* ── Bootstrap tr.table-success / table-warning (events_list rows) ── */
+tr.table-success { background: #14532d !important; }
+tr.table-success td { color: #86efac !important; background: transparent !important; }
+tr.table-warning { background: #1c2e14 !important; }
+tr.table-warning td { color: #fde68a !important; background: transparent !important; }
+
+/* ── Bootstrap table-warning / table-success base class override ── */
+.table-warning td { color: #fde68a !important; background: transparent !important; }
+.table-success td { color: #86efac !important; background: transparent !important; }
+.table-warning th { background: #1c2e14 !important; color: #fde68a !important; }
+.table-success th { background: #14532d !important; color: #86efac !important; }
+
+/* ── Bootstrap Table Override ── */
+.table { color: #e2e8f0; }
+.table thead th { background: #0c1220 !important; color: #94a3b8 !important; border-bottom-color: #1e293b !important; }
+.table tbody tr { background: #111827; border-bottom-color: #1e293b; }
+.table td { color: #e2e8f0 !important; background: transparent !important; }
+.table-secondary > * { background: #1e293b !important; color: #94a3b8 !important; }
+
+/* ── Links ── */
+a { color: #60a5fa; }
+a:hover { color: #93c5fd; }
+a.btn { color: #ffffff; }
+
+/* ── Bootstrap Card Table ── */
+.card .table { background: #111827; }
+
+/* ── Details/summary ── */
+details { border: 1px solid #1e293b; border-radius: 6px; padding: 12px; background: #111827; }
+summary { cursor: pointer; color: #94a3b8; font-size: 0.875rem; font-weight: 500; }

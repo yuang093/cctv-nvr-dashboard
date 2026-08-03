@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}歷史報告 · NVR Scanner{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">📂 歷史 PDF 報告</h1>
+    <div>
+        <a href="{{ url_for('abnormal_list') }}" class="btn btn-outline-secondary">
+            ← 回故障總覽
+        </a>
+        <a href="{{ url_for('abnormal_export_pdf') }}" class="btn btn-danger">
+            📄 下載當前 PDF（即時生成，不存檔）
+        </a>
+    </div>
+</div>
+
+<p class="text-muted small">
+    📌 每次「立即掃描」完成後，會自動歸檔一份當下的故障報告 PDF 到伺服器。
+    點下方「下載」可取得歷史任意一次的快照。<br>
+    命名格式：<code>report_run&lt;run_id&gt;_&lt;日期&gt;_&lt;時間&gt;.pdf</code>。
+    {% if last_run %}目前最新：<code>run {{ last_run.id }}（{{ last_run.abnormal_cameras }} 異常相機）</code>。{% endif %}
+</p>
+
+{% if items %}
+<table class="table table-hover align-middle">
+    <thead class="table-light">
+        <tr>
+            <th>run_id</th>
+            <th>產生時間</th>
+            <th>掃描狀態</th>
+            <th class="text-end">異常相機</th>
+            <th class="text-end">檔案大小</th>
+            <th class="text-end">操作</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for it in items %}
+        <tr>
+            <td><span class="badge bg-secondary">#{{ it.run_id }}</span></td>
+            <td><code class="small">{{ it.started_at }}</code></td>
+            <td>
+                {% if it.run_status == 'ok' %}
+                    <span class="badge bg-success">✓ ok</span>
+                {% elif it.run_status == 'partial' %}
+                    <span class="badge bg-warning text-dark">⚠ partial</span>
+                {% elif it.run_status == 'failed' %}
+                    <span class="badge bg-danger">✗ failed</span>
+                {% else %}
+                    <span class="badge bg-light text-muted">? 未知</span>
+                {% endif %}
+            </td>
+            <td class="text-end">
+                {% if it.abnormal_cameras is not none %}
+                    <span class="badge bg-warning text-dark">{{ it.abnormal_cameras }}</span>
+                {% else %}
+                    <span class="text-muted">—</span>
+                {% endif %}
+            </td>
+            <td class="text-end text-muted small">
+                {{ "%.1f" | format(it.size_bytes / 1024) }} KB
+            </td>
+            <td class="text-end">
+                <a href="{{ url_for('reports_download', run_id=it.run_id) }}"
+                   class="btn btn-sm btn-primary">
+                    ⬇ 下載
+                </a>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="alert alert-info">
+    <h5>📭 目前沒有任何歸檔報告</h5>
+    <p class="mb-2 small">
+        報告會在每次「立即掃描」完成後自動產生。
+    </p>
+    <a href="{{ url_for('abnormal_list') }}" class="btn btn-sm btn-primary">
+        回到故障總覽觸發掃描
+    </a>
+</div>
+{% endif %}
+{% endblock %}

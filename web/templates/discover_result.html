@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}探索結果 #{{ session.id }} · NVR Scanner{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">🔍 探索結果 #{{ session.id }}</h1>
+    <div>
+        <a href="{{ url_for('devices_list') }}" class="btn btn-outline-secondary btn-sm">← 設備總覽</a>
+        <a href="{{ url_for('devices_discover') }}" class="btn btn-outline-secondary btn-sm">重新探索</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">CIDR</dt>
+            <dd class="col-sm-9"><code>{{ session.cidr }}</code></dd>
+            <dt class="col-sm-3">Port</dt>
+            <dd class="col-sm-9"><code>{{ session.port or 8443 }}</code></dd>
+            <dt class="col-sm-3">啟動時間</dt>
+            <dd class="col-sm-9"><code>{{ session.started_at_utc }}</code></dd>
+            {% if session.finished_at_utc %}
+            <dt class="col-sm-3">完成時間</dt>
+            <dd class="col-sm-9"><code>{{ session.finished_at_utc }}</code></dd>
+            {% endif %}
+            <dt class="col-sm-3">狀態</dt>
+            <dd class="col-sm-9">
+                {% if session.status == 'completed' %}<span class="badge bg-success">完成</span>
+                {% elif session.status == 'pending' %}<span class="badge bg-warning text-dark">排隊中</span>
+                {% elif session.status == 'running' %}<span class="badge bg-info">執行中</span>
+                {% elif session.status == 'failed' %}<span class="badge bg-danger">失敗</span>
+                {% else %}<span class="badge bg-secondary">{{ session.status }}</span>{% endif %}
+            </dd>
+            <dt class="col-sm-3">總掃描 IP</dt>
+            <dd class="col-sm-9">{{ session.results | length }}</dd>
+            {% set avigilon_hits = session.results | selectattr('is_avigilon') | list %}
+            {% set open_hits = session.results | selectattr('open') | list %}
+            {% set skipped_hits = session.results | selectattr('skipped') | list %}
+            <dt class="col-sm-3">Port Open / Avigilon / Skipped</dt>
+            <dd class="col-sm-9">
+                <span class="badge bg-info text-dark">{{ open_hits | length }} open</span>
+                <span class="badge bg-success">{{ avigilon_hits | length }} Avigilon</span>
+                <span class="badge bg-secondary">{{ skipped_hits | length }} skipped</span>
+            </dd>
+        </dl>
+    </div>
+</div>
+
+{% if session.status == 'running' %}
+<div class="alert alert-info">
+    ⏳ 探測進行中...請稍候重新整理此頁。
+</div>
+{% endif %}
+
+{% if session.results %}
+<h2 class="h5 mt-4 mb-2">📡 探測結果</h2>
+<div class="table-responsive">
+<table class="table table-sm table-striped align-middle">
+    <thead class="table-dark">
+        <tr>
+            <th>IP</th>
+            <th>狀態</th>
+            <th>Avigilon</th>
+            <th>HTTP</th>
+            <th>備註</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in session.results %}
+        <tr>
+            <td><code>{{ r.ip }}</code></td>
+            <td>
+                {% if r.skipped %}<span class="badge bg-secondary">skipped</span>
+                {% elif r.open %}<span class="badge bg-info text-dark">open</span>
+                {% else %}<span class="badge bg-light text-dark">closed</span>{% endif %}
+            </td>
+            <td>
+                {% if r.is_avigilon %}<span class="badge bg-success">✓ Avigilon</span>
+                {% else %}—{% endif %}
+            </td>
+            <td>
+                {% if r.status_code %}<code>{{ r.status_code }}</code>{% else %}—{% endif %}
+            </td>
+            <td class="text-muted small">
+                {% if r.reason %}{{ r.reason }}{% endif %}
+                {% if r.error %}· {{ r.error }}{% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% if avigilon_hits %}
+<div class="alert alert-success mt-3">
+    🎉 找到 <strong>{{ avigilon_hits | length }}</strong> 台 Avigilon NVR — 可至
+    <a href="{{ url_for('nvrs_list') }}" class="alert-link">NVR 清單</a> 手動加入。
+    <small class="text-muted">（Phase #6 自動 add 流程待下階段實作。）</small>
+</div>
+{% endif %}
+{% else %}
+<div class="alert alert-secondary mt-3">
+    無結果。可能 CIDR 內無 host IP、或探測被跳過。
+</div>
+{% endif %}
+{% endblock %}

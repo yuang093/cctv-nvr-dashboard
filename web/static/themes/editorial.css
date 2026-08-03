@@ -1,0 +1,256 @@
+/* THEME: Editorial / Print Magazine
+ * 黑白為主，襯線標題，無襯線內文，粗細黑色分隔線，NO 圓角
+ * 襯線：Playfair Display / Georgia；無襯線：Inter
+ */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Inter:wght@400;500;600&display=swap');
+
+body {
+    background: #ffffff !important;
+    color: #1a1a1a;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.9375rem;
+    line-height: 1.7;
+}
+
+/* ── Navbar ── */
+.navbar, .bg-dark, .navbar-dark {
+    background: #ffffff !important;
+    border-bottom: 2px solid #1a1a1a !important;
+    box-shadow: none !important;
+}
+.navbar-brand {
+    font-family: 'Playfair Display', Georgia, serif;
+    color: #1a1a1a !important;
+    font-weight: 900;
+    font-size: 1.25rem;
+    letter-spacing: -0.5px;
+}
+.nav-link {
+    font-family: 'Inter', sans-serif;
+    color: #666666 !important;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 4px 10px !important;
+    border-radius: 0 !important;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+}
+.nav-link:hover {
+    color: #1a1a1a !important;
+    border-bottom-color: #1a1a1a;
+    background: transparent !important;
+}
+.nav-link.theme-nav {
+    border: 1.5px solid #1a1a1a;
+    color: #1a1a1a !important;
+    font-weight: 600;
+}
+.nav-link.theme-nav:hover {
+    background: #1a1a1a;
+    color: #fff !important;
+}
+
+/* ── Typography ── */
+h1, h2, h3, h4 {
+    font-family: 'Playfair Display', Georgia, serif;
+    color: #1a1a1a;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    line-height: 1.3;
+}
+h1 { font-size: 2.2rem; font-weight: 900; }
+h2 { font-size: 1.6rem; }
+h3 { font-size: 1.2rem; }
+small, .text-muted { color: #888888 !important; font-family: 'Inter', sans-serif; }
+code {
+    font-family: 'Inter', monospace;
+    color: #1a1a1a !important;
+    background: #f5f5f5 !important;
+    border: none !important;
+    border-bottom: 1.5px solid #1a1a1a !important;
+    border-radius: 0 !important;
+    padding: 1px 4px;
+    font-size: 0.85em;
+    font-weight: 500;
+}
+hr {
+    border: none !important;
+    border-top: 1.5px solid #1a1a1a !important;
+    margin: 2rem 0;
+}
+
+/* ── Cards (stat boxes) ── */
+.card {
+    background: #ffffff !important;
+    border: none !important;
+    border-left: 4px solid #1a1a1a !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+.card-body { background: transparent !important; padding: 0; }
+.card-title {
+    font-size: 0.625rem !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #888888 !important;
+    margin-bottom: 0.3rem;
+    font-family: 'Inter', sans-serif;
+}
+.display-6 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 2.4rem;
+    font-weight: 900;
+    color: #1a1a1a !important;
+    letter-spacing: -1px;
+}
+
+/* Stat variants — 粗黑左邊條，無圓角 */
+.text-bg-primary  { background: #f5f5f5 !important; color: #1a1a1a !important; border-left-color: #1a1a1a !important; }
+.text-bg-info     { background: #f5f5f5 !important; color: #1a1a1a !important; border-left-color: #555555 !important; }
+.text-bg-warning  { background: #f5f5f5 !important; color: #1a1a1a !important; border-left-color: #888888 !important; }
+.text-bg-success  { background: #f5f5f5 !important; color: #1a1a1a !important; border-left-color: #1a1a1a !important; }
+.text-bg-danger   { background: #f5f5f5 !important; color: #1a1a1a !important; border-left-color: #888888 !important; }
+.text-bg-secondary{ background: #f5f5f5 !important; color: #666666 !important; border-left-color: #cccccc !important; }
+
+/* ── Tables ── */
+.table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.875rem;
+    border-top: 2px solid #1a1a1a;
+}
+.table thead th {
+    font-family: 'Inter', sans-serif;
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #1a1a1a !important;
+    border-right: 1px solid #e0e0e0;
+}
+.table thead th:last-child { border-right: none; }
+.table tbody tr {
+    border-bottom: 1px solid #e0e0e0;
+    transition: background 0.1s;
+}
+.table tbody tr:hover td { background: #f5f5f5 !important; }
+.table td {
+    padding: 11px 14px;
+    color: #333333;
+    border-bottom: none;
+    border-right: none;
+    font-family: 'Inter', sans-serif;
+    vertical-align: middle;
+}
+.table-secondary > * {
+    background: #f5f5f5 !important;
+    color: #1a1a1a !important;
+    font-weight: 700;
+    font-size: 0.8125rem;
+    font-family: 'Inter', sans-serif;
+}
+
+/* ── Badges ── */
+.badge {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 0 !important;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+}
+.bg-success    { background: #ffffff !important; color: #1a1a1a !important; }
+.bg-warning    { background: #ffffff !important; color: #555555 !important; }
+.bg-danger     { background: #ffffff !important; color: #888888 !important; }
+.bg-secondary  { background: #f5f5f5 !important; color: #555555 !important; }
+
+/* ── Buttons ── */
+.btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    border-radius: 0 !important;
+    padding: 9px 20px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: 2px solid #1a1a1a !important;
+    transition: all 0.15s;
+}
+.btn-primary { background: #1a1a1a; color: #fff; }
+.btn-primary:hover { background: #333333; }
+.btn-outline-primary { color: #1a1a1a; background: transparent; }
+.btn-outline-primary:hover { background: #1a1a1a; color: #fff; }
+.btn-outline-warning { color: #1a1a1a; border-color: #1a1a1a !important; background: transparent; }
+.btn-outline-warning:hover { background: #f5f5f5; }
+.btn-outline-secondary { color: #555555; border-color: #cccccc !important; background: transparent; }
+.btn-outline-secondary:hover { background: #f5f5f5; color: #1a1a1a; }
+.btn-danger { background: #1a1a1a; color: #fff; }
+.btn-danger:hover { background: #444444; }
+.btn-sm { font-size: 0.6875rem; padding: 5px 10px; border-radius: 0 !important; letter-spacing: 1px; }
+
+/* ── Alerts ── */
+.alert {
+    border-radius: 0 !important;
+    font-size: 0.875rem;
+    border: none !important;
+    border-left: 4px solid #1a1a1a;
+    background: #f5f5f5;
+    font-family: 'Inter', sans-serif;
+}
+.alert-info    { background: #f5f5f5; color: #1a1a1a; border-left-color: #555555; }
+.alert-success { background: #f5f5f5; color: #1a1a1a; border-left-color: #1a1a1a; }
+.alert-warning { background: #f5f5f5; color: #555555; border-left-color: #888888; }
+.alert-danger  { background: #f5f5f5; color: #888888; border-left-color: #cccccc; }
+
+/* ── Forms ── */
+.form-control, .form-select {
+    border: none !important;
+    border-bottom: 1.5px solid #1a1a1a !important;
+    border-radius: 0 !important;
+    font-size: 0.875rem;
+    padding: 8px 0;
+    background: transparent !important;
+    color: #1a1a1a !important;
+    box-shadow: none !important;
+}
+.form-control:focus, .form-select:focus {
+    outline: none;
+    border-bottom-color: #888888 !important;
+    box-shadow: none !important;
+}
+.form-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #555555;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+/* ── Footer ── */
+footer {
+    border-top: 2px solid #1a1a1a !important;
+    color: #888888 !important;
+    font-size: 0.8125rem;
+    font-family: 'Inter', sans-serif;
+    padding-top: 1.5rem;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; background: #fff; }
+::-webkit-scrollbar-thumb { background: #ccc; }
+
+/* ── Spinner ── */
+.spinner-border-sm { border-color: #1a1a1a !important; border-right-color: transparent !important; border-bottom-color: transparent !important; }
+
+/* ── Details/summary ── */
+details { border: none; border-top: 1.5px solid #1a1a1a; padding: 12px 0; }
+summary { cursor: pointer; color: #555555; font-size: 0.875rem; font-family: 'Inter', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }

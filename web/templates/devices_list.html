@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}設備總覽 · NVR Scanner{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">📷 設備總覽</h1>
+    <div>
+        <a href="{{ url_for('wall') }}" class="btn btn-outline-primary">📹 相機牆</a>
+        <a href="{{ url_for('devices_discover') }}" class="btn btn-outline-secondary">🔍 探索網段</a>
+    </div>
+</div>
+
+<form class="row g-2 mb-3" method="get" action="{{ url_for('devices_list') }}">
+    <div class="col-auto">
+        <select name="nvr" class="form-select form-select-sm">
+            <option value="">全部 NVR</option>
+            {% for n in nvrs %}
+            <option value="{{ n.id }}" {% if nvr_filter == n.id|string %}selected{% endif %}>
+                {{ n.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="status" class="form-select form-select-sm">
+            <option value="">全部狀態</option>
+            <option value="online"      {% if status_filter == 'online' %}selected{% endif %}>在線</option>
+            <option value="signal_lost" {% if status_filter == 'signal_lost' %}selected{% endif %}>訊號中斷</option>
+            <option value="no_signal"   {% if status_filter == 'no_signal' %}selected{% endif %}>無訊號</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-outline-secondary">套用</button>
+        <a href="{{ url_for('devices_list') }}" class="btn btn-sm btn-outline-secondary">清除</a>
+    </div>
+</form>
+
+{% if rows %}
+<table class="table table-striped table-hover">
+    <thead>
+        <tr>
+            <th>NVR</th>
+            <th>攝影機名稱</th>
+            <th>device_id</th>
+            <th>狀態</th>
+            <th>最新未解事件</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+        <tr>
+            <td>{{ r.nvr_name }}</td>
+            <td>{{ r.camera_name }}</td>
+            <td>device_id: <code>{{ r.device_id }}</code></td>
+            <td>
+                {% if r.category == 'online' %}
+                    <span class="badge bg-success">✓ 在線</span>
+                {% elif r.category == 'signal_lost' %}
+                    <span class="badge bg-danger">⚠ 訊號中斷</span>
+                {% elif r.category == 'no_signal' %}
+                    <span class="badge bg-warning text-dark">⚠ 無訊號</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if r.latest_topic_zh %}
+                    <span class="badge bg-secondary">{{ r.latest_topic_zh }}</span>
+                {% else %}
+                    <span class="text-muted">—</span>
+                {% endif %}
+            </td>
+            <td><a href="{{ url_for('device_detail', device_id=r.device_id) }}"
+                   class="btn btn-sm btn-outline-primary">詳情</a></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if total_pages > 1 %}
+<nav>
+    <ul class="pagination pagination-sm justify-content-center">
+        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('devices_list', page=page-1, nvr=nvr_filter, status=status_filter) }}">‹ 上一頁</a>
+        </li>
+        {% for p in range(1, total_pages + 1) %}
+        <li class="page-item {% if p == page %}active{% endif %}">
+            <a class="page-link" href="{{ url_for('devices_list', page=p, nvr=nvr_filter, status=status_filter) }}">{{ p }}</a>
+        </li>
+        {% endfor %}
+        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('devices_list', page=page+1, nvr=nvr_filter, status=status_filter) }}">下一頁 ›</a>
+        </li>
+    </ul>
+    <p class="text-center text-muted small">
+        顯示第 {{ (page - 1) * per_page + 1 }} - {{ [page * per_page, total] | min }} 筆 / 共 {{ total }} 筆
+    </p>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="alert alert-info">尚無設備資料。先跑 <code>python nvr_scanner.py</code> 建立掃描。</div>
+{% endif %}
+{% endblock %}

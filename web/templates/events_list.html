@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}異常事件 · NVR Scanner{% endblock %}
+{% block content %}
+<h1 class="mb-4">異常事件</h1>
+
+<form method="get" class="row g-2 mb-4 align-items-end">
+    <div class="col-md-2">
+        <label class="form-label small text-muted">時間範圍（小時）</label>
+        <select name="hours" class="form-select form-select-sm">
+            {% for h in [1, 6, 24, 72, 168, 720] %}
+                <option value="{{ h }}" {% if h == hours %}selected{% endif %}>
+                    {% if h == 1 %}1 小時
+                    {% elif h == 6 %}6 小時
+                    {% elif h == 24 %}1 天
+                    {% elif h == 72 %}3 天
+                    {% elif h == 168 %}1 週
+                    {% elif h == 720 %}30 天{% endif %}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small text-muted">狀態</label>
+        <select name="status" class="form-select form-select-sm">
+            <option value="all" {% if status == 'all' %}selected{% endif %}>全部</option>
+            <option value="open" {% if status == 'open' %}selected{% endif %}>未恢復 (OPEN)</option>
+            <option value="resolved" {% if status == 'resolved' %}selected{% endif %}>已恢復 (RESOLVED)</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small text-muted">NVR</label>
+        <select name="nvr_id" class="form-select form-select-sm">
+            <option value="">（全部）</option>
+            {% for n in all_nvrs %}
+                <option value="{{ n.id }}" {% if n.id == nvr_id %}selected{% endif %}>
+                    {{ n.name }} ({{ n.nvr_id }})
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small text-muted">主題（LIKE 匹配）</label>
+        <input type="text" name="topic" class="form-control form-control-sm"
+               value="{{ topic }}" placeholder="DEVICE_VIDEO, STATE_...">
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary btn-sm w-100">篩選</button>
+    </div>
+</form>
+<div class="row mb-3">
+    <div class="col text-end">
+        <a href="{{ url_for('events_list') }}" class="btn btn-outline-secondary btn-sm">清除</a>
+    </div>
+</div>
+
+{% if all_topics %}
+<div class="mb-3">
+    <small class="text-muted me-2">常見主題：</small>
+    {% for t in all_topics %}
+        <a href="?topic={{ t }}&hours={{ hours }}{% if status != 'all' %}&status={{ status }}{% endif %}{% if nvr_id %}&nvr_id={{ nvr_id }}{% endif %}" class="badge bg-secondary text-decoration-none">{{ topic_zh(t) }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if events %}
+<p class="text-muted small">共 {{ events|length }} 筆（最多 200 筆）</p>
+<table class="table table-sm table-striped table-hover">
+    <thead>
+        <tr>
+            <th style="width:80px">狀態</th>
+            <th style="width:60px">#</th>
+            <th style="width:130px">偵測時間</th>
+            <th style="width:130px">事件時間</th>
+            <th style="width:130px">恢復時間</th>
+            <th style="width:160px">NVR</th>
+            <th style="width:180px">攝影機</th>
+            <th>主題</th>
+            <th style="width:80px">Scan</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for e in events %}
+        <tr class="{% if e.status == 'resolved' %}table-success{% else %}table-warning{% endif %}">
+            <td>
+                {% if e.status == 'resolved' %}
+                    <span class="badge bg-success">已恢復</span>
+                {% else %}
+                    <span class="badge bg-warning">進行中</span>
+                {% endif %}
+            </td>
+            <td><span class="small text-muted">#</span>{{ e.id }}</td>
+            {% set detected = (e.detected_at | taipei).split(' ') %}
+            {% set occurred = (e.occurred_at | taipei).split(' ') %}
+            {% set resolved = (e.resolved_at | taipei).split(' ') if e.resolved_at else None %}
+            <td>
+                <div style="line-height:1.3;font-weight:600;margin-bottom:2px">{{ detected[0] }}</div>
+                <div class="text-muted" style="font-size:0.75em">{{ detected[1] }}</div>
+            </td>
+            <td>
+                <div style="line-height:1.3;font-weight:600;margin-bottom:2px">{{ occurred[0] }}</div>
+                <div class="text-muted" style="font-size:0.75em">{{ occurred[1] }}</div>
+            </td>
+            <td>
+                {% if resolved %}
+                    <div style="line-height:1.3;font-weight:600;margin-bottom:2px">{{ resolved[0] }}</div>
+                    <div class="text-success" style="font-size:0.75em">{{ resolved[1] }}</div>
+                {% else %}
+                    <span class="text-muted">—</span>
+                {% endif %}
+            </td>
+            <td>
+                <div>{{ e.nvr_name }}</div>
+                <small class="text-muted">{{ e.nvr_id }}</small>
+            </td>
+            <td>
+                <div>{{ e.camera_name or '(未知名)' }}</div>
+            </td>
+            <td><span class="badge bg-secondary">{{ topic_zh(e.event_topic) }}</span></td>
+            <td><a href="{{ url_for('run_detail', run_id=e.scan_run_id) }}" class="btn btn-sm btn-outline-primary">#{{ e.scan_run_id }}</a></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="alert alert-success">所選條件下無異常事件</div>
+{% endif %}
+{% endblock %}

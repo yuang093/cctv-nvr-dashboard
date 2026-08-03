@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}健康歷史 · {{ cam.camera_name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">📈 健康歷史 — {{ cam.camera_name }}</h1>
+    <div>
+        <a href="{{ url_for('device_detail', device_id=cam.device_id) }}" class="btn btn-outline-secondary btn-sm">← 返回詳情</a>
+    </div>
+</div>
+
+{% if history %}
+<table class="table table-striped table-hover">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>檢查時間（UTC）</th>
+            <th>blur_var</th>
+            <th>mean_luma</th>
+            <th>frozen_diff</th>
+            <th>觸發 flags</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for h in history %}
+        <tr>
+            <td>{{ h.id }}</td>
+            <td><code>{{ h.checked_at_utc }}</code></td>
+            <td>{{ "%.1f" | format(h.metrics.blur_var | default(0)) }}</td>
+            <td>{{ "%.2f" | format(h.metrics.mean_luma | default(0)) }}</td>
+            <td>{{ "%.2f" | format(h.metrics.frozen_diff | default(0)) }}</td>
+            <td>
+                {% for f in h.flags %}
+                    <span class="badge bg-warning text-dark">{{ f }}</span>
+                {% endfor %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="alert alert-info">
+    此 cam 尚無 image_health_checks 紀錄。執行 <code>NVR_IMAGE_HEALTH=1 python nvr_scanner.py</code> 啟用。
+</div>
+{% endif %}
+{% endblock %}

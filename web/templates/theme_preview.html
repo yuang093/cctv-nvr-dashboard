@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+{% block title %}選擇儀表板風格 · NVR Scanner{% endblock %}
+{% block content %}
+<style>
+/* Shared layout */
+.theme-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
+    padding: 24px 0;
+}
+.theme-card {
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.18s, box-shadow 0.18s;
+    border: 2px solid transparent;
+}
+.theme-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+.theme-card.selected {
+    border-color: #1a1a1a;
+    box-shadow: 0 0 0 3px rgba(26,26,26,0.15);
+}
+.theme-preview {
+    height: 280px;
+    position: relative;
+    overflow: hidden;
+}
+.theme-meta {
+    padding: 16px 20px;
+    background: #fff;
+    border-top: 1px solid #eee;
+}
+.theme-meta h5 { margin: 0 0 4px; font-size: 0.9375rem; font-weight: 700; }
+.theme-meta p { margin: 0; font-size: 0.8125rem; color: #666; }
+.theme-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    margin-top: 6px;
+    font-weight: 600;
+}
+
+/* ── 1. Nordic Minimalist ── */
+.n1 { background: #ffffff; }
+.n1-nav { background: #ffffff; border-bottom: 1px solid #e4e4e7; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+.n1-logo { font-weight: 900; font-size: 13px; color: #18181b; }
+.n1-links { display: flex; gap: 8px; margin-left: auto; }
+.n1-link { font-size: 10px; color: #71717a; font-weight: 500; padding: 3px 8px; border-radius: 4px; }
+.n1-body { padding: 16px; }
+.n1-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.n1-card { border: 1px solid #e4e4e7; border-radius: 6px; padding: 12px 10px; text-align: center; background: #fff; }
+.n1-num { font-size: 20px; font-weight: 800; color: #18181b; letter-spacing: -0.5px; }
+.n1-lbl { font-size: 8px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
+.n1-bar { height: 1px; background: #e4e4e7; margin: 12px 0; }
+.n1-row { display: flex; align-items: center; padding: 7px 0; border-bottom: 1px solid #f4f4f5; gap: 8px; }
+.n1-row-id { font-size: 9px; color: #a1a1aa; width: 16px; }
+.n1-row-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+.n1-row-text { flex: 1; font-size: 11px; color: #3f3f46; }
+.n1-row-val { font-size: 10px; font-weight: 700; color: #71717a; }
+
+/* ── 2. Neo-Brutalism ── */
+.n2 { background: #fffffe; }
+.n2-nav { background: #fffffe; border-bottom: 3px solid #1a1a1a; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+.n2-logo { font-weight: 900; font-size: 13px; color: #1a1a1a; letter-spacing: -0.3px; }
+.n2-links { display: flex; gap: 6px; margin-left: auto; }
+.n2-link { font-size: 10px; font-weight: 800; color: #1a1a1a; padding: 3px 8px; border: 2px solid #1a1a1a; font-weight: 700; }
+.n2-body { padding: 16px; }
+.n2-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.n2-card { background: #fff; border: 2.5px solid #1a1a1a; box-shadow: 4px 4px 0 0 #1a1a1a; padding: 10px 8px; text-align: center; }
+.n2-num { font-size: 20px; font-weight: 900; color: #1a1a1a; letter-spacing: -0.5px; }
+.n2-lbl { font-size: 7px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #1a1a1a; margin-top: 2px; }
+.n2-row { display: flex; align-items: center; padding: 7px 0; border-bottom: 1.5px solid #1a1a1a; gap: 8px; }
+.n2-row-id { font-size: 9px; font-weight: 900; color: #1a1a1a; width: 16px; }
+.n2-row-dot { width: 8px; height: 8px; background: #76ff03; border: 1.5px solid #1a1a1a; flex-shrink: 0; }
+.n2-row-text { flex: 1; font-size: 11px; font-weight: 700; color: #1a1a1a; }
+.n2-row-val { font-size: 10px; font-weight: 900; color: #1a1a1a; }
+
+/* ── 3. Modern Enterprise / Fintech ── */
+.n3 { background: #f8fafc; }
+.n3-nav { background: #0f172a; border-bottom: 1px solid #1e293b; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+.n3-logo { font-weight: 700; font-size: 12px; color: #f1f5f9; }
+.n3-links { display: flex; gap: 6px; margin-left: auto; }
+.n3-link { font-size: 10px; color: #94a3b8; font-weight: 500; padding: 3px 8px; border-radius: 4px; }
+.n3-link:hover { color: #f1f5f9; }
+.n3-body { padding: 16px; }
+.n3-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.n3-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 10px; text-align: center; border-top: 3px solid #3b82f6; }
+.n3-num { font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
+.n3-lbl { font-size: 8px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
+.n3-bar { height: 1px; background: #e2e8f0; margin: 12px 0; }
+.n3-row { display: flex; align-items: center; padding: 8px 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 5px; gap: 8px; margin-bottom: 6px; }
+.n3-row-dot { width: 7px; height: 7px; border-radius: 50%; background: #3b82f6; flex-shrink: 0; }
+.n3-row-text { flex: 1; font-size: 10px; color: #334155; font-weight: 500; }
+.n3-row-val { font-size: 10px; font-weight: 700; color: #94a3b8; }
+
+/* ── 4. Earthy / Organic ── */
+.n4 { background: #faf8f5; }
+.n4-nav { background: #faf8f5; border-bottom: 1px solid #d6cfc4; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+.n4-logo { font-weight: 700; font-size: 13px; color: #3d2c1e; }
+.n4-links { display: flex; gap: 6px; margin-left: auto; }
+.n4-link { font-size: 10px; color: #7a6a58; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+.n4-body { padding: 16px; }
+.n4-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.n4-card { background: #fff; border: 1px solid #e8e0d4; border-radius: 14px; padding: 12px 10px; text-align: center; }
+.n4-num { font-size: 20px; font-weight: 800; color: #3d2c1e; }
+.n4-lbl { font-size: 8px; color: #9e8e7e; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
+.n4-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #ede8e0; gap: 8px; }
+.n4-row-dot { width: 8px; height: 8px; border-radius: 50%; background: #87a878; flex-shrink: 0; }
+.n4-row-text { flex: 1; font-size: 11px; color: #5c4a36; font-weight: 500; }
+.n4-row-val { font-size: 10px; color: #9e8e7e; font-weight: 700; }
+
+/* ── 5. Editorial / Print Magazine ── */
+.n5 { background: #ffffff; }
+.n5-nav { background: #ffffff; border-bottom: 2px solid #1a1a1a; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+.n5-logo { font-family: Georgia, serif; font-weight: 900; font-size: 16px; color: #1a1a1a; letter-spacing: -0.5px; }
+.n5-links { display: flex; gap: 0; margin-left: auto; border-left: 1.5px solid #e0e0e0; padding-left: 12px; }
+.n5-link { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #888; padding: 2px 8px; border-right: 1.5px solid #e0e0e0; }
+.n5-body { padding: 20px 16px; }
+.n5-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-bottom: 16px; border: 1.5px solid #e0e0e0; }
+.n5-card { padding: 14px 12px; border-right: 1.5px solid #e0e0e0; text-align: left; }
+.n5-card:last-child { border-right: none; }
+.n5-num { font-family: Georgia, serif; font-size: 28px; font-weight: 900; color: #1a1a1a; letter-spacing: -1px; line-height: 1; }
+.n5-lbl { font-size: 7px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #888; margin-top: 4px; }
+.n5-row { display: flex; align-items: center; padding: 9px 0; border-bottom: 1px solid #e0e0e0; gap: 10px; }
+.n5-row:last-child { border-bottom: none; }
+.n5-row-id { font-size: 9px; color: #ccc; font-weight: 700; width: 14px; }
+.n5-row-dot { width: 6px; height: 6px; background: #1a1a1a; flex-shrink: 0; }
+.n5-row-text { flex: 1; font-size: 11px; color: #333; font-weight: 500; }
+.n5-row-val { font-size: 10px; font-weight: 700; color: #888; }
+
+/* ── 6. E-ink / Monochrome ── */
+.n6 { background: #ffffff; }
+.n6-nav { background: #111111; border-bottom: 1px solid #333; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+.n6-logo { font-weight: 700; font-size: 12px; color: #fff; letter-spacing: 0.3px; }
+.n6-links { display: flex; gap: 6px; margin-left: auto; }
+.n6-link { font-size: 10px; color: #888; font-weight: 500; padding: 3px 8px; border-radius: 2px; }
+.n6-body { padding: 16px; }
+.n6-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; }
+.n6-card { border: 1px solid #ddd; border-radius: 3px; padding: 10px 8px; text-align: center; }
+.n6-num { font-size: 20px; font-weight: 800; color: #111; }
+.n6-lbl { font-size: 8px; color: #666; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
+.n6-row { display: flex; align-items: center; padding: 7px 0; border-bottom: 1px solid #eee; gap: 8px; }
+.n6-row-id { font-size: 9px; color: #999; width: 16px; }
+.n6-row-dot { width: 6px; height: 6px; border-radius: 50%; background: #333; flex-shrink: 0; }
+.n6-row-text { flex: 1; font-size: 11px; color: #333; }
+.n6-row-val { font-size: 10px; font-weight: 700; color: #666; }
+</style>
+
+<div class="mb-4">
+    <h2 class="mb-1">選擇儀表板風格</h2>
+    <p class="text-muted mb-0" style="font-size:0.9rem">點擊任一卡片即可套用</p>
+</div>
+
+<form method="POST" action="{{ url_for('theme_apply') }}" id="themeForm">
+    <input type="hidden" name="theme" id="themeInput" value="">
+
+    <div class="theme-grid">
+
+        <!-- 1. Nordic Minimalist -->
+        <div class="theme-card" onclick="selectTheme('nordic', this)">
+            <div class="theme-preview n1">
+                <div class="n1-nav">
+                    <div class="n1-logo">NVR Scanner</div>
+                    <div class="n1-links">
+                        <span class="n1-link">Dashboard</span>
+                        <span class="n1-link">Events</span>
+                        <span class="n1-link" style="border:1px solid #e4e4e7">NVRs</span>
+                    </div>
+                </div>
+                <div class="n1-body">
+                    <div class="n1-cards">
+                        <div class="n1-card"><div class="n1-num">04</div><div class="n1-lbl">NVR</div></div>
+                        <div class="n1-card"><div class="n1-num">32</div><div class="n1-lbl">CAMERAS</div></div>
+                        <div class="n1-card"><div class="n1-num">07</div><div class="n1-lbl">ALERTS</div></div>
+                        <div class="n1-card"><div class="n1-num">OK</div><div class="n1-lbl">STATUS</div></div>
+                    </div>
+                    <div class="n1-bar"></div>
+                    <div class="n1-row">
+                        <div class="n1-row-id">#8</div>
+                        <div class="n1-row-dot"></div>
+                        <div class="n1-row-text">HQ-NVR-01 · 2026-07-03 14:00</div>
+                        <div class="n1-row-val">0/8</div>
+                    </div>
+                    <div class="n1-row">
+                        <div class="n1-row-id">#7</div>
+                        <div class="n1-row-dot" style="background:#f59e0b"></div>
+                        <div class="n1-row-text">BR-NVR-02 · 2026-07-03 13:00</div>
+                        <div class="n1-row-val">2/8</div>
+                    </div>
+                </div>
+            </div>
+            <div class="theme-meta">
+                <h5>✦ 北歐極簡 (Nordic)</h5>
+                <p>純白背景，深炭灰文字，大量留白，1px 細線分隔</p>
+                <span class="theme-tag" style="background:#f4f4f5;color:#71717a;border:1px solid #e4e4e7">淺色 · 無陰影</span>
+            </div>
+        </div>
+
+        <!-- 2. Neo-Brutalism -->
+        <div class="theme-card" onclick="selectTheme('brutal', this)">
+            <div class="theme-preview n2">
+                <div class="n2-nav">
+                    <div class="n2-logo">NVR SCANNER</div>
+                    <div class="n2-links">
+                        <span class="n2-link">DASH</span>
+                        <span class="n2-link">EVENTS</span>
+                        <span class="n2-link" style="background:#ffff00">NVRS</span>
+                    </div>
+                </div>
+                <div class="n2-body">
+                    <div class="n2-cards">
+                        <div class="n2-card"><div class="n2-num">04</div><div class="n2-lbl">NVR</div></div>
+                        <div class="n2-card"><div class="n2-num">32</div><div class="n2-lbl">CAMERAS</div></div>
+                        <div class="n2-card" style="background:#ffff00"><div class="n2-num">07</div><div class="n2-lbl">ALERTS</div></div>
+                        <div class="n2-card"><div class="n2-num" style="color:#76ff03">OK</div><div class="n2-lbl">STATUS</div></div>
+                    </div>
+                    <div class="n2-row">
+                        <div class="n2-row-id">1</div>
+                        <div class="n2-row-dot" style="background:#76ff03"></div>
+                        <div class="n2-row-text">HQ-NVR-01 · 2026-07-03 14:00</div>
+                        <div class="n2-row-val">0/8</div>
+                    </div>
+                    <div class="n2-row">
+                        <div class="n2-row-id">2</div>
+                        <div class="n2-row-dot" style="background:#ff9100"></div>
+                        <div class="n2-row-text">BR-NVR-02 · 2026-07-03 13:00</div>
+                        <div class="n2-row-val">2/8</div>
+                    </div>
+                </div>
+            </div>
+            <div class="theme-meta">
+                <h5>■ 新粗野主義 (Neo-Brutalist)</h5>
+                <p>粗黑邊框，硬陰影 (4px)，高對比，亮黃/正綠強調</p>
+                <span class="theme-tag" style="background:#fffffe;color:#1a1a1a;border:2px solid #1a1a1a;font-weight:900">大膽 · 無圓角</span>
+            </div>
+        </div>
+
+        <!-- 3. Modern Enterprise / Fintech -->
+        <div class="theme-card" onclick="selectTheme('fintech', this)">
+            <div class="theme-preview n3">
+                <div class="n3-nav">
+                    <div class="n3-logo">NVR Scanner</div>
+                    <div class="n3-links">
+                        <span class="n3-link">Dashboard</span>
+                        <span class="n3-link">Events</span>
+                        <span class="n3-link" style="color:#f1f5f9">NVRs</span>
+                    </div>
+                </div>
+                <div class="n3-body">
+                    <div class="n3-cards">
+                        <div class="n3-card"><div class="n3-num">04</div><div class="n3-lbl">NVR</div></div>
+                        <div class="n3-card"><div class="n3-num">32</div><div class="n3-lbl">CAMERAS</div></div>
+                        <div class="n3-card"><div class="n3-num">07</div><div class="n3-lbl">ALERTS</div></div>
+                        <div class="n3-card" style="border-top-color:#22c55e"><div class="n3-num" style="color:#22c55e">OK</div><div class="n3-lbl">STATUS</div></div>
+                    </div>
+                    <div class="n3-row">
+                        <div class="n3-row-dot" style="background:#22c55e"></div>
+                        <div class="n3-row-text">HQ-NVR-01 · 2026-07-03 14:00</div>
+                        <div class="n3-row-val">0/8</div>
+                    </div>
+                    <div class="n3-row">
+                        <div class="n3-row-dot" style="background:#f59e0b"></div>
+                        <div class="n3-row-text">BR-NVR-02 · 2026-07-03 13:00</div>
+                        <div class="n3-row-val">2/8</div>
+                    </div>
+                </div>
+            </div>
+            <div class="theme-meta">
+                <h5>◆ 現代企業 (Fintech)</h5>
+                <p>雪白背景，石板灰+海軍藍，陰影極克制，重視資訊對齊</p>
+                <span class="theme-tag" style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe">商務 · 專業</span>
+            </div>
+        </div>
+
+        <!-- 4. Earthy / Organic -->
+        <div class="theme-card" onclick="selectTheme('earthy', this)">
+            <div class="theme-preview n4">
+                <div class="n4-nav">
+                    <div class="n4-logo">NVR Scanner</div>
+                    <div class="n4-links">
+                        <span class="n4-link">Dashboard</span>
+                        <span class="n4-link">Events</span>
+                        <span class="n4-link">NVRs</span>
+                    </div>
+                </div>
+                <div class="n4-body">
+                    <div class="n4-cards">
+                        <div class="n4-card"><div class="n4-num">04</div><div class="n4-lbl">NVR</div></div>
+                        <div class="n4-card"><div class="n4-num">32</div><div class="n4-lbl">CAMERAS</div></div>
+                        <div class="n4-card"><div class="n4-num">07</div><div class="n4-lbl">ALERTS</div></div>
+                        <div class="n4-card"><div class="n4-num" style="color:#5c7a4a">OK</div><div class="n4-lbl">STATUS</div></div>
+                    </div>
+                    <div class="n4-row">
+                        <div class="n4-row-dot"></div>
+                        <div class="n4-row-text">HQ-NVR-01 · 2026-07-03 14:00</div>
+                        <div class="n4-row-val">0/8</div>
+                    </div>
+                    <div class="n4-row">
+                        <div class="n4-row-dot" style="background:#e8a87c"></div>
+                        <div class="n4-row-text">BR-NVR-02 · 2026-07-03 13:00</div>
+                        <div class="n4-row-val">2/8</div>
+                    </div>
+                </div>
+            </div>
+            <div class="theme-meta">
+                <h5>◐ 無印自然 (Earthy)</h5>
+                <p>米色基底，深咖啡色文字，鼠尾草綠/赤陶色強調，柔和暖調</p>
+                <span class="theme-tag" style="background:#f0f4ee;color:#4a6741;border:1px solid #c3d4bc">自然 · 溫暖</span>
+            </div>
+        </div>
+
+        <!-- 5. Editorial / Print Magazine -->
+        <div class="theme-card" onclick="selectTheme('editorial', this)">
+            <div class="theme-preview n5">
+                <div class="n5-nav">
+                    <div class="n5-logo">NVR Scanner</div>
+                    <div class="n5-links">
+                        <span class="n5-link">Dashboard</span>
+                        <span class="n5-link">Events</span>
+                        <span class="n5-link">NVRs</span>
+                    </div>
+                </div>
+                <div class="n5-body">
+                    <div class="n5-cards">
+                        <div class="n5-card"><div class="n5-num">04</div><div class="n5-lbl">NVR</div></div>
+                        <div class="n5-card"><div class="n5-num">32</div><div class="n5-lbl">CAMERAS</div></div>
+                        <div class="n5-card"><div class="n5-num">07</div><div class="n5-lbl">ALERTS</div></div>
+                        <div class="n5-card"><div class="n5-num">OK</div><div class="n5-lbl">STATUS</div></div>
+                    </div>
+                    <div class="n5-row">
+                        <div class="n5-row-id">#</div>
+                        <div class="n5-row-dot"></div>
+                        <div class="n5-row-text">HQ-NVR-01 · 2026-07-03 14:00</div>
+                        <div class="n5-row-val">0/8</div>
+                    </div>
+                    <div class="n5-row">
+                        <div class="n5-row-id">#</div>
+                        <div class="n5-row-dot"></div>
+                        <div class="n5-row-text">BR-NVR-02 · 2026-07-03 13:00</div>
+                        <div class="n5-row-val">2/8</div>
+                    </div>
+                </div>
+            </div>
+            <div class="theme-meta">
+                <h5>⁕ 日系雜誌 (Editorial)</h5>
+                <p>黑白為主，襯線標題 Georgia，無圓角，粗細黑色分隔線</p>
+                <span class="theme-tag" style="background:#fff;color:#1a1a1a;border:1.5px solid #1a1a1a;font-weight:700">優雅 · 無色彩</span>
+            </div>
+        </div>
+
+        <!-- 6. E-ink / Monochrome -->
+        <div class="theme-card" onclick="selectTheme('eink', this)">
+            <div class="theme-preview n6">
+                <div class="n6-nav">
+                    <div class="n6-logo">NVR SCANNER</div>
+                    <div class="n6-links">
+                        <span class="n6-link">Dashboard</span>
+                        <span class="n6-link">Events</span>
+                        <span class="n6-link">NVRs</span>
+                    </div>
+                </div>
+                <div class="n6-body">
+                    <div class="n6-cards">
+                        <div class="n6-card"><div class="n6-num">04</div><div class="n6-lbl">NVR</div></div>
+                        <div class="n6-card"><div class="n6-num">32</div><div class="n6-lbl">CAMERAS</div></div>
+                        <div class="n6-card"><div class="n6-num">07</div><div class="n6-lbl">ALERTS</div></div>
+                        <div class="n6-card"><div class="n6-num">OK</div><div class="n6-lbl">STATUS</div></div>
+                    </div>
+                    <div class="n6-row">
+                        <div class="n6-row-id">#8</div>
+                        <div class="n6-row-dot"></div>
+                        <div class="n6-row-text">HQ-NVR-01 · 2026-07-03 14:00</div>
+                        <div class="n6-row-val">0/8</div>
+                    </div>
+                    <div class="n6-row">
+                        <div class="n6-row-id">#7</div>
+                        <div class="n6-row-dot" style="background:#888"></div>
+                        <div class="n6-row-text">BR-NVR-02 · 2026-07-03 13:00</div>
+                        <div class="n6-row-val">2/8</div>
+                    </div>
+                </div>
+            </div>
+            <div class="theme-meta">
+                <h5>▤ 單色電子墨水 (E-ink)</h5>
+                <p>純黑/白/灰，無任何色彩，灰階對比引導視覺焦點</p>
+                <span class="theme-tag" style="background:#111;color:#fff">極簡 · 無彩色</span>
+            </div>
+        </div>
+
+    </div>
+</form>
+
+<script>
+function selectTheme(name, el) {
+    document.getElementById('themeInput').value = name;
+    document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    setTimeout(() => document.getElementById('themeForm').submit(), 200);
+}
+</script>
+{% endblock %}

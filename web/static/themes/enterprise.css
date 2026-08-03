@@ -1,0 +1,64 @@
+/* THEME: Enterprise Blue */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+body {
+    background: #f0f4f8 !important;
+    color: #1e293b;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.navbar, .bg-dark, .navbar-dark { background: linear-gradient(135deg, #1a3a6c 0%, #0d2240 100%) !important; border-bottom: 3px solid #3b82f6 !important; }
+.navbar-brand { color: #fff !important; font-weight: 700; font-size: 1rem; letter-spacing: -0.3px; }
+.nav-link { color: rgba(255,255,255,0.75) !important; font-size: 0.85rem; font-weight: 500; transition: color 0.15s; }
+.nav-link:hover { color: #fff !important; }
+
+.card { border: 1px solid #e2e8f0 !important; border-radius: 12px !important; box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important; overflow: hidden; }
+.card-body { padding: 1.25rem 1.5rem; }
+.card-title { font-size: 0.7rem !important; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b !important; font-weight: 600; margin-bottom: 0.5rem; }
+.display-6 { font-weight: 700; font-size: 2rem; letter-spacing: -1px; }
+.text-muted { color: #94a3b8 !important; }
+
+/* Stat cards */
+.text-bg-primary { background: linear-gradient(135deg, #1e40af, #3b82f6) !important; }
+.text-bg-info    { background: linear-gradient(135deg, #0891b2, #06b6d4) !important; }
+.text-bg-warning { background: linear-gradient(135deg, #b45309, #f59e0b) !important; }
+.text-bg-success { background: linear-gradient(135deg, #15803d, #22c55e) !important; }
+.text-bg-danger  { background: linear-gradient(135deg, #b91c1c, #ef4444) !important; }
+.text-bg-secondary { background: #e2e8f0 !important; color: #475569 !important; }
+
+/* Tables */
+table.table { border-collapse: collapse; }
+.table thead th { background: #f8fafc !important; color: #334155 !important; border-bottom: 2px solid #e2e8f0 !important; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; padding: 10px 12px; }
+.table tbody tr { transition: background 0.12s; }
+.table tbody tr:hover { background: #f1f5f9 !important; }
+.table td { padding: 10px 12px; font-size: 0.875rem; color: #334155; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.badge { font-size: 0.7rem; font-weight: 600; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.3px; }
+
+/* Buttons */
+.btn { font-weight: 600; font-size: 0.82rem; border-radius: 8px !important; padding: 7px 16px; letter-spacing: 0.2px; transition: all 0.15s; }
+.btn-primary { background: #1e40af; border-color: #1e40af; }
+.btn-primary:hover { background: #1e3a8a; border-color: #1e3a8a; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(30,64,175,0.3); }
+.btn-outline-primary { color: #1e40af; border-color: #c7d2fe; }
+.btn-outline-primary:hover { background: #eff6ff; border-color: #1e40af; color: #1e40af; }
+.btn-outline-warning { color: #b45309; border-color: #fde68a; }
+.btn-outline-warning:hover { background: #fffbeb; border-color: #b45309; }
+.btn-outline-secondary { color: #64748b; border-color: #cbd5e1; }
+.btn-sm { font-size: 0.75rem; padding: 4px 10px; border-radius: 6px !important; }
+
+/* Alerts */
+.alert { border-radius: 10px !important; font-size: 0.875rem; border: none; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.alert-info    { background: #dbeafe; color: #1e40af; }
+.alert-success { background: #dcfce7; color: #15803d; }
+.alert-warning { background: #fef3c7; color: #b45309; }
+.alert-danger  { background: #fee2e2; color: #b91c1c; }
+
+/* Forms */
+.form-control, .form-select { border-radius: 8px !important; border: 1.5px solid #e2e8f0 !important; font-size: 0.875rem; padding: 8px 12px; transition: border-color 0.15s; }
+.form-control:focus, .form-select:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.12) !important; }
+.form-label { font-size: 0.78rem; font-weight: 600; color: #475569; letter-spacing: 0.2px; }
+
+/* Footer */
+footer { border-top: 1px solid #e2e8f0 !important; color: #94a3b8 !important; font-size: 0.8rem; }
+
+/* Nav pills / theme nav */
+.nav-pills .nav-link { color: rgba(255,255,255,0.7); border-radius: 8px; font-size: 0.82rem; font-weight: 500; }
+.nav-pills .nav-link.active { background: rgba(255,255,255,0.2); color: #fff; }

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}批次匯入 NVR · NVR Scanner{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">📥 批次匯入 NVR</h1>
+    <a href="{{ url_for('nvrs_list') }}" class="btn btn-outline-secondary">← 回到清單</a>
+</div>
+
+{% if errors %}
+<div class="alert alert-danger">
+    <strong>✗ 匯入失敗（共 {{ errors|length }} 個錯誤）</strong>
+    <ul class="mb-0 mt-2">
+        {% for err in errors %}<li>{{ err }}</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="card card-body">
+    <h5>步驟 1：下載範本</h5>
+    <p class="small text-muted">先下載範本、填寫、再上傳。</p>
+    <div class="mb-3">
+        <a href="{{ url_for('nvr_import_template_csv') }}"
+           class="btn btn-sm btn-outline-secondary">📥 下載 CSV 範本</a>
+        <a href="{{ url_for('nvr_import_template_json') }}"
+           class="btn btn-sm btn-outline-secondary">📥 下載 JSON 範本</a>
+        <a href="{{ url_for('nvr_export_csv') }}"
+           class="btn btn-sm btn-outline-primary">📤 匯出目前清單 (CSV)</a>
+        <a href="{{ url_for('nvr_export_json') }}"
+           class="btn btn-sm btn-outline-primary">📤 匯出目前清單 (JSON)</a>
+    </div>
+    <p class="small text-muted">
+        💡 <strong>Round-trip 流程：</strong>
+        「📤 匯出目前清單」取得現有 NVR → 編輯後再上傳匯入 → 批次維護完成。
+    </p>
+
+    <hr>
+    <h5>步驟 2：上傳檔案</h5>
+    <p class="small text-muted">
+        支援 <strong>CSV</strong>（欄位：id, name, host, port, username, password, verify_ssl, site_id, tags）
+        或 <strong>JSON</strong>（array of objects）。
+        必填欄位：<code>id</code>, <code>name</code>, <code>host</code>, <code>username</code>, <code>password</code>。
+    </p>
+    <div class="mb-3">
+        <input type="file" name="file" accept=".csv,.json,text/csv,application/json"
+               class="form-control" required>
+    </div>
+
+    <hr>
+    <div class="d-flex justify-content-end gap-2">
+        <a href="{{ url_for('nvrs_list') }}" class="btn btn-secondary">取消</a>
+        <button type="submit" class="btn btn-primary">📥 上傳並匯入</button>
+    </div>
+</form>
+
+<div class="card card-body mt-3">
+    <h6>⚠ 注意</h6>
+    <ul class="small mb-0">
+        <li>整批 <strong>all-or-nothing transaction</strong>：任一筆欄位錯 → 整批 rollback</li>
+        <li><strong>Upsert 語意</strong>：<code>id</code> 已存在 → 更新該筆；不存在 → 新增（支援 round-trip）</li>
+        <li><code>password</code> 留空 → 保留原值（不會清空既有密碼）</li>
+        <li><code>tags</code> 用 <code>;</code> 分隔（CSV）或 list（JSON）</li>
+        <li>支援自動偵測 delimiter：<code>,</code> 或 <code>\t</code>（Excel 另存的 TSV）</li>
+    </ul>
+</div>
+{% endblock %}

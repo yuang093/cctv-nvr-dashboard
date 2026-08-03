@@ -1,0 +1,89 @@
+/* THEME: Dark Cyberpunk */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap');
+
+body {
+    background: #0a0e1a !important;
+    color: #c9d1d9;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+}
+.navbar, .bg-dark, .navbar-dark { background: #0d1220 !important; border-bottom: 1px solid rgba(0,210,247,0.2) !important; }
+.navbar-brand, .nav-link { color: #00d2f7 !important; font-family: 'Orbitron', monospace; letter-spacing: 1px; font-size: 0.8rem; }
+.nav-link:hover { color: #00ff9d !important; }
+.navbar-brand::before { content: '> '; color: #00ff9d; }
+
+.card, .card.bg-light { background: rgba(0,210,247,0.04) !important; border: 1px solid rgba(0,210,247,0.15) !important; border-radius: 8px !important; box-shadow: 0 0 20px rgba(0,210,247,0.05) !important; }
+.card-body { background: transparent !important; }
+.card-title, .card-text, .display-6 { color: #00d2f7 !important; }
+.card-title { font-size: 0.65rem !important; letter-spacing: 2px; text-transform: uppercase; }
+small, .text-muted { color: rgba(255,255,255,0.35) !important; }
+code, pre { color: #00ff9d !important; background: rgba(0,255,157,0.06) !important; border-radius: 4px; padding: 1px 4px; }
+code { font-family: 'Share Tech Mono', monospace; }
+
+/* Stat cards */
+.text-bg-primary { background: rgba(0,210,247,0.15) !important; color: #00d2f7 !important; border: 1px solid rgba(0,210,247,0.3) !important; }
+.text-bg-info    { background: rgba(0,255,157,0.1) !important; color: #00ff9d !important; border: 1px solid rgba(0,255,157,0.2) !important; }
+.text-bg-warning { background: rgba(255,166,87,0.1) !important; color: #ffa657 !important; border: 1px solid rgba(255,166,87,0.25) !important; }
+.text-bg-success { background: rgba(0,255,157,0.1) !important; color: #00ff9d !important; border: 1px solid rgba(0,255,157,0.2) !important; }
+.text-bg-danger  { background: rgba(248,113,113,0.1) !important; color: #f87171 !important; border: 1px solid rgba(248,113,113,0.25) !important; }
+.text-bg-secondary { background: rgba(139,148,158,0.08) !important; color: #8b949e !important; border: 1px solid rgba(139,148,158,0.2) !important; }
+
+/* Tables */
+table { color: #c9d1d9; border-collapse: collapse; width: 100%; }
+thead th { background: rgba(0,210,247,0.08) !important; color: #00d2f7 !important; border-bottom: 1px solid rgba(0,210,247,0.3) !important; font-size: 0.7rem; letter-spacing: 1px; text-transform: uppercase; padding: 8px; font-family: 'Orbitron', monospace; }
+tbody tr { border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s; }
+tbody tr:hover { background: rgba(0,210,247,0.04) !important; }
+td { padding: 8px; font-size: 0.85rem; }
+
+/* Buttons */
+.btn { font-family: 'Orbitron', monospace; font-size: 0.72rem; letter-spacing: 1px; border-radius: 4px !important; padding: 6px 14px; transition: all 0.2s; }
+.btn-primary { background: rgba(0,210,247,0.15) !important; color: #00d2f7 !important; border: 1px solid #00d2f7 !important; }
+.btn-primary:hover { background: #00d2f7 !important; color: #0a0e1a !important; box-shadow: 0 0 12px rgba(0,210,247,0.4); }
+.btn-outline-primary { color: #00d2f7 !important; border-color: rgba(0,210,247,0.4) !important; }
+.btn-outline-primary:hover { background: rgba(0,210,247,0.1) !important; border-color: #00d2f7 !important; }
+.btn-outline-warning { color: #ffa657 !important; border-color: rgba(255,166,87,0.4) !important; }
+.btn-outline-warning:hover { background: rgba(255,166,87,0.1) !important; }
+.btn-outline-secondary { color: #8b949e !important; border-color: rgba(139,148,158,0.3) !important; }
+.btn-sm { font-size: 0.65rem !important; padding: 3px 10px; }
+
+/* Badges */
+.badge { font-family: 'Orbitron', monospace; font-size: 0.65rem; letter-spacing: 0.5px; border-radius: 3px; padding: 3px 7px; }
+.bg-success { background: rgba(0,255,157,0.2) !important; color: #00ff9d !important; }
+.bg-warning { background: rgba(255,166,87,0.2) !important; color: #ffa657 !important; }
+.bg-danger  { background: rgba(248,113,113,0.2) !important; color: #f87171 !important; }
+.bg-secondary { background: rgba(139,148,158,0.15) !important; color: #8b949e !important; }
+
+/* Alerts */
+.alert { border-radius: 6px !important; font-size: 0.85rem; border: 1px solid; }
+.alert-info    { background: rgba(0,210,247,0.08) !important; color: #00d2f7 !important; border-color: rgba(0,210,247,0.2) !important; }
+.alert-success { background: rgba(0,255,157,0.08) !important; color: #00ff9d !important; border-color: rgba(0,255,157,0.2) !important; }
+.alert-warning { background: rgba(255,166,87,0.08) !important; color: #ffa657 !important; border-color: rgba(255,166,87,0.2) !important; }
+.alert-danger  { background: rgba(248,113,113,0.08) !important; color: #f87171 !important; border-color: rgba(248,113,113,0.2) !important; }
+.alert-dismissible .btn-close { filter: invert(1); }
+
+/* Footer */
+footer { border-top: 1px solid rgba(0,210,247,0.1) !important; color: rgba(255,255,255,0.2) !important; }
+footer hr { border-color: rgba(0,210,247,0.1); }
+
+/* Form controls */
+.form-control, .form-select { background: rgba(0,210,247,0.04) !important; color: #c9d1d9 !important; border: 1px solid rgba(0,210,247,0.2) !important; font-size: 0.85rem; border-radius: 6px !important; }
+.form-control:focus, .form-select:focus { border-color: #00d2f7 !important; box-shadow: 0 0 0 3px rgba(0,210,247,0.1) !important; outline: none; }
+.form-label { color: #8b949e !important; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; background: #0a0e1a; }
+::-webkit-scrollbar-thumb { background: rgba(0,210,247,0.2); border-radius: 3px; }
+
+/* Progress / spinner */
+.spinner-border-sm { border-color: rgba(0,210,247,0.3) !important; border-right-color: #00d2f7 !important; }
+
+/* Links */
+a { color: #00d2f7; text-decoration: none; transition: color 0.15s; }
+a:hover { color: #00ff9d; }
+
+/* Theme selector nav link */
+.nav-link.theme-nav { color: #8b949e !important; border: 1px solid rgba(139,148,158,0.3); border-radius: 4px; padding: 4px 10px !important; font-size: 0.7rem; }
+.nav-link.theme-nav:hover { border-color: #00d2f7; color: #00d2f7 !important; }
+
+/* Pulse animation for online indicator */
+@keyframes cyberpunk-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.pulse-ok { animation: cyberpunk-pulse 2s ease-in-out infinite; color: #00ff9d; }

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}故障攝影機 · NVR Scanner{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">⚠ 故障攝影機總覽</h1>
+    <div>
+        <a href="{{ url_for('reports_list') }}" class="btn btn-primary">
+            📂 歷史報告
+        </a>
+        <a href="{{ url_for('abnormal_export_pdf') }}" class="btn btn-outline-danger btn-sm">
+            📄 下載當前（即時）
+        </a>
+    </div>
+</div>
+
+{% if groups %}
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card text-bg-danger">
+            <div class="card-body">
+                <h6 class="card-title">受影響 NVR</h6>
+                <p class="display-6 mb-0">{{ affected_nvrs }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-bg-warning">
+            <div class="card-body">
+                <h6 class="card-title">受影響攝影機</h6>
+                <p class="display-6 mb-0">{{ total_cameras }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-bg-secondary">
+            <div class="card-body">
+                <h6 class="card-title">未解決事件總數</h6>
+                <p class="display-6 mb-0">{{ total_open }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<p class="text-muted small">
+    📌 只顯示目前 <strong>未解決</strong>（resolved_at IS NULL）的異常事件。
+    同一台相機可能有多種故障類型，會全部列出。
+    {% if last_run %}資料截至：<code>{{ last_run.started_at | taipei }}</code> 的掃描結果。{% endif %}
+</p>
+
+{% set ns = namespace(current_nvr=None) %}
+<table class="table table-hover align-middle">
+    <thead class="table-light">
+        <tr>
+            <th>時間</th>
+            <th>NVR 名稱</th>
+            <th>攝影機名稱</th>
+            <th>故障問題</th>
+            <th class="text-end">事件數</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for g in groups %}
+        {% if g.nvr_id != ns.current_nvr %}
+            {% set ns.current_nvr = g.nvr_id %}
+            <tr class="table-secondary">
+                <td colspan="5">
+                    <strong>📡 {{ g.nvr_name }}</strong>
+                    <span class="badge bg-secondary ms-2">{{ g.nvr_id }}</span>
+                </td>
+            </tr>
+        {% endif %}
+        <tr>
+            <td>
+                <code class="small d-block">首次 {{ g.first_detected | taipei }}</code>
+                <code class="small text-muted d-block">最新 {{ g.last_detected | taipei }}</code>
+            </td>
+            <td><strong>{{ g.nvr_name }}</strong></td>
+            <td><strong>{{ g.camera_name }}</strong></td>
+            <td>
+                {% for t in g.topics %}
+                    <span class="badge bg-danger mb-1">
+                        {{ topic_zh(t) }}
+                    </span>
+                {% endfor %}
+            </td>
+            <td class="text-end">
+                <span class="badge bg-warning text-dark">{{ g.open_count }}</span>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="alert alert-success">
+    <h5>✓ 目前沒有任何未解決的異常事件</h5>
+    <p class="mb-0 small">所有 NVR 上的攝影機都運作正常。</p>
+</div>
+{% endif %}
+
+<hr class="my-4">
+<details>
+    <summary class="text-muted small">故障類型對照表（共 {{ topic_zh_map|length }} 種）</summary>
+    <table class="table table-sm mt-2">
+        <thead><tr><th>event_topic</th><th>中文顯示</th></tr></thead>
+        <tbody>
+        {% for k, v in topic_zh_map.items() %}
+            <tr><td><code>{{ k }}</code></td><td>{{ v }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</details>
+{% endblock %}
