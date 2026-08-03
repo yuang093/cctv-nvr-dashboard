@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - **2026-07-30**：FROZEN 修法（`63c296d`）—— frozen 不觸發 event 但寫 metrics（修法 N），避免誤報。
 - **2026-08-03**：NVR/.gitignore 補強（artifacts、一次性腳本；PNG 截圖保留選擇性 commit）。
 - **2026-08-03**：README.md 反映 8444 + 8555 雙 port 架構、28 個 spec 截圖、psutil 依賴。
+- **2026-08-03**：8444 / 8555 Design Tokens 統一（11 commits, `04aaf0f`..`4be1ae0`）—— 抽出 `web/static/css/tokens.css` 集中兩套 theme（色票 + 字體 + 間距 + 圓角），8444 `base.html` + 8555 4 個 clips_templates 各自 `<link>` 引入 + `<html data-theme="...">` 切換；`fintech-dark.css` 改寫用 `var()` 引用，152 個 hardcode 顏色全部替換為 token。Spec 在 `docs/superpowers/specs/2026-08-03-design-tokens-unification.md`，計畫在 `docs/superpowers/plans/2026-08-03-design-tokens-unification.md`。預期 744 → 790 測試（實際 790/790 綠）。
 
 ### Fixed
 - **2026-08-03**：`list_cameras_for_nvr` 漏過濾 ghost cam（`b6a36a8`）—— 8555 clip UI 取 NVR cam list 會 404，已補 `is_ghost = 0` 過濾。
