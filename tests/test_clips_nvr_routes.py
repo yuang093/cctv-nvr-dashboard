@@ -416,8 +416,9 @@ def test_dark_css_renders_when_dark_true(clips_app):
             sess["dark"] = True
         r = c.get("/clips")
         body = r.data.decode("utf-8")
-        # dark CSS block 存在（背景色 #0c1220）
-        assert "#0c1220" in body
+        # dark CSS block 存在（var(--bg-primary) 引用 token）
+        assert "var(--bg-primary)" in body
+        assert 'data-theme="dark"' in body
         # toggle 顯示 ☀️（sun）
         assert "☀️" in body
 
