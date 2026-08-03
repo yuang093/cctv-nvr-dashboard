@@ -1,0 +1,9 @@
+/* minimal-dark.css — 2026-08-03 Spec E */
+/* minimal 品牌色：灰（簡約感） */
+
+[data-theme="dark"] {
+    --primary: #6b7280;
+    --primary-hover: #111827;
+    --text-link: #6b7280;
+    --text-link-hover: #111827;
+}
