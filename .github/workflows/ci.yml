@@ -39,6 +39,6 @@ jobs:
         run: |
           ls -l tests/fixtures/cert.pem tests/fixtures/key.pem
 
-      - name: Run pytest (unit + integration, 132 tests)
+      - name: Run pytest (unit + integration, 744 tests)
         run: |
           pytest -q
