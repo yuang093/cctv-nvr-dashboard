@@ -430,7 +430,7 @@ def test_dark_css_renders_when_dark_true_nvrs(clips_app):
             sess["dark"] = True
         r = c.get("/nvrs/")
         body = r.data.decode("utf-8")
-        assert "#0c1220" in body
+        assert "var(--bg-primary)" in body
         assert "☀️" in body
 
 
