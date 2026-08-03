@@ -67,6 +67,88 @@
     </div>
 </div>
 
+{# === Spec C（2026-08-03）：本機 gateway 健康指標（Fleet Pulse + 系統狀態）=== #}
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">🖥️ Gateway 健康（本機即時）</h5>
+                {% if not sys_health.available %}
+                <p class="text-warning mb-0">⚠ 系統指標讀取失敗（psutil OSError）</p>
+                {% else %}
+                <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3 text-center">
+                    <div class="col">
+                        <div class="border rounded p-2 h-100">
+                            <div class="text-muted small">CPU 使用率</div>
+                            <div class="h4 mb-1">{{ '%.1f' % sys_health.cpu_percent }}%</div>
+                            <div class="progress" style="height: 4px;">
+                                <div class="progress-bar
+                                    {% if sys_health.cpu_percent > 80 %}bg-danger
+                                    {% elif sys_health.cpu_percent > 50 %}bg-warning
+                                    {% else %}bg-success{% endif %}"
+                                    style="width: {{ sys_health.cpu_percent }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="border rounded p-2 h-100">
+                            <div class="text-muted small">RAM</div>
+                            <div class="h4 mb-1">{{ sys_health.ram_used_gb }} / {{ sys_health.ram_total_gb }} GB</div>
+                            <div class="progress" style="height: 4px;">
+                                <div class="progress-bar
+                                    {% if sys_health.ram_percent > 85 %}bg-danger
+                                    {% elif sys_health.ram_percent > 60 %}bg-warning
+                                    {% else %}bg-success{% endif %}"
+                                    style="width: {{ sys_health.ram_percent }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="border rounded p-2 h-100">
+                            <div class="text-muted small">Disk (/)</div>
+                            <div class="h4 mb-1">{{ sys_health.disk_used_gb }} / {{ sys_health.disk_total_gb }} GB</div>
+                            <div class="progress" style="height: 4px;">
+                                <div class="progress-bar
+                                    {% if sys_health.disk_percent > 90 %}bg-danger
+                                    {% elif sys_health.disk_percent > 70 %}bg-warning
+                                    {% else %}bg-success{% endif %}"
+                                    style="width: {{ sys_health.disk_percent }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="border rounded p-2 h-100">
+                            <div class="text-muted small">Process RSS</div>
+                            <div class="h4 mb-1">{{ sys_health.proc_rss_mb }} MB</div>
+                            <div class="text-muted small">Flask process</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="border rounded p-2 h-100">
+                            <div class="text-muted small">Uptime</div>
+                            <div class="h4 mb-1">
+                                {% set u = sys_health.uptime_seconds %}
+                                {% if u >= 3600 %}{{ (u / 3600) | round(1) }} h
+                                {% elif u >= 60 %}{{ (u / 60) | round(0) | int }} m
+                                {% else %}{{ u }} s{% endif %}
+                            </div>
+                            <div class="text-muted small">since launch</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="border rounded p-2 h-100">
+                            <div class="text-muted small">Threads</div>
+                            <div class="h4 mb-1">{{ sys_health.threads }}</div>
+                            <div class="text-muted small">worker</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 {% if nvrs %}
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
     {% for n in nvrs %}

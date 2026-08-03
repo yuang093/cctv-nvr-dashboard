@@ -41,7 +41,7 @@ from flask import (
 
 from web import db as webdb
 from web import nvr_crud
-from web.fleet import get_fleet_view, get_camera_health_distribution, get_thumbnail_coverage
+from web.fleet import get_fleet_view, get_camera_health_distribution, get_thumbnail_coverage, get_system_health
 
 # AvigilonScanner 從環境變數讀 user_nonce / user_key（透過 nvr_scanner 模組頂層載入）
 try:
@@ -250,6 +250,7 @@ def _register_routes(app: Flask) -> None:
             total_cams=total_cams,
             health_dist=get_camera_health_distribution(_get_db_path(app)),
             thumb_cov=get_thumbnail_coverage(_get_db_path(app)),
+            sys_health=get_system_health(),
         )
 
     @app.route("/runs")

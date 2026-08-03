@@ -12,6 +12,8 @@ import logging
 import sqlite3
 import time
 
+import psutil as _psutil
+
 from web.db import get_nvrs, get_wall_cameras_with_snapshots
 
 log = logging.getLogger(__name__)
@@ -164,3 +166,63 @@ def get_thumbnail_coverage(db_path: str) -> dict:
         }
     finally:
         conn.close()
+
+
+# === Spec C（2026-08-03）：本機 gateway 健康指標（Fleet Pulse + 系統狀態）===
+def get_system_health() -> dict:
+    """讀本機（gateway，8444 server）的即時健康指標。
+
+    不傳 OSError 給 caller：psutil 任何函式拋 OSError（無 /proc、權限不足等）
+    → 回 available=False、其他欄位 0。
+
+    Returns:
+        {
+            "cpu_percent": float,        # 0~100
+            "ram_used_gb": float,        # GB
+            "ram_total_gb": float,
+            "ram_percent": float,
+            "disk_used_gb": float,
+            "disk_total_gb": float,
+            "disk_percent": float,
+            "proc_rss_mb": float,        # 本 Flask process RSS
+            "uptime_seconds": int,
+            "threads": int,
+            "available": bool,
+        }
+    """
+    try:
+        cpu = float(_psutil.cpu_percent(interval=None))
+        vmem = _psutil.virtual_memory()
+        disk = _psutil.disk_usage("/")
+        proc = _psutil.Process()
+        rss = float(proc.memory_info().rss) / (1024 * 1024)
+        uptime = int(max(0, time.time() - proc.create_time()))
+        threads = int(proc.num_threads())
+        return {
+            "cpu_percent": cpu,
+            "ram_used_gb": round(vmem.used / (1024**3), 2),
+            "ram_total_gb": round(vmem.total / (1024**3), 2),
+            "ram_percent": float(vmem.percent),
+            "disk_used_gb": round(disk.used / (1024**3), 2),
+            "disk_total_gb": round(disk.total / (1024**3), 2),
+            "disk_percent": float(disk.percent),
+            "proc_rss_mb": round(rss, 1),
+            "uptime_seconds": uptime,
+            "threads": threads,
+            "available": True,
+        }
+    except OSError as exc:
+        log.warning("system health psutil failed: %s", exc)
+        return {
+            "cpu_percent": 0.0,
+            "ram_used_gb": 0.0,
+            "ram_total_gb": 0.0,
+            "ram_percent": 0.0,
+            "disk_used_gb": 0.0,
+            "disk_total_gb": 0.0,
+            "disk_percent": 0.0,
+            "proc_rss_mb": 0.0,
+            "uptime_seconds": 0,
+            "threads": 0,
+            "available": False,
+        }
