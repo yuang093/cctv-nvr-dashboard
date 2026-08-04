@@ -261,6 +261,95 @@ app.config["DB_PATH"] = os.environ.get("NVR_DB_PATH", "./nvr_scan.db")
 app.register_blueprint(nvr_bp)
 
 
+# === Spec F：錄影覆蓋熱區（/clips/coverage）===
+from web.coverage import fetch_coverage_from_nvr
+from web.db import get_nvr as _get_nvr, list_cameras_for_nvr as _list_cameras_for_nvr
+
+
+def _build_nvr_config(nvr_row: dict) -> dict:
+    """從 webdb.get_nvr() row 轉成 AvigilonScanner 預期的 nvr_config dict。"""
+    return {
+        "id": nvr_row["nvr_id"],
+        "name": nvr_row["name"],
+        "host": nvr_row["host"],
+        "port": nvr_row.get("port", 8443),
+        "username": nvr_row.get("username"),
+        "password": nvr_row.get("password"),
+        "verify_ssl": bool(nvr_row.get("verify_ssl", 0)),
+    }
+
+
+@app.route("/clips/coverage")
+def clips_coverage():
+    """錄影覆蓋熱區頁面（給 1 台 NVR 看所有 cam 24h 錄影時間軸）。"""
+    return render_template("coverage.html")
+
+
+@app.route("/clips/coverage/data")
+def clips_coverage_data():
+    """JSON API：回傳 1 台 NVR 所有 cam 的 timeline 資料。"""
+    from nvr_scanner import AvigilonScanner
+
+    try:
+        internal_id = int(request.args.get("nvr_id", "0"))
+    except ValueError:
+        return jsonify({"error": "nvr_id 必須是整數"}), 400
+    if not internal_id:
+        return jsonify({"error": "缺少 nvr_id"}), 400
+
+    start_iso = request.args.get("start", "")
+    end_iso = request.args.get("end", "")
+    if not start_iso or not end_iso:
+        return jsonify({"error": "缺少 start / end"}), 400
+    if end_iso <= start_iso:
+        return jsonify({"error": "end 必須大於 start"}), 400
+
+    nvr_row = _get_nvr(_get_db_path(), internal_id)
+    if nvr_row is None:
+        return jsonify({"error": f"找不到 NVR id={internal_id}"}), 404
+
+    cams = _list_cameras_for_nvr(_get_db_path(), internal_id)
+    if not cams:
+        return jsonify({"error": "該 NVR 沒有 cam"}), 404
+
+    try:
+        # 1. login 先（會用 env var 裡的 NONCE/KEY + nvr_row 內的帳密）
+        session_token = _login_nvr(nvr_row)
+
+        # 2. 建 scanner 物件，手動塞 token（跳過第二次 login()）
+        from nvr_scanner import get_credential
+        scanner = AvigilonScanner(
+            _build_nvr_config(nvr_row),
+            user_nonce=get_credential("AVIGILON_USER_NONCE", "AVIGILON_USER_NONCE", hide=False),
+            user_key=get_credential("AVIGILON_USER_KEY", "AVIGILON_USER_KEY", hide=True),
+            verify_ssl=bool(nvr_row.get("verify_ssl", 0)),
+        )
+        scanner._session_token = session_token
+
+        def fetch_one(cam_id: str, s: str, e: str) -> dict:
+            return scanner.get_timeline(cam_id, from_iso=s, to_iso=e)
+
+        out = fetch_coverage_from_nvr(
+            nvr={
+                "host": nvr_row["host"],
+                "port": nvr_row["port"],
+                "nvr_id": nvr_row.get("nvr_id", ""),
+            },
+            cameras=[
+                {"device_id": c["device_id"], "camera_name": c.get("name", c["device_id"])}
+                for c in cams
+            ],
+            start_iso=start_iso,
+            end_iso=end_iso,
+            timeline_fetcher=fetch_one,
+        )
+    except Exception as e:
+        logger.error("/clips/coverage/data 抓取 NVR 失敗 nvr_id=%d: %s", internal_id, e)
+        return jsonify({"error": f"抓取 NVR 失敗: {e}"}), 502
+
+    return jsonify(out)
+
+
 def _get_db_path() -> str:
     return os.environ.get("NVR_DB_PATH", "./nvr_scan.db")
 
