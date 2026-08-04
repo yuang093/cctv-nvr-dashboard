@@ -24,6 +24,18 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='themes/editorial.css') }}">
     {% elif theme == 'eink' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='themes/eink.css') }}">
+    {% elif theme == 'enterprise' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/enterprise.css') }}">
+    {% elif theme == 'glass' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/glass.css') }}">
+    {% elif theme == 'gradient' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/gradient.css') }}">
+    {% elif theme == 'minimal' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/minimal.css') }}">
+    {% elif theme == 'cyberpunk' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/cyberpunk.css') }}">
+    {% elif theme == 'terminal' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes/terminal.css') }}">
     {% endif %}
     {# 11 主題的 dark 版本（accent 覆寫，必須在 fintech-dark.css 之後載入以保最高優先級）#}
     {% if dark and theme == 'nordic' %}
