@@ -271,6 +271,25 @@
         );
     }
 
+    // CSS selector escape（保險：device_id / internal_id 可能含特殊字元）
+    function cssEscape(s) {
+        if (window.CSS && CSS.escape) return CSS.escape(s);
+        return String(s).replace(/[^a-zA-Z0-9_\-]/g, "\\$&");
+    }
+
+    // ===== URL params 自動套用（user 031.PNG：coverage 點綠帶跳轉後應直接顯示片段） =====
+    // coverage.html click handler 帶 ?nvr_id=...&cam_id=...&t=YYYY-MM-DDTHH:MM
+    // 此處讀進來自動選 NVR / 勾 cam / 填時間，三者齊全時自動觸發同步撥放
+    var urlParams = new URLSearchParams(location.search);
+    var pendingNvr = urlParams.get("nvr_id");  // 8555 DB internal_id（select option value）
+    var pendingCam = urlParams.get("cam_id");  // device_id
+    var pendingT = urlParams.get("t");          // datetime-local 格式（台北時區）
+    var autoPlayPending = !!(pendingNvr && pendingCam && pendingT);
+
+    if (pendingT && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(pendingT)) {
+        $t.value = pendingT;
+    }
+
     // ===== 載入 NVR 清單 =====
     fetch("/clips/nvrs")
         .then(function(r) { return r.json(); })
@@ -291,6 +310,16 @@
                 o.dataset.nvrId = n.nvr_id;
                 $nvr.appendChild(o);
             });
+            // 自動套用：若 URL 有 nvr_id 且清單裡有 → 選中（會觸發 change 載 cameras）
+            if (pendingNvr) {
+                var opt = $nvr.querySelector('option[value="' + cssEscape(pendingNvr) + '"]');
+                if (opt) {
+                    $nvr.value = pendingNvr;
+                    $nvr.dispatchEvent(new Event("change"));
+                } else {
+                    setStatus("URL 帶的 nvr_id 在清單裡找不到：" + pendingNvr, "err");
+                }
+            }
             $syncPlayBtn.disabled = false;
         })
         .catch(function(e) {
@@ -325,6 +354,22 @@
                     div.appendChild(label);
                     $camPanel.appendChild(div);
                 });
+                // 自動套用：若 URL 有 cam_id 且剛好是這台 NVR → 勾選
+                if (pendingCam && internalId === pendingNvr) {
+                    var sel = '.cam-cb[value="' + cssEscape(pendingCam) + '"]';
+                    var targetCb = $camPanel.querySelector(sel);
+                    if (targetCb) {
+                        targetCb.checked = true;
+                    } else {
+                        setStatus("URL 帶的 cam_id 在此 NVR 找不到：" + pendingCam, "err");
+                    }
+                }
+                // 三者齊全且 NVR / cam 已就緒 → 自動觸發同步撥放
+                if (autoPlayPending && internalId === pendingNvr && pendingCam && pendingT) {
+                    autoPlayPending = false;
+                    // 用 setTimeout 確保 DOM 變更已生效
+                    setTimeout(function() { $syncPlayBtn.click(); }, 0);
+                }
             })
             .catch(function(e) {
                 setStatus("攝影機載入失敗：" + e, "err");

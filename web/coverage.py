@@ -13,10 +13,14 @@ web/coverage.py
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Callable
 
 from web.timeline import parse_timeline_response, compute_completeness, _clip_to_window
+
+
+# 台北時區 = UTC+8（給 axis_ticks label 用，純記憶體不讀 OS tzdata）
+TAIPEI_TZ = timezone(timedelta(hours=8))
 
 
 def _parse_iso_utc(s: str) -> datetime:
@@ -68,6 +72,44 @@ class CoverageCamera:
     camera_name: str
     records: list[tuple[datetime, datetime]]  # 原始 (start, end) tuples；serializer 自行轉 iso
     completeness: float  # 0.0 ~ 1.0
+
+
+def compute_axis_ticks(
+    start_iso: str,
+    end_iso: str,
+    num_ticks: int = 12,
+) -> list[dict]:
+    """把視窗 [start_iso, end_iso] 等分成 num_ticks 段（含首尾），回傳軸 tick 清單。
+
+    每個 tick：{"position_pct": float, "label": "MM-DD HH:MM"}。
+    - position_pct：0.0~100.0，前端用 % 對齊綠帶
+    - label：台北時間；同日時顯示 HH:MM、跨日時顯示 MM-DD HH:MM
+
+    user 031.PNG 回饋：原本寫死 00, 02, 04...22 不對應實際查詢視窗，
+    例查「8/3 下午 03:52 ~ 8/4 下午 03:52」軸應顯示 03:52 起而非 00:00 起。
+    """
+    if num_ticks < 2:
+        num_ticks = 2
+    start = _parse_iso_utc(start_iso).astimezone(TAIPEI_TZ)
+    end = _parse_iso_utc(end_iso).astimezone(TAIPEI_TZ)
+    total_seconds = (end - start).total_seconds()
+    if total_seconds <= 0:
+        # 視窗無效：回傳單一點
+        return [{"position_pct": 0.0, "label": start.strftime("%m-%d %H:%M")}]
+    out: list[dict] = []
+    for i in range(num_ticks):
+        ratio = i / (num_ticks - 1)
+        t = start + (end - start) * ratio
+        position_pct = round(ratio * 100, 2)
+        # 跨日視窗或 tick 落在不同日期 → 顯示 MM-DD HH:MM；否則只 HH:MM
+        if start.date() != end.date() and t.date() != start.date():
+            label = t.strftime("%m-%d %H:%M")
+        elif start.date() != end.date() and t.date() == start.date():
+            label = t.strftime("%m-%d %H:%M")  # 跨日視窗但 tick 在起始日
+        else:
+            label = t.strftime("%H:%M")
+        out.append({"position_pct": position_pct, "label": label})
+    return out
 
 
 def fetch_coverage_from_nvr(
@@ -138,5 +180,6 @@ def fetch_coverage_from_nvr(
         "nvr_id": nvr.get("nvr_id", ""),
         "start": start_iso,
         "end": end_iso,
+        "axis_ticks": compute_axis_ticks(start_iso, end_iso),
         "cameras": out_cameras,
     }

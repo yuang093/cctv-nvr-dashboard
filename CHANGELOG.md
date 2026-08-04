@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **2026-08-04**：NVR /timeline 範圍查詢 bug (`e145562`) — NVR API 忽略 from/to，回傳視窗外的舊 records。`compute_per_camera_completeness` 內部用 `_clip_to_window` 過濾（所以完整率數字一直對），但 `fetch_coverage_from_nvr` 序列化 records 沒 clip → 前端在視窗外誤繪綠帶。修法：序列化前先 clip 到視窗內，完全在視窗外 drop、邊界重疊裁切。3 新測試（clip / partial overlap / drop outside）+ 864 全綠。
 - **2026-08-04**：8444 base.html 補 6 個 light theme 漏鏈 — Spec E 完成時漏掉的 pre-existing bug：enterprise / glass / gradient / minimal / cyberpunk / terminal 在 light 模式沒有對應 CSS 載入（dark 模式已有 *-dark.css）。補 6 個 `{% elif theme == 'X' %}` + 新測試 `test_base_light_theme_links.py` 確保 12 個 theme 都有 light link。51 theme/base tests 全綠。
+- **2026-08-04**：user 031.PNG 回饋 — coverage 兩個 bug：
+  1. **24h 軸寫死 00-22**（不對應實際查詢視窗）→ 加 `web/coverage.compute_axis_ticks()` 純函式（依查詢視窗動態計算 12 個 tick，台北時區 HH:MM 或跨日 MM-DD HH:MM），`fetch_coverage_from_nvr` 把 ticks 一起回傳給前端。
+  2. **點綠帶跳 /clips 後還要選 NVR/時間** → clips.html 加 URL params 自動套用（讀 `?nvr_id` / `?cam_id` / `?t`，自動 select / 勾選 / 填 datetime-local），三者齊全時自動觸發同步撥放。
+  - 13 新測試（5 axis_ticks + 8 clips url params 靜態分析）+ 882 全綠。
+  - 視覺驗證：查「8/3 下午 03:52 ~ 8/4 下午 03:52」軸顯示 08-03 15:52 → 08-04 15:52（每 ~2.18h 一跳）；點綠帶跳 /clips 自動套用 + 顯示「完成：1 台撥放中」。
 
 ### Added
 - **2026-08-04**：Spec F 8555 錄影覆蓋熱區 — 多 cam 24h timeline 視覺化。新頁 `/clips/coverage`、新 API `/clips/coverage/data`：

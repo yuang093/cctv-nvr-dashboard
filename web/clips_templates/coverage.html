@@ -142,12 +142,15 @@
             });
         });
 
-        // 24h 軸標籤
+        // 24h 軸標籤由後端 axis_ticks 動態提供（user 031.PNG：原本寫死 00,02,04...22 不對應實際視窗）
         const hourMarks = document.getElementById('hour-marks');
-        for (let h = 0; h < 24; h += 2) {
-            const span = document.createElement('span');
-            span.textContent = String(h).padStart(2, '0');
-            hourMarks.appendChild(span);
+        function renderHourMarks(ticks) {
+            hourMarks.innerHTML = '';
+            (ticks || []).forEach(t => {
+                const span = document.createElement('span');
+                span.textContent = t.label;
+                hourMarks.appendChild(span);
+            });
         }
 
         document.getElementById('fetch-btn').addEventListener('click', async () => {
@@ -171,6 +174,7 @@
                     return;
                 }
                 const data = await rv.json();
+                renderHourMarks(data.axis_ticks);
                 renderTimeline(data, start, end, nvrId);
             } catch (e) {
                 document.getElementById('warning').textContent = '網路錯誤: ' + e;
