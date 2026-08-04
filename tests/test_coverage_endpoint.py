@@ -98,3 +98,107 @@ def test_coverage_data_endpoint_502_when_nvr_unreachable(clips_app):
     assert rv.status_code in (200, 502)
     if rv.status_code == 502:
         assert "error" in rv.get_json()
+
+
+def test_coverage_data_endpoint_500_when_env_missing(monkeypatch, clips_app):
+    """缺 AVIGILON_USER_NONCE/KEY → 500（不允許 fallback 到 console prompt）。"""
+    # 清掉 env（fixture 已經 monkeypatch setenv 過；強制再清）
+    monkeypatch.delenv("AVIGILON_USER_NONCE", raising=False)
+    monkeypatch.delenv("AVIGILON_USER_KEY", raising=False)
+    webdb.create_nvr(clips_app.config["DB_PATH"], {
+        "nvr_id": "ACC8-NOENV",
+        "name": "NVR-NOENV",
+        "host": "10.0.0.1",
+        "port": 8443,
+        "username": "u",
+        "password": "p",
+        "verify_ssl": False,
+    })
+    db_path = clips_app.config["DB_PATH"]
+    nvr_row = next(n for n in webdb.get_nvrs(db_path) if n["name"] == "NVR-NOENV")
+    # 至少給 1 台 cam，否則 endpoint 會先回 404「沒有 cam」
+    writer = SqliteWriter(db_path)
+    writer.begin_scan_run("2026-08-04T00:00:00Z")
+    writer.upsert_cameras(nvr_row["id"], {
+        "cam-001": {"name": "Cam 1", "available": True, "connection_state": "CONNECTED"},
+    })
+    writer.finish_scan_run(nvr_row["id"], finished_at="2026-08-04T00:00:30Z", status="success",
+                           stats={"total_cameras": 1, "abnormal_cameras": 0,
+                                  "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+    client = clips_app.test_client()
+    rv = client.get(
+        f"/clips/coverage/data?nvr_id={nvr_row['id']}"
+        f"&start=2026-08-04T00:00:00Z&end=2026-08-04T01:00:00Z"
+    )
+    assert rv.status_code == 500
+    body = rv.get_json()
+    assert "error" in body
+    # 明確告訴 admin 是哪個 env 沒設
+    assert "AVIGILON_USER_NONCE" in body["error"]
+
+
+def test_coverage_data_endpoint_400_on_invalid_iso(clips_app):
+    """start 非 ISO 格式 → 400（不是 502）。"""
+    webdb.create_nvr(clips_app.config["DB_PATH"], {
+        "nvr_id": "ACC8-BADISO",
+        "name": "NVR-BADISO",
+        "host": "10.0.0.1",
+        "port": 8443,
+        "username": "u",
+        "password": "p",
+        "verify_ssl": False,
+    })
+    db_path = clips_app.config["DB_PATH"]
+    nvr_row = next(n for n in webdb.get_nvrs(db_path) if n["name"] == "NVR-BADISO")
+    client = clips_app.test_client()
+    rv = client.get(
+        f"/clips/coverage/data?nvr_id={nvr_row['id']}"
+        f"&start=not-a-date&end=2026-08-04T01:00:00Z"
+    )
+    assert rv.status_code == 400
+    body = rv.get_json()
+    assert "error" in body
+    # 錯誤訊息要引導 client 修正 ISO 格式
+    assert "ISO" in body["error"] or "iso" in body["error"].lower()
+
+
+def test_coverage_data_endpoint_502_when_nvr_unreachable_strict(monkeypatch, clips_app):
+    """嚴格 502：monkeypatch 讓 scanner 連線失敗（spec 要求 502 而非 200 fallback）。"""
+    webdb.create_nvr(clips_app.config["DB_PATH"], {
+        "nvr_id": "ACC8-STRICT",
+        "name": "NVR-STRICT",
+        "host": "10.0.0.1",
+        "port": 8443,
+        "username": "u",
+        "password": "p",
+        "verify_ssl": False,
+    })
+    db_path = clips_app.config["DB_PATH"]
+    nvr_row = next(n for n in webdb.get_nvrs(db_path) if n["name"] == "NVR-STRICT")
+    # 給 cam
+    writer = SqliteWriter(db_path)
+    writer.begin_scan_run("2026-08-04T00:00:00Z")
+    writer.upsert_cameras(nvr_row["id"], {
+        "cam-001": {"name": "Cam 1", "available": True, "connection_state": "CONNECTED"},
+    })
+    writer.finish_scan_run(nvr_row["id"], finished_at="2026-08-04T00:00:30Z", status="success",
+                           stats={"total_cameras": 1, "abnormal_cameras": 0,
+                                  "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+    # env 已 set（fixture 之上 NVR_CLIPS_CLIENT=mock；但這條測試想測的是
+    # "即便 env 都對、scanner 連線也失敗"→ 502；所以不走 _login_nvr 整段）
+    os.environ["AVIGILON_USER_NONCE"] = "test-nonce"
+    os.environ["AVIGILON_USER_KEY"] = "test-key"
+    # 直接 monkeypatch _login_nvr 讓它 raise，模擬 NVR 連線失敗
+    from web import clips_app as clips_app_mod
+    def _boom(*a, **kw):
+        raise RuntimeError("NVR unreachable: Connection refused")
+    monkeypatch.setattr(clips_app_mod, "_login_nvr", _boom)
+    client = clips_app.test_client()
+    rv = client.get(
+        f"/clips/coverage/data?nvr_id={nvr_row['id']}"
+        f"&start=2026-08-04T00:00:00Z&end=2026-08-04T01:00:00Z"
+    )
+    # 嚴格要求 502（不再接受 200 fallback）
+    assert rv.status_code == 502
+    body = rv.get_json()
+    assert "error" in body

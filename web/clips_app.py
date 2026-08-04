@@ -287,9 +287,24 @@ def clips_coverage():
 
 @app.route("/clips/coverage/data")
 def clips_coverage_data():
-    """JSON API：回傳 1 台 NVR 所有 cam 的 timeline 資料。"""
-    from nvr_scanner import AvigilonScanner
+    """JSON API：回傳 1 台 NVR 所有 cam 的 timeline 資料。
 
+    Spec F 合規（2026-08-04）：
+    1. 認證 env 顯式檢查（不允許 fallback 到互動 prompt，否則 HTTP request 會卡 stdin）
+    2. ISO 8601 字串 parse 成 datetime 後比較（不用字串比對，避免時區 / 字典序錯誤）
+    3. NVR 連線失敗嚴格回 502（不再 silent fallback）
+    """
+    from nvr_scanner import AvigilonScanner, get_credential
+
+    # 1. 認證 env 顯式檢查 — 缺就回 500（伺服器設定錯誤，不是 client 請求錯誤）
+    user_nonce = os.environ.get("AVIGILON_USER_NONCE", "")
+    user_key = os.environ.get("AVIGILON_USER_KEY", "")
+    if not user_nonce or not user_key:
+        return jsonify({
+            "error": "伺服器未設定 AVIGILON_USER_NONCE / AVIGILON_USER_KEY（請檢查 .env）"
+        }), 500
+
+    # 2. parse nvr_id
     try:
         internal_id = int(request.args.get("nvr_id", "0"))
     except ValueError:
@@ -297,27 +312,36 @@ def clips_coverage_data():
     if not internal_id:
         return jsonify({"error": "缺少 nvr_id"}), 400
 
+    # 3. parse ISO 8601 時間（不靠字串比對；錯誤回 400 而非 502）
     start_iso = request.args.get("start", "")
     end_iso = request.args.get("end", "")
     if not start_iso or not end_iso:
         return jsonify({"error": "缺少 start / end"}), 400
-    if end_iso <= start_iso:
+    try:
+        # 接受 "2026-08-04T00:00:00Z" 或 "...+00:00"；統一把 Z 換成 +00:00
+        start_dt = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+        end_dt = datetime.fromisoformat(end_iso.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return jsonify({"error": "start / end 必須是 ISO 8601 格式"}), 400
+    if end_dt <= start_dt:
         return jsonify({"error": "end 必須大於 start"}), 400
 
+    # 4. 抓 NVR row
     nvr_row = _get_nvr(_get_db_path(), internal_id)
     if nvr_row is None:
         return jsonify({"error": f"找不到 NVR id={internal_id}"}), 404
 
+    # 5. 抓 cam 清單
     cams = _list_cameras_for_nvr(_get_db_path(), internal_id)
     if not cams:
         return jsonify({"error": "該 NVR 沒有 cam"}), 404
 
+    # 6. 抓取 timeline（env 已驗證過，下面 get_credential 不会再卡 stdin）
     try:
         # 1. login 先（會用 env var 裡的 NONCE/KEY + nvr_row 內的帳密）
         session_token = _login_nvr(nvr_row)
 
         # 2. 建 scanner 物件，手動塞 token（跳過第二次 login()）
-        from nvr_scanner import get_credential
         scanner = AvigilonScanner(
             _build_nvr_config(nvr_row),
             user_nonce=get_credential("AVIGILON_USER_NONCE", "AVIGILON_USER_NONCE", hide=False),
@@ -344,6 +368,7 @@ def clips_coverage_data():
             timeline_fetcher=fetch_one,
         )
     except Exception as e:
+        # 7. 連線 / login / fetch 任何失敗 → 502（NVR 端錯誤）
         logger.error("/clips/coverage/data 抓取 NVR 失敗 nvr_id=%d: %s", internal_id, e)
         return jsonify({"error": f"抓取 NVR 失敗: {e}"}), 502
 
