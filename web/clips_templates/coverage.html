@@ -51,7 +51,7 @@
 
     <div class="container py-3">
         <h1>📼 錄影覆蓋熱區</h1>
-        <p class="text-muted">選定 1 台 NVR，查看所有 cam 在指定時間範圍內的錄影分佈。綠帶 = 有錄影。</p>
+        <p class="text-muted">選定 1 台 NVR，查看所有 cam 在指定時間範圍內的錄影分佈。綠帶 = 有錄影、空白 = 無錄影。時間顯示為台北時間 (UTC+8)。</p>
 
         <div class="controls">
             <div class="row g-2 align-items-end">
@@ -62,11 +62,11 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">起</label>
+                    <label class="form-label">起（台北 UTC+8）</label>
                     <input type="datetime-local" id="start-input" class="form-control">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">迄</label>
+                    <label class="form-label">迄（台北 UTC+8）</label>
                     <input type="datetime-local" id="end-input" class="form-control">
                 </div>
                 <div class="col-md-3">
@@ -102,14 +102,32 @@
         document.getElementById('start-input').value = toLocalIso(yesterday);
         document.getElementById('end-input').value = toLocalIso(now);
 
+        // 預設時區：台北（UTC+8）
+        const TAIPEI_OFFSET_MIN = 8 * 60;  // +08:00
+
         function toLocalIso(d) {
+            // 直接用本地時區（瀏覽器跑在台北時區故剛好對；但若瀏覽器時區不同需另算）
             const pad = n => String(n).padStart(2, '0');
             return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
                 + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
         }
-        function toUtcIso(localStr) {
-            const d = new Date(localStr);
-            return d.toISOString().replace('.000', '');
+        // 把 datetime-local 字串（視為台北時區）轉成 UTC ISO 8601
+        function taipeiLocalToUtcIso(localStr) {
+            // localStr = 'YYYY-MM-DDTHH:MM'
+            const [date, time] = localStr.split('T');
+            const [y, mo, d] = date.split('-').map(Number);
+            const [h, mi] = time.split(':').map(Number);
+            // 用 UTC 建構「台北表示的本地時間」，扣 8 小時得 UTC
+            const utcMs = Date.UTC(y, mo - 1, d, h, mi) - TAIPEI_OFFSET_MIN * 60 * 1000;
+            return new Date(utcMs).toISOString().replace('.000', '');
+        }
+        // UTC Date 轉「台北當地字串」('YYYY-MM-DDTHH:MM'，無時區)
+        function utcDateToTaipeiLocalStr(d) {
+            const pad = n => String(n).padStart(2, '0');
+            const taipeiMs = d.getTime() + TAIPEI_OFFSET_MIN * 60 * 1000;
+            const t = new Date(taipeiMs);
+            return t.getUTCFullYear() + '-' + pad(t.getUTCMonth() + 1) + '-' + pad(t.getUTCDate())
+                + 'T' + pad(t.getUTCHours()) + ':' + pad(t.getUTCMinutes());
         }
 
         // 載入 NVR 清單
@@ -139,8 +157,8 @@
             if (!nvrId) { alert('請選 NVR'); return; }
             if (!start || !end) { alert('請選時間區間'); return; }
             const url = '/clips/coverage/data?nvr_id=' + encodeURIComponent(nvrId)
-                + '&start=' + encodeURIComponent(toUtcIso(start))
-                + '&end=' + encodeURIComponent(toUtcIso(end));
+                + '&start=' + encodeURIComponent(taipeiLocalToUtcIso(start))
+                + '&end=' + encodeURIComponent(taipeiLocalToUtcIso(end));
             const doc = document.getElementById('cam-list');
             doc.innerHTML = '<div class="empty-state">載入中…</div>';
             document.getElementById('warning').textContent = '';
@@ -190,9 +208,16 @@
                     block.style.left = left + '%';
                     block.style.width = width + '%';
                     block.title = formatRecordTitle(r);
-                    block.addEventListener('click', () => {
-                        const t = r[0].slice(0, 16);  // YYYY-MM-DDTHH:MM
-                        window.location.href = '/clips?nvr_id=' + nvrId + '&cam_id=' + encodeURIComponent(cam.cam_id) + '&t=' + t;
+                    block.addEventListener('click', (ev) => {
+                        // 點擊位置 → 帶該瞬間時間（不是段起點）
+                        const bar = ev.currentTarget.parentElement;
+                        const rect = bar.getBoundingClientRect();
+                        const clickX = ev.clientX - rect.left;
+                        const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+                        const clickMs = sMs + (eMs - sMs) * ratio;
+                        // 帶台北時區字串（datetime-local 格式）+08:00 明確標示
+                        const t = utcDateToTaipeiLocalStr(new Date(clickMs));
+                        window.location.href = '/clips?nvr_id=' + nvrId + '&cam_id=' + encodeURIComponent(cam.cam_id) + '&t=' + encodeURIComponent(t);
                     });
                     bar.appendChild(block);
                 });
@@ -209,12 +234,12 @@
         }
 
         function formatRecordTitle(r) {
-            const s = new Date(r[0]);
-            const e = new Date(r[1]);
-            const pad = n => String(n).padStart(2, '0');
-            const fmt = d => pad(d.getMonth()+1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-            const mins = Math.round((e - s) / 60000);
-            return fmt(s) + ' - ' + fmt(e) + ' (' + mins + ' 分鐘)';
+            const sMs = new Date(r[0]).getTime();
+            const eMs = new Date(r[1]).getTime();
+            const mins = Math.round((eMs - sMs) / 60000);
+            return utcDateToTaipeiLocalStr(new Date(sMs)).slice(5).replace('T', ' ')
+                + ' - ' + utcDateToTaipeiLocalStr(new Date(eMs)).slice(11, 16)
+                + ' (' + mins + ' 分鐘)';
         }
     })();
     </script>
