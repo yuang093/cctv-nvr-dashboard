@@ -460,13 +460,19 @@ def test_clips_template_has_nvr_nav_link_raw():
 
 
 def test_nvrs_page_has_no_clips_nav_link(clips_app):
-    """NVR 頁 navbar 不應該有「Clips」連結（保持兩功能各自的入口）。"""
+    """NVR 頁 navbar 不應該有「Clips」主頁連結（保持兩功能各自的入口）。
+
+    例外：sibling 頁面連結（如 /clips/coverage）仍可掛在 navbar，因為屬於同一 8555 suite。
+    """
     app_, _ = clips_app
     with app_.test_client() as c:
         r = c.get("/nvrs/")
         body = r.data.decode("utf-8")
-        assert 'href="/clips' not in body
+        # 不該有「回到 Clips 主頁」這種 nav-back 連結
+        assert 'href="/clips"' not in body and "href='/clips'" not in body
         assert "url_for('clips" not in body  # 沒漏寫 url_for
+        # 但 sibling 頁面（如 coverage）允許
+        assert 'href="/clips/coverage"' in body
 
 
 # === Template 結構回歸測試（防止以後改壞） ===

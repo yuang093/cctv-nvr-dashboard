@@ -162,6 +162,31 @@ def test_coverage_data_endpoint_400_on_invalid_iso(clips_app):
     assert "ISO" in body["error"] or "iso" in body["error"].lower()
 
 
+def test_coverage_page_renders_html(clips_app):
+    """GET /clips/coverage → 200 + HTML 含「錄影熱區」。"""
+    client = clips_app.test_client()
+    rv = client.get("/clips/coverage")
+    assert rv.status_code == 200
+    html = rv.get_data(as_text=True)
+    assert "錄影熱區" in html
+
+
+def test_coverage_page_has_nvr_dropdown(clips_app):
+    """頁面有 NVR select 元素。"""
+    client = clips_app.test_client()
+    rv = client.get("/clips/coverage")
+    html = rv.get_data(as_text=True)
+    assert 'id="nvr-select"' in html or "id='nvr-select'" in html
+
+
+def test_coverage_page_has_dark_toggle(clips_app):
+    """頁面有 dark toggle 連結到 /dark/toggle。"""
+    client = clips_app.test_client()
+    rv = client.get("/clips/coverage")
+    html = rv.get_data(as_text=True)
+    assert "/dark/toggle" in html
+
+
 def test_coverage_data_endpoint_502_when_nvr_unreachable_strict(monkeypatch, clips_app):
     """嚴格 502：monkeypatch 讓 scanner 連線失敗（spec 要求 502 而非 200 fallback）。"""
     webdb.create_nvr(clips_app.config["DB_PATH"], {

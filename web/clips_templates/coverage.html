@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>錄影覆蓋熱區 · Clips 8555</title>
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <style>
+        body { background: #f8f9fa; color: #222; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .navbar-brand { color: #fff !important; }
+        .controls { background: #fff; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
+        .timeline-list { background: #fff; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
+        .cam-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+        .cam-name { flex: 0 0 180px; font-weight: 600; }
+        .cam-bar { flex: 1; position: relative; height: 28px; background: #e9ecef; border-radius: 0.25rem; overflow: hidden; min-width: 720px; }
+        .record-block { position: absolute; top: 0; bottom: 0; background: #22c55e; cursor: pointer; opacity: 0.85; transition: opacity 0.1s; }
+        .record-block:hover { opacity: 1.0; outline: 2px solid #16a34a; }
+        .cam-stats { flex: 0 0 80px; text-align: right; font-family: monospace; color: #555; }
+        .hour-marks { display: flex; font-size: 0.7rem; color: #888; margin-bottom: 0.25rem; padding-left: 180px; }
+        .hour-marks span { flex: 1; text-align: left; }
+        .empty-state { padding: 2rem; text-align: center; color: #888; }
+        #warning { color: #dc3545; }
+        {% if dark %}
+        body { background: #0c1220; color: #e2e8f0; }
+        .controls, .timeline-list { background: #1a1a2e; border-color: #334155; }
+        .cam-row { border-bottom-color: #334155; }
+        .cam-bar { background: #334155; }
+        .record-block { background: #22c55e; }
+        .cam-stats { color: #94a3b8; }
+        .hour-marks { color: #64748b; }
+        {% endif %}
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/clips">🎬 影片片段調閱</a>
+            <div class="navbar-nav me-auto">
+                <a class="nav-link" href="/nvrs/">🖥️ NVR 清單</a>
+                <a class="nav-link" href="/clips/coverage">📼 錄影熱區</a>
+            </div>
+            <span class="navbar-text small text-muted me-auto">Phase 2.7 · port 8555</span>
+            <form method="POST" action="/dark/toggle" style="display:inline">
+                <button class="btn btn-sm btn-outline-light" type="submit">
+                    {% if dark %}☀️{% else %}🌙{% endif %}
+                </button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="container py-3">
+        <h1>📼 錄影覆蓋熱區</h1>
+        <p class="text-muted">選定 1 台 NVR，查看所有 cam 在指定時間範圍內的錄影分佈。綠帶 = 有錄影。</p>
+
+        <div class="controls">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">NVR</label>
+                    <select id="nvr-select" class="form-select">
+                        <option value="">（載入中…）</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">起</label>
+                    <input type="datetime-local" id="start-input" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">迄</label>
+                    <input type="datetime-local" id="end-input" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <button id="fetch-btn" class="btn btn-primary w-100">更新</button>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-12">
+                    <span id="summary" class="text-muted"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="timeline-list">
+            <div class="hour-marks" id="hour-marks"></div>
+            <div id="cam-list"></div>
+            <div id="empty-state" class="empty-state" style="display:none;">請選 NVR 後按「更新」</div>
+        </div>
+
+        <div id="warning" class="mt-2"></div>
+    </div>
+
+    <script>
+    (function () {
+        // 預設時間：現在 - 24h ~ 現在
+        const now = new Date();
+        const yesterday = new Date(now.getTime() - 24 * 3600 * 1000);
+        document.getElementById('start-input').value = toLocalIso(yesterday);
+        document.getElementById('end-input').value = toLocalIso(now);
+
+        function toLocalIso(d) {
+            const pad = n => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+                + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+        }
+        function toUtcIso(localStr) {
+            const d = new Date(localStr);
+            return d.toISOString().replace('.000', '');
+        }
+
+        // 載入 NVR 清單
+        fetch('/clips/nvrs').then(r => r.json()).then(nvrs => {
+            const sel = document.getElementById('nvr-select');
+            sel.innerHTML = '<option value="">— 請選擇 —</option>';
+            nvrs.forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n.internal_id;
+                opt.textContent = n.name + ' (' + n.camera_count + ' cam)';
+                sel.appendChild(opt);
+            });
+        });
+
+        // 24h 軸標籤
+        const hourMarks = document.getElementById('hour-marks');
+        for (let h = 0; h < 24; h += 2) {
+            const span = document.createElement('span');
+            span.textContent = String(h).padStart(2, '0');
+            hourMarks.appendChild(span);
+        }
+
+        document.getElementById('fetch-btn').addEventListener('click', async () => {
+            const nvrId = document.getElementById('nvr-select').value;
+            const start = document.getElementById('start-input').value;
+            const end = document.getElementById('end-input').value;
+            if (!nvrId) { alert('請選 NVR'); return; }
+            if (!start || !end) { alert('請選時間區間'); return; }
+            const url = '/clips/coverage/data?nvr_id=' + encodeURIComponent(nvrId)
+                + '&start=' + encodeURIComponent(toUtcIso(start))
+                + '&end=' + encodeURIComponent(toUtcIso(end));
+            const doc = document.getElementById('cam-list');
+            doc.innerHTML = '<div class="empty-state">載入中…</div>';
+            document.getElementById('warning').textContent = '';
+            try {
+                const rv = await fetch(url);
+                if (!rv.ok) {
+                    const err = await rv.json();
+                    document.getElementById('warning').textContent = err.error || '抓取失敗';
+                    doc.innerHTML = '';
+                    return;
+                }
+                const data = await rv.json();
+                renderTimeline(data, start, end, nvrId);
+            } catch (e) {
+                document.getElementById('warning').textContent = '網路錯誤: ' + e;
+            }
+        });
+
+        function renderTimeline(data, startLocal, endLocal, nvrId) {
+            const doc = document.getElementById('cam-list');
+            doc.innerHTML = '';
+            if (!data.cameras || data.cameras.length === 0) {
+                doc.innerHTML = '<div class="empty-state">該 NVR 沒有 cam 資料</div>';
+                return;
+            }
+            const tStart = new Date(startLocal).getTime();
+            const tEnd = new Date(endLocal).getTime();
+            const totalMs = tEnd - tStart;
+            let totalComp = 0, count = 0;
+            data.cameras.forEach(cam => {
+                totalComp += cam.completeness; count++;
+                const row = document.createElement('div');
+                row.className = 'cam-row';
+                const name = document.createElement('div');
+                name.className = 'cam-name';
+                name.textContent = cam.camera_name + ' (' + cam.cam_id.slice(0, 8) + '…)';
+                const bar = document.createElement('div');
+                bar.className = 'cam-bar';
+                cam.records.forEach(r => {
+                    const sMs = new Date(r[0]).getTime();
+                    const eMs = new Date(r[1]).getTime();
+                    const left = ((sMs - tStart) / totalMs * 100).toFixed(2);
+                    const width = ((eMs - sMs) / totalMs * 100).toFixed(2);
+                    if (parseFloat(width) <= 0) return;
+                    const block = document.createElement('div');
+                    block.className = 'record-block';
+                    block.style.left = left + '%';
+                    block.style.width = width + '%';
+                    block.title = formatRecordTitle(r);
+                    block.addEventListener('click', () => {
+                        const t = r[0].slice(0, 16);  // YYYY-MM-DDTHH:MM
+                        window.location.href = '/clips?nvr_id=' + nvrId + '&cam_id=' + encodeURIComponent(cam.cam_id) + '&t=' + t;
+                    });
+                    bar.appendChild(block);
+                });
+                const stats = document.createElement('div');
+                stats.className = 'cam-stats';
+                stats.textContent = (cam.completeness * 100).toFixed(1) + '%';
+                row.appendChild(name);
+                row.appendChild(bar);
+                row.appendChild(stats);
+                doc.appendChild(row);
+            });
+            const avg = count > 0 ? (totalComp / count * 100).toFixed(1) : '0.0';
+            document.getElementById('summary').textContent = '共 ' + count + ' 台 cam、平均完整率 ' + avg + '%';
+        }
+
+        function formatRecordTitle(r) {
+            const s = new Date(r[0]);
+            const e = new Date(r[1]);
+            const pad = n => String(n).padStart(2, '0');
+            const fmt = d => pad(d.getMonth()+1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+            const mins = Math.round((e - s) / 60000);
+            return fmt(s) + ' - ' + fmt(e) + ' (' + mins + ' 分鐘)';
+        }
+    })();
+    </script>
+</body>
+</html>
