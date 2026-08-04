@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **2026-08-04**：Spec F 8555 錄影覆蓋熱區 — 多 cam 24h timeline 視覺化。新頁 `/clips/coverage`、新 API `/clips/coverage/data`：
+  - 純邏輯 `web/coverage.py`（4 個 public API：parse_records_from_timeline_response / compute_per_camera_completeness / fetch_coverage_from_nvr / CoverageCamera）
+  - 獨立頁面 `web/clips_templates/coverage.html`（純 CSS grid 時間軸、點擊區段跳轉 clips 頁、自訂時間範圍、每 cam 完整率）
+  - `web/clips_templates/clips.html` + `nvrs_list.html` navbar 加「📼 錄影熱區」連結
+  - 17 個新測試（7 純邏輯 + 10 API/頁面/整合）；852 → 869 全綠
+  - 5 個 commit：`872652d`(spec)、`9d3ae44`(plan)、`d165111`(Task 1)、`140f89e`+`957bcc9`(Task 2 + 合規修法)、`6bb10b6`(Task 3)、`f3907f7`(Task 4)、`dad3557`(修 2 小漏)
+  - **重啟提醒**：改 `web/clips_app.py` 必重啟 8555（無 supervisor）。本功能僅 Port 8555，不影響 8444。
+
+### Added
 - **2026-08-03**：021.PNG 藍圖 100% 完成（Spec A / B / B+ / C），共 3 個 commit：
   - `440b6e0` — Spec B：相機健康分布 donut 圖
   - `7e715c2` — Spec B+：雲端覆蓋圖（第二個 donut）
