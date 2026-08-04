@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable
 
-from web.timeline import parse_timeline_response, compute_completeness
+from web.timeline import parse_timeline_response, compute_completeness, _clip_to_window
 
 
 def _parse_iso_utc(s: str) -> datetime:
@@ -112,13 +112,21 @@ def fetch_coverage_from_nvr(
         per_cam = parse_records_from_timeline_response(raw)
         parsed_all[device_id] = per_cam.get(device_id, [])
 
-    # 2. 計算每 cam 完整率
+    # 2. 計算每 cam 完整率；同時把 records 裁切到 [start, end] 視窗內
+    #    （NVR /timeline 端會忽略 from/to、回傳視窗外舊資料；不 clip 的話前端會誤繪綠帶）
+    window_start = _parse_iso_utc(start_iso)
+    window_end = _parse_iso_utc(end_iso)
     out_cameras = []
     for cam in cameras:
         device_id = cam["device_id"]
-        records = parsed_all.get(device_id, [])
-        records_iso = [[s.isoformat(), e.isoformat()] for s, e in records]
-        completeness = compute_per_camera_completeness(records, start_iso, end_iso)
+        raw_records = parsed_all.get(device_id, [])
+        clipped_records: list[tuple[datetime, datetime]] = []
+        for rec in raw_records:
+            clipped = _clip_to_window(rec, window_start, window_end)
+            if clipped is not None:
+                clipped_records.append(clipped)
+        records_iso = [[s.isoformat(), e.isoformat()] for s, e in clipped_records]
+        completeness = compute_per_camera_completeness(clipped_records, start_iso, end_iso)
         out_cameras.append({
             "cam_id": device_id,
             "camera_name": cam.get("camera_name", device_id),
