@@ -84,6 +84,19 @@ class MediaApiClient(Protocol):
         對同步撥放（多 cam 同長度）場景必要；單機 optional。
         """
 
+    def get_recording_duration(
+        self,
+        camera_id: str,
+        at_time: datetime | str,
+    ) -> float:
+        """該 cam 在 at_time 附近有多少秒錄影（從 MPD manifest 解析）。
+
+        對應 NVR endpoint：`GET /mt/api/rest/v1/media?format=mpd`
+        回 MPD XML，從 `mediaPresentationDuration` 欄位解析秒數。
+
+        對同步撥放（fetch_sync）必須：對每台 cam 查 duration → 算交集 → 抓 clip。
+        """
+
 
 class MockMediaClient:
     """單元測試 / 開發用：回固定 fixture，不打真 NVR。"""
@@ -95,15 +108,18 @@ class MockMediaClient:
         mpd_xml: str = _MOCK_MPD_XML,
         clip_chunk_size: int = _MOCK_CLIP_CHUNK,
         clip_chunks: int = _MOCK_CLIP_CHUNKS,
+        recording_duration: float = 240.0,  # 2026-08-04 user 032.PNG：mock 預設 240s
     ) -> None:
         self._snapshot_size = snapshot_bytes
         self._mpd_xml = mpd_xml
         self._chunk_size = clip_chunk_size
         self._chunk_count = clip_chunks
+        self._duration = recording_duration
         # 紀錄呼叫參數，測試可以驗證
         self.snapshot_calls: list[tuple[str, datetime]] = []
         self.manifest_calls: list[str] = []
         self.clip_calls: list[tuple[str, datetime, datetime]] = []
+        self.duration_calls: list[tuple[str, datetime]] = []
 
     def get_snapshot(self, camera_id: str, at_time: datetime) -> bytes:
         self.snapshot_calls.append((camera_id, at_time))
@@ -124,6 +140,16 @@ class MockMediaClient:
         self.clip_calls.append((camera_id, start_time, end_time))
         for _ in range(self._chunk_count):
             yield b"\x00" * self._chunk_size
+
+    def get_recording_duration(
+        self,
+        camera_id: str,
+        at_time: datetime | str,
+    ) -> float:
+        # 2026-08-04 user 032.PNG：mock 必回 > 0，否則 /clips/fetch_sync 會把所有 cam
+        # 都視為「無錄影」→ NO_COMMON_RECORDING → 前端誤顯示「NVR 連線失敗」
+        self.duration_calls.append((camera_id, at_time))
+        return self._duration
 
 
 class MpdMediaClient:

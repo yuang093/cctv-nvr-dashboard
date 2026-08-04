@@ -87,6 +87,48 @@ def test_mock_records_multiple_calls():
     assert m.manifest_calls == ["a", "b", "c"]
 
 
+# === MockMediaClient get_recording_duration（user 032.PNG 修法）===
+# 2026-08-04 user 032.PNG：點 coverage 綠帶跳 /clips → 2 台 cam 走 /clips/fetch_sync
+# → clips_app.py:843 對每台 cam 呼叫 client.get_recording_duration() → MockMediaClient
+# AttributeError → 兩台 cam 都 MPD query FAILED → NO_COMMON_RECORDING → UI 顯示
+# 「無共同錄影時段」「NVR 連線失敗」（實際是 mock client 缺方法）。
+# 修法：MockMediaClient 必須實作 get_recording_duration，Protocol 也要納入。
+
+def test_mock_has_get_recording_duration_method():
+    """MockMediaClient 必須實作 get_recording_duration（防 mock drift）。
+
+    歷史教訓：MpdMediaClient 加了新方法，Protocol 沒納入 → mock 沒實作 → 生產炸、
+    測試綠（測試用自訂 mock client）。
+    """
+    m = MockMediaClient()
+    assert hasattr(m, "get_recording_duration"), \
+        "MockMediaClient 缺 get_recording_duration（user 032.PNG regression）"
+    assert callable(m.get_recording_duration), \
+        "get_recording_duration 必須可呼叫"
+
+
+def test_mock_get_recording_duration_returns_float():
+    """Mock get_recording_duration 回 float（給 clips_app.py 直接加 timedelta）。"""
+    m = MockMediaClient()
+    at = datetime(2026, 8, 4, 9, 24, 0, tzinfo=timezone.utc)
+    dur = m.get_recording_duration("cam-001", at)
+    assert isinstance(dur, float), \
+        "duration 應為 float（與 MpdMediaClient.get_recording_duration 簽名一致）"
+    # mock 應回 > 0（讓 fetch_sync 進入 active_cams 不會誤判「無錄影」）
+    assert dur > 0.0, \
+        "mock 預設 duration > 0（fetch_sync 需要至少 1 台 cam 進入 active_cams）"
+
+
+def test_protocol_declares_get_recording_duration():
+    """MediaApiClient Protocol 必須包含 get_recording_duration（防 mock drift）。
+
+    歷史教訓：方法只在 MpdMediaClient 實作，Protocol 沒宣告 → mock 不被提醒實作。
+    """
+    protocol_attrs = set(dir(MediaApiClient))
+    assert "get_recording_duration" in protocol_attrs, \
+        "MediaApiClient Protocol 應宣告 get_recording_duration（防 mock drift）"
+
+
 # === MpdMediaClient 實作（2026-07-07 已實測可連 NVR 192.168.133.141） ===
 
 def test_mpdclient_format_t_passes_through_live():
