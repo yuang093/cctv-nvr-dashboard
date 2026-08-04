@@ -10,7 +10,7 @@
         body { background: #f8f9fa; color: #222; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         .navbar-brand { color: #fff !important; }
         .controls { background: #fff; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
-        .timeline-list { background: #fff; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
+        .timeline-list { background: #fff; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); overflow-x: auto; }
         .cam-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
         .cam-name { flex: 0 0 180px; font-weight: 600; }
         .cam-bar { flex: 1; position: relative; height: 28px; background: #e9ecef; border-radius: 0.25rem; overflow: hidden; min-width: 720px; }
@@ -87,6 +87,11 @@
         </div>
 
         <div id="warning" class="mt-2"></div>
+
+        <footer class="mt-3 text-muted small">
+            圖例：<span style="display:inline-block;width:14px;height:14px;background:#22c55e;vertical-align:middle;border-radius:2px;"></span> 有錄影
+            <span class="ms-3"><span style="display:inline-block;width:14px;height:14px;background:#e9ecef;vertical-align:middle;border-radius:2px;"></span> 無錄影</span>
+        </footer>
     </div>
 
     <script>
