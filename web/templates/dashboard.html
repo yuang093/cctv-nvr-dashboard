@@ -135,7 +135,12 @@
     var st = document.getElementById("recordingStaleness");
     var latest = {{ recording_latest_at | tojson if recording_latest_at else "null" }};
     if (st && latest) {
-        var lTime = new Date(latest + "Z").getTime();
+        // recording_latest_at 已是 ISO UTC（已帶 "Z"），直接給 Date() 解析即可
+        var lTime = new Date(latest).getTime();
+        if (isNaN(lTime)) {
+            st.textContent = "最後更新：—";
+            return;
+        }
         var ageMin = Math.round((Date.now() - lTime) / 60000);
         var ageTxt;
         if (ageMin < 60) ageTxt = ageMin + " 分鐘前";
