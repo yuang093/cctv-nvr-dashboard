@@ -227,3 +227,74 @@ def test_coverage_data_endpoint_502_when_nvr_unreachable_strict(monkeypatch, cli
     assert rv.status_code == 502
     body = rv.get_json()
     assert "error" in body
+
+
+def test_coverage_data_endpoint_with_mock_timeline(clips_app, monkeypatch):
+    """整合：mock AvigilonScanner.get_timeline，回 1 台 cam 1 段錄影、預期完整率 1.0。
+
+    Spec F Task 4：模擬 happy path — 1 台 NVR + 1 台 cam + 1 段完整時窗錄影。
+    """
+    webdb.create_nvr(clips_app.config["DB_PATH"], {
+        "nvr_id": "ACC8-MOCK",
+        "name": "NVR-MOCK",
+        "host": "10.0.0.99",
+        "port": 8443,
+        "username": "u",
+        "password": "p",
+        "verify_ssl": False,
+    })
+    db_path = clips_app.config["DB_PATH"]
+    nvr_row = next(n for n in webdb.get_nvrs(db_path) if n["name"] == "NVR-MOCK")
+    # 給 1 台 cam
+    writer = SqliteWriter(db_path)
+    writer.begin_scan_run("2026-08-04T00:00:00Z")
+    writer.upsert_cameras(nvr_row["id"], {
+        "cam-mock-1": {"name": "MockCam1", "available": True, "connection_state": "CONNECTED"},
+    })
+    writer.finish_scan_run(nvr_row["id"], finished_at="2026-08-04T00:00:30Z", status="success",
+                           stats={"total_cameras": 1, "abnormal_cameras": 0,
+                                  "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+
+    # env 給齊，避免 endpoint 提早 500
+    monkeypatch.setenv("AVIGILON_USER_NONCE", "test-nonce")
+    monkeypatch.setenv("AVIGILON_USER_KEY", "test-key")
+
+    # 1. stub _login_nvr：給假 token，不打真 NVR
+    from web import clips_app as clips_app_mod
+    monkeypatch.setattr(clips_app_mod, "_login_nvr", lambda nvr_row: "FAKE-TOKEN")
+
+    # 2. stub AvigilonScanner.get_timeline：回傳「覆蓋整個視窗」的錄影
+    from nvr_scanner import AvigilonScanner
+
+    def fake_get_timeline(self, cam_id, from_iso=None, to_iso=None, **kwargs):
+        return {
+            "result": {
+                "timelines": [
+                    {
+                        "cameraId": cam_id,
+                        "record": [
+                            {"start": "2026-08-04T00:00:00Z", "end": "2026-08-04T01:00:00Z"},
+                        ],
+                    }
+                ]
+            }
+        }
+
+    monkeypatch.setattr(AvigilonScanner, "get_timeline", fake_get_timeline)
+
+    client = clips_app.test_client()
+    rv = client.get(
+        f"/clips/coverage/data?nvr_id={nvr_row['id']}"
+        f"&start=2026-08-04T00:00:00Z&end=2026-08-04T01:00:00Z"
+    )
+    assert rv.status_code == 200, f"unexpected status: {rv.status_code} body={rv.get_data(as_text=True)[:300]}"
+    data = rv.get_json()
+    assert data["nvr_id"] == "ACC8-MOCK"
+    assert len(data["cameras"]) == 1
+    cam1 = data["cameras"][0]
+    assert cam1["cam_id"] == "cam-mock-1"
+    assert cam1["camera_name"] == "MockCam1"
+    assert cam1["completeness"] == 1.0
+    assert len(cam1["records"]) == 1
+    assert cam1["records"][0][0] == "2026-08-04T00:00:00+00:00"
+    assert cam1["records"][0][1] == "2026-08-04T01:00:00+00:00"
