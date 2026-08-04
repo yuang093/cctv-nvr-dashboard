@@ -18,10 +18,14 @@ All notable changes to this project will be documented in this file.
 - **2026-08-03**：NVR/.gitignore 補強（artifacts、一次性腳本；PNG 截圖保留選擇性 commit）。
 - **2026-08-03**：README.md 反映 8444 + 8555 雙 port 架構、28 個 spec 截圖、psutil 依賴。
 - **2026-08-03**：8444 / 8555 Design Tokens 統一（11 commits, `04aaf0f`..`4be1ae0`）—— 抽出 `web/static/css/tokens.css` 集中兩套 theme（色票 + 字體 + 間距 + 圓角），8444 `base.html` + 8555 4 個 clips_templates 各自 `<link>` 引入 + `<html data-theme="...">` 切換；`fintech-dark.css` 改寫用 `var()` 引用，152 個 hardcode 顏色全部替換為 token。Spec 在 `docs/superpowers/specs/2026-08-03-design-tokens-unification.md`，計畫在 `docs/superpowers/plans/2026-08-03-design-tokens-unification.md`。預期 744 → 790 測試（實際 790/790 綠）。
+- **2026-08-03**：11 主題 dark 補齊（Spec E，12 commits，47 新測試，`5d11cf1`..`694e94a`）—— 為 brutal / cyberpunk / earthy / editorial / eink / enterprise / glass / gradient / minimal / nordic / terminal 各加 `*-dark.css`（fintech-dark 既有），每個保留 light theme 品牌色作 accent（4 個 token：`--primary` / `--primary-hover` / `--text-link` / `--text-link-hover`）。`base.html` 加 12 個 `{% if dark and theme == 'X' %}` link，`*-dark.css` 在 `fintech-dark.css` 之後載入以保最高優先級。Spec 在 `docs/superpowers/specs/2026-08-03-11-themes-dark-coverage.md`，計畫在 `docs/superpowers/plans/2026-08-03-11-themes-dark-coverage.md`。預期 805 → 853 測試（實際 852 綠，差 1 為 fintech-dark 既有複用）。
 
 ### Fixed
 - **2026-08-03**：`list_cameras_for_nvr` 漏過濾 ghost cam（`b6a36a8`）—— 8555 clip UI 取 NVR cam list 會 404，已補 `is_ghost = 0` 過濾。
 - **2026-07-30**：`/wall` 縮圖永遠是 placeholder 的 bug（`33c10b3`）—— `batch_scan._IMAGE_HEALTH_ENABLED` 預設為 `False`，已改 env 預設為 "1"。
+
+### Known Issues
+- **2026-08-03**：`web/templates/base.html` lines 14-26 light theme link chain 缺 6 個 theme（enterprise / glass / gradient / minimal / cyberpunk / terminal），這 6 個 theme 在 light 模式下沒有對應 CSS 載入（dark 模式已有 `*-dark.css`）。Spec E scope 為補 dark，未修 light 漏鏈。下一輪 Task 14 應補。
 
 ---
 
