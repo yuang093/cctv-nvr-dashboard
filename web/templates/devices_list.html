@@ -71,7 +71,7 @@
             <td>
                 {# Spec G Batch C Task 9：每台 cam row 加 deep-link 到 /trends
                    ?cam_id 用 |urlencode 過濾 user-controllable device_id（防 XSS）#}
-                <a href="{{ url_for('trends', cam_id=r.device_id) }}"
+                <a href="{{ url_for('trends', cam_id=r.device_id, range='24h') }}"
                    class="btn btn-sm btn-outline-secondary" title="查看健康趨勢">📈</a>
                 <a href="{{ url_for('device_detail', device_id=r.device_id) }}"
                    class="btn btn-sm btn-outline-primary">詳情</a>

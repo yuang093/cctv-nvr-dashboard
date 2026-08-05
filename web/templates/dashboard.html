@@ -109,7 +109,7 @@
                 </a>
                 {# Spec G Batch C Task 10：top_missing cam 加 deep-link 到 /trends
                    url_for 自動 URL-encode query string（防 XSS）#}
-                <a href="{{ url_for('trends', cam_id=r.camera_id) }}"
+                <a href="{{ url_for('trends', cam_id=r.camera_id, range='24h') }}"
                    class="btn btn-sm btn-outline-secondary ms-1" title="查看健康趨勢">📈</a>
             </td>
             <td>{{ r.nvr_name }}</td>

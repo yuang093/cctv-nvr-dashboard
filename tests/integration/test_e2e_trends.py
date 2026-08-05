@@ -249,9 +249,12 @@ class TestDevicesListTrendsLink:
         r = client.get("/devices")
         assert r.status_code == 200
         body = r.data.decode("utf-8")
-        # 兩台 cam 都應有 /trends?cam_id=cam-X 連結
-        assert 'href="/trends?cam_id=cam-A"' in body
-        assert 'href="/trends?cam_id=cam-B"' in body
+        # 兩台 cam 都應有 /trends?cam_id=cam-X 連結（含 range=24h）
+        import re
+        assert re.search(r'href="/trends\?cam_id=cam-A[^"]*range=24h', body), \
+            "cam-A 應有 /trends?cam_id=...&range=24h deep link"
+        assert re.search(r'href="/trends\?cam_id=cam-B[^"]*range=24h', body), \
+            "cam-B 應有 /trends?cam_id=...&range=24h deep link"
         # 📈 emoji 應出現
         assert "📈" in body, "deep-link 應用 📈 icon"
 
@@ -416,8 +419,10 @@ class TestDashboardTopMissingTrendsLink:
         r = client.get("/")
         assert r.status_code == 200
         body = r.data.decode("utf-8")
-        # top_missing row 應有 /trends?cam_id=missing-cam 連結
-        assert 'href="/trends?cam_id=missing-cam"' in body
+        # top_missing row 應有 /trends?cam_id=missing-cam&range=24h 連結
+        import re
+        assert re.search(r'href="/trends\?cam_id=missing-cam[^"]*range=24h', body), \
+            "top_missing row 應有 /trends?cam_id=...&range=24h deep link"
         # 📈 emoji 應出現
         assert "📈" in body
 

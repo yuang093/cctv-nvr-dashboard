@@ -74,10 +74,10 @@
                 <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
                 <a class="nav-link" href="{{ url_for('runs_list') }}">掃描紀錄</a>
                 <a class="nav-link" href="{{ url_for('abnormal_list') }}">⚠ 故障相機</a>
+                {# Spec G Batch C Task 8：健康趨勢連結放在「故障相機」與「伺服器總覽」之間（user 直覺）#}
+                <a class="nav-link" href="{{ url_for('trends') }}">📈 健康趨勢</a>
                 <a class="nav-link" href="{{ url_for('fleet') }}">📡 伺服器總覽</a>
                 <a class="nav-link" href="{{ url_for('wall') }}">📷 相機牆</a>
-                {# Spec G Batch C Task 8：健康趨勢（8444 內連結，可直接 relative）#}
-                <a class="nav-link" href="{{ url_for('trends') }}">📈 健康趨勢</a>
                 <a class="nav-link" href="{{ url_for('events_list') }}">異常事件</a>
                 <a class="nav-link" href="{{ url_for('nvrs_list') }}">NVR 清單</a>
                 <a class="nav-link" href="{{ url_for('devices_list') }}">📡 設備總覽</a>

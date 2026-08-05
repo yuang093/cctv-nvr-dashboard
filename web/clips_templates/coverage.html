@@ -215,7 +215,8 @@
                 trendLink.textContent = '📈';
                 trendLink.title = '查看健康趨勢（8444 dashboard）';
                 trendLink.href = window.NVR_DASHBOARD_URL
-                    + '/trends?cam_id=' + encodeURIComponent(cam.cam_id);
+                    + '/trends?cam_id=' + encodeURIComponent(cam.cam_id)
+                    + '&range=24h';
                 name.appendChild(trendLink);
                 const bar = document.createElement('div');
                 bar.className = 'cam-bar';
