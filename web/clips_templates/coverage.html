@@ -13,6 +13,8 @@
         .timeline-list { background: #fff; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); overflow-x: auto; }
         .cam-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
         .cam-name { flex: 0 0 180px; font-weight: 600; }
+        .cam-name .cam-trend-link { margin-left: 6px; text-decoration: none; opacity: 0.7; }
+        .cam-name .cam-trend-link:hover { opacity: 1.0; }
         .cam-bar { flex: 1; position: relative; height: 28px; background: #e9ecef; border-radius: 0.25rem; overflow: hidden; min-width: 720px; }
         .record-block { position: absolute; top: 0; bottom: 0; background: #22c55e; cursor: pointer; opacity: 0.85; transition: opacity 0.1s; }
         .record-block:hover { opacity: 1.0; outline: 2px solid #16a34a; }
@@ -93,6 +95,12 @@
             <span class="ms-3"><span style="display:inline-block;width:14px;height:14px;background:#e9ecef;vertical-align:middle;border-radius:2px;"></span> 無錄影</span>
         </footer>
     </div>
+
+    {# Spec G Batch C Task 11：注入 8444 dashboard URL（context processor 從 env NVR_DASHBOARD_URL 注入）
+       8555 clips_app 跨 port 不能用相對 /trends；用 window 全域讓 JS 知道 absolute base #}
+    <script>
+        window.NVR_DASHBOARD_URL = {{ dashboard_url|tojson }};
+    </script>
 
     <script>
     (function () {
@@ -199,6 +207,16 @@
                 const name = document.createElement('div');
                 name.className = 'cam-name';
                 name.textContent = cam.camera_name + ' (' + cam.cam_id.slice(0, 8) + '…)';
+                // Spec G Batch C Task 11：每台 cam 加 📈 deep-link 到 8444 /trends?cam_id=...
+                // 跨 port 不能用相對 /trends；用 window.NVR_DASHBOARD_URL 當 base（context processor 注入）
+                // 預設 http://127.0.0.1:8444，可由 env NVR_DASHBOARD_URL 覆寫
+                const trendLink = document.createElement('a');
+                trendLink.className = 'cam-trend-link';
+                trendLink.textContent = '📈';
+                trendLink.title = '查看健康趨勢（8444 dashboard）';
+                trendLink.href = window.NVR_DASHBOARD_URL
+                    + '/trends?cam_id=' + encodeURIComponent(cam.cam_id);
+                name.appendChild(trendLink);
                 const bar = document.createElement('div');
                 bar.className = 'cam-bar';
                 cam.records.forEach(r => {

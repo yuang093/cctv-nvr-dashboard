@@ -387,6 +387,20 @@ def _inject_theme():
     return dict(dark=flask_session.get("dark", False))
 
 
+@app.context_processor
+def _inject_dashboard_url():
+    """Spec G Batch C Task 11：注入 8444 dashboard URL 給 coverage.html JS 用。
+
+    8555 clips_app 跟 8444 web.app 跨 port；coverage.html 不能用相對路徑 /trends
+    （會打到 8555/trends，該路徑不存在）。
+
+    從 env NVR_DASHBOARD_URL 讀（預設 http://127.0.0.1:8444）；可用於 LAN 部署時
+    把 8444 host:port 換成對外網址。
+    """
+    base = os.environ.get("NVR_DASHBOARD_URL", "http://127.0.0.1:8444").rstrip("/")
+    return dict(dashboard_url=base)
+
+
 @app.route("/dark/toggle", methods=["POST"])
 def dark_toggle():
     """切換深色模式（純 server-side，redirect 回來源頁）。"""

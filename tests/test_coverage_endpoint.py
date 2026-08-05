@@ -187,6 +187,67 @@ def test_coverage_page_has_dark_toggle(clips_app):
     assert "/dark/toggle" in html
 
 
+class TestCoverageTrendsDeepLink:
+    """Spec G Batch C Task 11：coverage.html (8555) JS dynamic cam rows 加 📈 deep-link。
+
+    8555 跟 8444 跨 port；不能用相對 /trends。
+    從 env NVR_DASHBOARD_URL 注入（context_processor）；預設 http://127.0.0.1:8444。
+    """
+
+    def test_coverage_page_injects_dashboard_url_globals(self, clips_app):
+        """coverage.html 應注入 window.NVR_DASHBOARD_URL（從 env 預設 8444）。"""
+        client = clips_app.test_client()
+        rv = client.get("/clips/coverage")
+        html = rv.get_data(as_text=True)
+        assert "window.NVR_DASHBOARD_URL" in html, \
+            "coverage 應注入 window.NVR_DASHBOARD_URL 給 JS 用"
+        # 預設 URL 是 http://127.0.0.1:8444（context_processor 預設值）
+        assert "http://127.0.0.1:8444" in html, \
+            "預設 dashboard URL 應是 http://127.0.0.1:8444"
+        # 編碼後的 JSON 字串（tojson）會帶引號
+        assert '"http://127.0.0.1:8444"' in html or "'http://127.0.0.1:8444'" in html, \
+            "dashboard_url 應用 |tojson 序列化（帶引號）"
+
+    def test_coverage_page_uses_env_dashboard_url_override(self, clips_app, monkeypatch):
+        """env NVR_DASHBOARD_URL 覆寫 → 注入 HTML。"""
+        monkeypatch.setenv("NVR_DASHBOARD_URL", "http://lan.example.com:9000")
+        client = clips_app.test_client()
+        rv = client.get("/clips/coverage")
+        html = rv.get_data(as_text=True)
+        # env 設的 URL 應出現在 window.NVR_DASHBOARD_URL 全域賦值
+        assert '"http://lan.example.com:9000"' in html or "'http://lan.example.com:9000'" in html, \
+            "NVR_DASHBOARD_URL env 應覆寫預設 URL（tojson 後的值）"
+
+    def test_coverage_js_uses_encodeURIComponent_for_cam_id(self, clips_app):
+        """JS 內應用 encodeURIComponent(cam.cam_id) 組 deep-link（防 XSS）。
+
+        修法：peer reviewer 風險 2 — 不用相對 /trends，且 URL 參數必須 encodeURIComponent。
+        """
+        client = clips_app.test_client()
+        rv = client.get("/clips/coverage")
+        html = rv.get_data(as_text=True)
+        # JS 內含 encodeURIComponent(cam.cam_id) 模式（取自 cam_iteration）
+        assert "encodeURIComponent(cam.cam_id)" in html, \
+            "coverage.html JS 應用 encodeURIComponent 包 cam_id"
+        # deep-link 模式：'/trends?cam_id=' + encodeURIComponent(...)
+        assert "/trends?cam_id=" in html, \
+            "JS 應組 /trends?cam_id= 路徑（用 dashboard URL 當 base）"
+        # 不應用相對路徑直接組（peer reviewer 風險 2）— 檢查 window 全域被讀取
+        assert "window.NVR_DASHBOARD_URL" in html, \
+            "JS 應用 window.NVR_DASHBOARD_URL 當 base（不是相對路徑）"
+        # 確認 deep-link href 內組合：dashboard URL + /trends?cam_id=
+        assert "trendLink.href" in html, \
+            "JS 應設 trendLink.href 給 deep-link anchor"
+
+    def test_coverage_js_has_cam_trend_link_class(self, clips_app):
+        """JS 內應建 .cam-trend-link class 的 anchor（給 event delegation 識別）。"""
+        client = clips_app.test_client()
+        rv = client.get("/clips/coverage")
+        html = rv.get_data(as_text=True)
+        assert "'cam-trend-link'" in html or '"cam-trend-link"' in html, \
+            "JS 應建 class='cam-trend-link' anchor 給 deep-link 用"
+
+
 def test_coverage_data_endpoint_502_when_nvr_unreachable_strict(monkeypatch, clips_app):
     """嚴格 502：monkeypatch 讓 scanner 連線失敗（spec 要求 502 而非 200 fallback）。"""
     webdb.create_nvr(clips_app.config["DB_PATH"], {
