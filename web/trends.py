@@ -100,12 +100,12 @@ def compute_health_timeseries(
     now_utc = datetime.now(timezone.utc)
     window_start = now_utc - timedelta(hours=range_hours)
 
-    # 算每個 bin 的起始時間（從最舊到最新）
+    # 算每個 bin 的起始時間（從最新到最舊，bin_starts[0] = 當前時段）。
+    # 以 now 對齊到 bin 邊界（每 24h 或 1h）。
     bin_starts: list[datetime] = []
-    # 以窗口起點對齊到 bin 邊界（每 24h 或 1h）
-    aligned_start = _truncate_to_bin(window_start, bin_h)
+    aligned_start = _truncate_to_bin(now_utc, bin_h)
     for i in range(n_bins):
-        bin_starts.append(aligned_start + timedelta(hours=i * bin_h))
+        bin_starts.append(aligned_start - timedelta(hours=i * bin_h))
 
     # 初始化 bucket
     buckets: list[dict] = [
@@ -132,8 +132,8 @@ def compute_health_timeseries(
         checked_at = row["checked_at_utc"]
         # parse "2026-08-05T14:23:01Z" 形式
         ts = datetime.strptime(checked_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-        # 對應到 bin index
-        delta_h = (ts - aligned_start).total_seconds() / 3600.0
+        # 對應到 bin index：以「距離 now 的整數小時數」為索引（吸收 now 落 bin 內的偏差）
+        delta_h = (now_utc - ts).total_seconds() / 3600.0
         idx = int(delta_h // bin_h)
         if 0 <= idx < n_bins:
             buckets[idx]["total"] += 1
