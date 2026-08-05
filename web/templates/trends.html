@@ -151,11 +151,12 @@
       {% endif %}
     </div>
     <div class="cam-canvas-wrapper">
-      <canvas id="chart-{{ s.nvr_id|default('', true) }}-{{ s.cam_id|default('', true) }}"></canvas>
+      {# loop.index0 是 integer，避免 nvr/cam id 含特殊字元破壞 HTML id / JS selector #}
+      <canvas id="chart-{{ loop.index0 }}"></canvas>
     </div>
     <div class="cam-detail">
       <div class="cam-canvas-wrapper">
-        <canvas id="chart-detail-{{ s.nvr_id|default('', true) }}-{{ s.cam_id|default('', true) }}"></canvas>
+        <canvas id="chart-detail-{{ loop.index0 }}"></canvas>
       </div>
     </div>
   </div>
@@ -184,12 +185,18 @@
     underexposed: readCssVar('--danger-text', '#ef4444'),
   };
 
-  // 7d daily bin X 軸用 MM-DD；24h hourly 用 HH:MM
+  // 7d daily bin X 軸用 MM-DD；24h hourly 用 HH:MM。**台北時區 UTC+8**（Spec G 慣例）
   function binLabel(startUtc) {
-    if (currentRangeHours === 168) {
-      return startUtc.slice(5, 10);  // "MM-DD"
-    }
-    return startUtc.slice(11, 16);   // "HH:MM"
+    // ISO 8601 UTC → 台北 UTC+8（手算避免 locale 不一致）
+    const utcMs = Date.parse(startUtc);
+    if (isNaN(utcMs)) return startUtc;  // fallback（不 crash）
+    const tp = new Date(utcMs + 8 * 3600 * 1000);
+    const mm = String(tp.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(tp.getUTCDate()).padStart(2, '0');
+    const hh = String(tp.getUTCHours()).padStart(2, '0');
+    const mi = String(tp.getUTCMinutes()).padStart(2, '0');
+    if (currentRangeHours === 168) return `${mm}-${dd}`;
+    return `${hh}:${mi}`;
   }
 
   function makeChart(canvas, detail) {
@@ -245,23 +252,32 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    // 1. Cam card init
-    summaries.forEach(s => {
-      // 用 encodeURIComponent 防 device_id 含特殊字元破壞 CSS selector
-      const safeNvr = encodeURIComponent(s.nvr_id || '');
-      const safeCam = encodeURIComponent(s.cam_id || '');
-      const canvasMini = document.getElementById('chart-' + safeNvr + '-' + safeCam);
-      const canvasDetail = document.getElementById('chart-detail-' + safeNvr + '-' + safeCam);
-      if (canvasMini) populateChart(makeChart(canvasMini, false), s.bins, false);
-      if (canvasDetail) populateChart(makeChart(canvasDetail, true), s.bins, true);
-
-      // 點 cam card → toggle detail（取代 inline onclick）
-      const card = canvasMini?.closest('.cam-card');
-      if (card) {
-        card.addEventListener('click', () => {
-          card.querySelector('.cam-detail')?.classList.toggle('expanded');
-        });
+    // 1. Cam card init（mini 永遠 visible，直接建 chart；detail lazy — 隱藏 canvas 建 Chart 是 0×0 不可見）
+    summaries.forEach((s, i) => {
+      const canvasMini = document.getElementById('chart-' + i);
+      if (canvasMini) {
+        populateChart(makeChart(canvasMini, false), s.bins, false);
       }
+      const card = document.querySelectorAll('.cam-card')[i];
+      if (!card) return;
+      // 把 bins 暫存在 card 上，detail 第一次 expand 時用
+      card.__bins = s.bins;
+      card.__index = i;
+
+      // 點 cam card → toggle detail（lazy 建 detail chart 防 hidden 0×0）
+      card.addEventListener('click', () => {
+        const detail = card.querySelector('.cam-detail');
+        const willExpand = !detail.classList.contains('expanded');
+        detail.classList.toggle('expanded');
+        if (willExpand) {
+          // 第一次展開才建 chart（此時 canvas 已有實際尺寸，Chart.js 能正確 render）
+          const canvasDetail = document.getElementById('chart-detail-' + card.__index);
+          if (canvasDetail && !canvasDetail.__chart) {
+            canvasDetail.__chart = makeChart(canvasDetail, true);
+            populateChart(canvasDetail.__chart, card.__bins, true);
+          }
+        }
+      });
     });
 
     // 2. NVR select onchange
@@ -283,24 +299,26 @@
     }
 
     // 4. Spec G Batch C Task 12：deep-link ?cam_id=X auto-expand + scrollIntoView
-    // 從 devices/dashboard/coverage 點進來的 cam 連結 → 直接 focus 到該 cam card
-    // 標記 element 永遠渲染（即使 cam-grid 是 empty state）；找不到 card 時 silent no-op
     const marker = document.getElementById('trends-focus-marker');
     const focusCamId = marker && marker.dataset.focusCamId;
     if (focusCamId) {
-      // 用 CSS attribute selector；CSS.escape 防 user-controllable 字元破壞 selector
-      // (data-cam-id 雖已 |urlencode，但 CSS.escape 仍加一層保險)
       const target = document.querySelector(
         '.cam-card[data-cam-id="' + CSS.escape(focusCamId) + '"]'
       );
       if (target) {
-        // Auto-expand detail chart（不靠 user click）
-        const detail = target.querySelector('.cam-detail');
-        if (detail) detail.classList.add('expanded');
-        // Scroll into view（block:center 把 card 拉到視窗中央）
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Expand detail + lazy 建 chart（確保 user 看到 detail chart 是真的）
+        const detail = target.querySelector('.cam-detail');
+        if (detail && !detail.classList.contains('expanded')) {
+          detail.classList.add('expanded');
+          const idx = target.__index;
+          const canvasDetail = document.getElementById('chart-detail-' + idx);
+          if (canvasDetail && !canvasDetail.__chart && target.__bins) {
+            canvasDetail.__chart = makeChart(canvasDetail, true);
+            populateChart(canvasDetail.__chart, target.__bins, true);
+          }
+        }
       }
-      // 找不到 → silent no-op（route 不 500，UI 正常顯示全 grid）
     }
   });
 </script>

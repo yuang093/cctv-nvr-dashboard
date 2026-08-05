@@ -30,7 +30,8 @@ def flask_client(tmp_path: Path, monkeypatch):
             verify_ssl INTEGER NOT NULL DEFAULT 0,
             site_id TEXT,
             tags TEXT NOT NULL DEFAULT '[]',
-            enabled INTEGER NOT NULL DEFAULT 1
+            enabled INTEGER NOT NULL DEFAULT 1,
+            updated_at TEXT NOT NULL DEFAULT '2026-08-05T00:00:00Z'
         );
         CREATE TABLE cameras (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -221,7 +222,62 @@ class TestTrendsRouteFilters:
             "?status=garbage 應 fallback 200（route normalization），不 500"
 
 
-class TestTrendsNavbarLink:
+class TestDevicesListTrendsLink:
+    """Spec G Batch C Task 9：devices_list.html 每台 cam row 應有 📈 連結到 /trends?cam_id=X。"""
+
+    def test_devices_list_has_trends_link_per_cam(self, flask_client):
+        """devices_list 每台 cam 都應有 /trends?cam_id=<device_id> 連結。"""
+        client, db_path = flask_client
+        # seed 2 台 cam
+        conn = sqlite3.connect(db_path)
+        nvr_int = conn.execute(
+            "INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')"
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, 'cam-A', 'CamA', 0, '2026-08-05T00:00:00Z')",
+            (nvr_int,),
+        )
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, 'cam-B', 'CamB', 0, '2026-08-05T00:00:00Z')",
+            (nvr_int,),
+        )
+        conn.commit()
+        conn.close()
+
+        r = client.get("/devices")
+        assert r.status_code == 200
+        body = r.data.decode("utf-8")
+        # 兩台 cam 都應有 /trends?cam_id=cam-X 連結
+        assert 'href="/trends?cam_id=cam-A"' in body
+        assert 'href="/trends?cam_id=cam-B"' in body
+        # 📈 emoji 應出現
+        assert "📈" in body, "deep-link 應用 📈 icon"
+
+    def test_devices_list_link_is_xss_safe_for_special_device_id(self, flask_client):
+        """device_id 含特殊字元 → |urlencode 過濾後注入（防 XSS）。"""
+        client, db_path = flask_client
+        conn = sqlite3.connect(db_path)
+        nvr_int = conn.execute(
+            "INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')"
+        ).lastrowid
+        # 含 '、"、< 的 device_id
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, ?, 'XssCam', 0, '2026-08-05T00:00:00Z')",
+            (nvr_int, "evil'id\"><script>alert(1)</script>"),
+        )
+        conn.commit()
+        conn.close()
+
+        r = client.get("/devices")
+        body = r.data.decode("utf-8")
+        # 原始 raw payload 不應出現在 href attribute 內
+        assert 'href="/trends?cam_id=evil\'id\"' not in body, \
+            "Critical: device_id 未 URL-encoded 直接拼接 href → XSS"
+        # 編碼後的版本應在 href 內
+        assert "cam_id=evil" in body, "deep-link 應被 render（即使 device_id 含特殊字元）"
     """Spec G Batch C Task 8：base.html navbar 應含 '📈 健康趨勢' 連結到 /trends。
 
     /trends extends base.html，所以 navbar 必渲染。
@@ -372,12 +428,17 @@ class TestTrendsTemplateSecurity:
 
         r = client.get("/trends")
         body = r.data.decode("utf-8")
-        # 兩台 cam 各自的 canvas id 應不同：chart-nvr-a-shared vs chart-nvr-b-shared
-        assert 'id="chart-nvr-a-shared"' in body, "CamOnA 應有 nvr-prefixed canvas id"
-        assert 'id="chart-nvr-b-shared"' in body, "CamOnB 應有 nvr-prefixed canvas id"
-        # 不應該只有 chart-shared（會撞 id）
+        # Spec G 改用 loop.index0（integer）做 canvas id：跨 NVR 同 device_id 不會撞 id，
+        # 且避免 device_id 含特殊字元破壞 HTML id / JS selector。
+        # 兩台 cam 各自的 canvas id 應不同：chart-0 vs chart-1
+        assert 'id="chart-0"' in body, "CamOnA 應有 chart-0 canvas id"
+        assert 'id="chart-1"' in body, "CamOnB 應有 chart-1 canvas id"
+        # detail canvas 也用 loop.index0
+        assert 'id="chart-detail-0"' in body
+        assert 'id="chart-detail-1"' in body
+        # 不應再用 device_id 當 canvas id 的一部分
         assert 'id="chart-shared"' not in body, \
-            "不能只用 cam_id 沒 nvr_id prefix（peer reviewer 修法回歸）"
+            "不應再用 device_id 當 canvas id 的一部分（peer reviewer 修法）"
 
     def test_data_attributes_carry_filter_state_for_js(self, flask_client):
         """select / checkbox 應用 data-* 屬性把當前 filter 狀態交給 JS（避免 inline JS）。"""
@@ -425,3 +486,100 @@ class TestTrendsTemplateSecurity:
         css_block_count = body.count("var(--")
         assert css_block_count >= 5, \
             f"應用 CSS var 做 theme 自動套色，got {css_block_count} refs（peer reviewer 修法）"
+
+
+class TestTrendsTemplateLazyDetail:
+    """Peer reviewer 2026-08-05 二次報告：detail canvas 0×0 + HTML id 對齊 JS encoder。
+
+    重點修法：
+    1. Canvas id 用 loop.index0（純 integer）— 避免特殊字元破壞 HTML id
+    2. binLabel 轉台北時區（UTC+8）
+    3. Detail canvas lazy init（hidden canvas 預建是 0×0 不可見）
+    """
+
+    def _seed_two_cams(self, db_path: str) -> None:
+        conn = sqlite3.connect(db_path)
+        nvr_int = conn.execute(
+            "INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')"
+        ).lastrowid
+        # 含特殊字元的 device_id 模擬跨 NVR 同 id 衝突場景
+        for device_id, name in [
+            ("shared/id", "CamShared"),
+            ("normal", "CamNormal"),
+        ]:
+            conn.execute(
+                "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+                "VALUES (?, ?, ?, 0, '2026-08-05T00:00:00Z')",
+                (nvr_int, device_id, name),
+            )
+        conn.commit()
+        conn.close()
+
+    def test_canvas_id_uses_loop_index_not_raw_cam_id(self, flask_client):
+        """Canvas HTML id 應用 loop.index0（integer），不用 raw nvr_id/cam_id。
+
+        修法：避免 HTML id 含特殊字元（/、% 等）破壞 CSS selector / getElementById。
+        """
+        client, db_path = flask_client
+        self._seed_two_cams(db_path)
+
+        r = client.get("/trends")
+        body = r.data.decode("utf-8")
+        # 應有 chart-0 / chart-detail-0 / chart-1 / chart-detail-1
+        assert 'id="chart-0"' in body
+        assert 'id="chart-detail-0"' in body
+        assert 'id="chart-1"' in body
+        assert 'id="chart-detail-1"' in body
+        # 不應有 raw device_id 在 canvas id 內
+        assert 'id="chart-shared/id"' not in body, \
+            "cam-card canvas id 不應含 raw device_id 特殊字元"
+        # data-cam-id 應用 raw form（因為 Jinja urlencode 不編碼 /），
+        # JS 端用 CSS.escape 安全處理 selector
+        assert 'data-cam-id="shared/id"' in body, \
+            "data-cam-id 維持 raw form（urlencode 不編碼 /）+ CSS.escape 安全選擇"
+        assert 'data-cam-id="normal"' in body, \
+            "data-cam-id 含 normal cam"
+
+    def test_bin_label_uses_taipei_timezone(self, flask_client):
+        """binLabel JS 應轉台北 UTC+8（不是 UTC）。
+
+        修法：Spec G 時區慣例（與 fleet、coverage 一致）。
+        Python 端不能直接驗 JS 函式，但能驗 JS source 含 Taipei 邏輯：
+        - 不應直接用 startUtc.slice(11,16) 純 UTC
+        - 應用 Date.parse + UTC+8 offset
+        """
+        client, _ = flask_client
+        r = client.get("/trends")
+        body = r.data.decode("utf-8")
+        # 檢查 JS 含時區轉換邏輯（避免退回 UTC）
+        assert "Date.parse" in body, \
+            "binLabel 應用 Date.parse 處理 ISO 8601 + UTC offset"
+        assert "8 * 3600" in body, \
+            "binLabel 應加 8 小時偏移（UTC→台北 UTC+8）"
+        # 確認舊的純 UTC 切片邏輯被取代（否則時區不會生效）
+        # startUtc.slice 仍可能在別處用，但 binLabel 不應只用 slice
+        assert "getUTCMonth" in body or "getUTCDate" in body, \
+            "binLabel 應明確從台北時區對應的 Date 物件取 month/date/hour/minute"
+
+    def test_detail_canvas_lazy_init_in_js(self, flask_client):
+        """JS 內 detail canvas 應 lazy init（不在 DOMContentLoaded 預建）。
+
+        修法：peer reviewer Critical — hidden canvas 預建會 0×0 不可見。
+        Pattern: 在 click handler 內 `if (!canvasDetail.__chart)` 才 new Chart。
+        """
+        client, db_path = flask_client
+        self._seed_two_cams(db_path)
+        r = client.get("/trends")
+        body = r.data.decode("utf-8")
+        # JS 內找 lazy init pattern
+        assert "__chart" in body, \
+            "JS 端應用 __chart marker 做 lazy init（避免 hidden 0×0）"
+        assert "willExpand" in body, \
+            "JS 端 toggle 應區分 willExpand（只在 expand 時建 chart）"
+        # 不應該在 DOMContentLoaded 內 new Chart for detail canvas（會 0×0）
+        # 粗略檢查：DOMContentLoaded 內不該對 chart-detail- 做 populateChart
+        dom_content_loaded_section = body.split("DOMContentLoaded")[1].split("});")[0] if "DOMContentLoaded" in body else ""
+        # detail canvas 預建 marker 不應出現（canvas.__chart 早就 set 了）
+        # 反向檢查：DOMContentLoaded 區段內不該有 chart-detail
+        assert "populateChart(makeChart(canvasDetail" not in dom_content_loaded_section, \
+            "DOMContentLoaded 不應預建 detail Chart（會 0×0）；應改為 lazy 在 click handler 建"
