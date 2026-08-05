@@ -3,18 +3,221 @@
 {% block title %}Cam 健康趨勢{% endblock %}
 
 {% block content %}
+<style>
+  .trends-filters {
+    margin: 16px 0;
+    padding: 12px;
+    background: var(--bg-card, #f8fafc);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .trends-filters a {
+    padding: 6px 12px;
+    text-decoration: none;
+    border: 1px solid var(--border, #cbd5e1);
+    border-radius: 4px;
+    color: var(--text, #334155);
+  }
+  .trends-filters a.active {
+    background: #2563eb;
+    color: white;
+  }
+  .trends-filters select {
+    padding: 6px 12px;
+  }
+  .cam-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .cam-card {
+    padding: 12px;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 6px;
+    background: var(--bg-card, white);
+    cursor: pointer;
+  }
+  .cam-card.abnormal {
+    border: 2px solid #ef4444;
+  }
+  .cam-card h3 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+  }
+  .cam-card .meta {
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 8px;
+  }
+  .cam-card .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    background: #ef4444;
+    color: white;
+  }
+  .cam-card .badge.zero {
+    background: #22c55e;
+  }
+  .cam-canvas-wrapper {
+    height: 80px;
+  }
+  .cam-detail {
+    display: none;
+    margin-top: 12px;
+  }
+  .cam-detail.expanded {
+    display: block;
+  }
+  .cam-detail .cam-canvas-wrapper {
+    height: 200px;
+  }
+  .empty-state {
+    padding: 32px;
+    text-align: center;
+    color: #64748b;
+    border: 1px dashed #cbd5e1;
+    border-radius: 6px;
+    margin-top: 16px;
+  }
+</style>
+
 <h2>📈 Cam 健康趨勢</h2>
 <p>共 {{ summaries|length }} 台 cam（{{ range_hours }}h 視窗）</p>
 
-{% if nvrs %}
-<div class="filters">
-  <ul>
-  {% for n in nvrs %}
-    <li>{{ n.id }} - {{ n.name }}</li>
+<!-- Filters -->
+<div class="trends-filters">
+  <span>視窗：</span>
+  <a href="?{% if current_nvr %}nvr_id={{ current_nvr }}&{% endif %}{% if current_status != 'any' %}status={{ current_status }}&{% endif %}range=24h"
+     class="{% if range_hours == 24 %}active{% endif %}">24h</a>
+  <a href="?{% if current_nvr %}nvr_id={{ current_nvr }}&{% endif %}{% if current_status != 'any' %}status={{ current_status }}&{% endif %}range=7d"
+     class="{% if range_hours == 168 %}active{% endif %}">7d</a>
+
+  {% if nvrs %}
+  <select onchange="window.location.href='?' + (this.value ? 'nvr_id=' + this.value : '') + '&range={{ '7d' if range_hours == 168 else '24h' }}'">
+    <option value="">所有 NVR</option>
+    {% for n in nvrs %}
+    <option value="{{ n.id }}" {% if current_nvr == n.id %}selected{% endif %}>
+      {{ n.name }}
+    </option>
+    {% endfor %}
+  </select>
+  {% endif %}
+
+  <label>
+    <input type="checkbox" onchange="
+      window.location.href='?' + ('{% if current_nvr %}nvr_id={{ current_nvr }}&{% endif %}range={{ '7d' if range_hours == 168 else '24h' }}&') + (this.checked ? 'status=abnormal_only' : 'status=any')
+    " {% if current_status == 'abnormal_only' %}checked{% endif %}>
+    只看異常
+  </label>
+</div>
+
+{% if not summaries %}
+<div class="empty-state">
+  {% if current_nvr or current_status == 'abnormal_only' %}
+    目前篩選條件下沒有 cam 紀錄。
+  {% else %}
+    目前沒有 cam 紀錄（DB 為空或 batch_scan 從未跑過）。
+  {% endif %}
+</div>
+{% else %}
+<div class="cam-grid">
+  {% for s in summaries %}
+  <div class="cam-card {% if s.abnormal_bins > 0 %}abnormal{% endif %}"
+       data-cam-id="{{ s.cam_id }}"
+       onclick="toggleDetail(this)">
+    <h3>{{ s.cam_name }}</h3>
+    <div class="meta">
+      NVR: {{ s.nvr_name }} |
+      {% if s.abnormal_bins > 0 %}
+        <span class="badge">{{ s.abnormal_bins }} 異常筆次</span>
+      {% else %}
+        <span class="badge zero">健康</span>
+      {% endif %}
+    </div>
+    <div class="cam-canvas-wrapper">
+      <canvas id="chart-{{ s.cam_id }}"></canvas>
+    </div>
+    <div class="cam-detail">
+      <div class="cam-canvas-wrapper">
+        <canvas id="chart-detail-{{ s.cam_id }}"></canvas>
+      </div>
+    </div>
+  </div>
   {% endfor %}
-  </ul>
 </div>
 {% endif %}
 
-<p>Range: {{ range_hours }}h</p>
+<!-- Chart.js 4.4.0（沿用 fleet.html 既有 CDN） -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+  // Mini sparkline 資料
+  // 注意：s.bins 是 newest→oldest 排序（bins[0]=最新）；
+  // chart X 軸希望「左舊 → 右新」，故在 JS 端 reverse 一次。
+  const summaries = {{ summaries|tojson }};
+
+  const COLORS = {
+    online: '#22c55e',
+    frozen: '#f59e0b',
+    underexposed: '#ef4444',
+  };
+
+  function makeChart(canvas, detail) {
+    return new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'Online', data: [], borderColor: COLORS.online, borderWidth: 1.5, pointRadius: 0 },
+          { label: 'Frozen', data: [], borderColor: COLORS.frozen,  borderWidth: 1.5, pointRadius: 0 },
+          { label: 'Underexposed', data: [], borderColor: COLORS.underexposed, borderWidth: 1.5, pointRadius: 0 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: detail },
+          tooltip: { enabled: detail },
+        },
+        scales: {
+          y: { min: 0, max: 100, ticks: { display: detail } },
+          x: { ticks: { display: detail } },
+        },
+        elements: { point: { radius: 0 }, line: { borderWidth: 1.5 } },
+      },
+    });
+  }
+
+  function populateChart(chart, bins, detail) {
+    // bins 是 newest→oldest；reversed = oldest→newest，X 軸左→右
+    const ordered = bins.slice().reverse();
+    chart.data.labels = ordered.map(b => b.start_utc.slice(11, 16));  // HH:MM
+    chart.data.datasets[0].data = ordered.map(b => b.online_pct);
+    chart.data.datasets[1].data = ordered.map(b => b.frozen_pct);
+    chart.data.datasets[2].data = ordered.map(b => b.underexposed_pct);
+    chart.update();
+  }
+
+  // Init
+  document.addEventListener('DOMContentLoaded', () => {
+    summaries.forEach(s => {
+      const canvasMini = document.getElementById('chart-' + s.cam_id);
+      const canvasDetail = document.getElementById('chart-detail-' + s.cam_id);
+      if (canvasMini) populateChart(makeChart(canvasMini, false), s.bins, false);
+      if (canvasDetail) populateChart(makeChart(canvasDetail, true), s.bins, true);
+    });
+  });
+
+  function toggleDetail(card) {
+    const detail = card.querySelector('.cam-detail');
+    detail.classList.toggle('expanded');
+  }
+</script>
 {% endblock %}

@@ -106,3 +106,73 @@ class TestTrendsRoute:
         body = r.data.decode("utf-8")
         assert "ACC-8" in body
         assert "ACC-9" in body
+
+
+class TestTrendsTemplateRendering:
+    """驗證 trends.html 結構（spec §4.3 / §7.2）。"""
+
+    def _seed_one_cam_with_health(self, db_path: str, cam_id: str = "d-1") -> None:
+        """塞 1 NVR + 1 cam + 1 筆 record。"""
+        conn = sqlite3.connect(db_path)
+        nvr_int = conn.execute(
+            "INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')"
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, ?, 'Cam1', 0, '2026-08-05T00:00:00Z')",
+            (nvr_int, cam_id),
+        )
+        conn.execute(
+            "INSERT INTO image_health_checks "
+            "(camera_id, nvr_server_id, checked_at_utc, metrics_json, flags_json) "
+            "VALUES (?, ?, '2026-08-05T12:00:00Z', ?, '[]')",
+            (cam_id, nvr_int, json.dumps({"is_frozen": False, "is_underexposed": False})),
+        )
+        conn.commit()
+        conn.close()
+
+    def test_with_seeded_data_shows_bins(self, flask_client):
+        """seed image_health → 模板含 chart canvas。"""
+        client, db_path = flask_client
+        self._seed_one_cam_with_health(db_path)
+
+        r = client.get("/trends")
+        body = r.data.decode("utf-8")
+        assert "<canvas" in body, "應含 Chart.js canvas"
+        # Chart.js CDN script（沿用 fleet.html 的 4.4.0）
+        assert "chart.js" in body.lower() or "Chart.js" in body
+        assert "Cam1" in body, "應顯示 cam 名稱"
+
+    def test_abnormal_badge_for_3plus_abnormal_bins(self, flask_client):
+        """abnormal_bins >= 1 的 cam 顯示 cam-card 紅色邊框。"""
+        client, db_path = flask_client
+        self._seed_one_cam_with_health(db_path, "d-bad")
+        # seed 3 筆 frozen → 3 bin abnormal
+        for h in (4.0, 5.0, 6.0):
+            checked = (datetime.now(timezone.utc) - timedelta(hours=h)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            conn = sqlite3.connect(db_path)
+            conn.execute(
+                "INSERT INTO image_health_checks "
+                "(camera_id, nvr_server_id, checked_at_utc, metrics_json, flags_json) "
+                "VALUES ('d-bad', NULL, ?, ?, '[]')",
+                (checked, json.dumps({"is_frozen": True, "is_underexposed": False})),
+            )
+            conn.commit()
+            conn.close()
+
+        r = client.get("/trends")
+        body = r.data.decode("utf-8")
+        # 紅色框線 badge（class 標記）—— 用 regex 找 class 包含 abnormal 的元素
+        import re
+        pattern = re.compile(r'class\s*=\s*["\'][^"\']*\babnormal\b', re.IGNORECASE)
+        assert pattern.search(body), \
+            "異常 cam 應有 cam-card.abnormal CSS class"
+
+    def test_empty_db_shows_empty_state(self, flask_client):
+        """空 DB → 顯示「目前沒有 cam 紀錄」相關字串。"""
+        client, _ = flask_client
+        r = client.get("/trends")
+        body = r.data.decode("utf-8")
+        # 強化：明確找 "目前沒有" 中文字串
+        assert "目前沒有" in body, \
+            f"空 DB 應顯示「目前沒有」字串，got body length {len(body)}"
