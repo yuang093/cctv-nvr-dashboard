@@ -221,7 +221,22 @@ class TestTrendsRouteFilters:
             "?status=garbage 應 fallback 200（route normalization），不 500"
 
 
-class TestTrendsCamIdDeepLink:
+class TestTrendsNavbarLink:
+    """Spec G Batch C Task 8：base.html navbar 應含 '📈 健康趨勢' 連結到 /trends。
+
+    /trends extends base.html，所以 navbar 必渲染。
+    """
+
+    def test_navbar_has_trends_link_to_trends_route(self, flask_client):
+        """navbar 應含指向 /trends 的 anchor（text 含 '健康趨勢'）。"""
+        client, _ = flask_client
+        r = client.get("/trends")
+        assert r.status_code == 200
+        body = r.data.decode("utf-8")
+        # url_for('trends') 會被 render 成 /trends
+        assert 'href="/trends"' in body, "navbar 應有指向 /trends 的 anchor"
+        # 顯示文字含「健康趨勢」
+        assert "健康趨勢" in body, "navbar 應顯示「健康趨勢」文字"
     """Spec G Batch C Task 12：route 接受 ?cam_id= query param，template JS auto-expand + scrollIntoView。
 
     修法：deep link 從 devices/dashboard/coverage 點進來時，要直接 focus 到該 cam。
