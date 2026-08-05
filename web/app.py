@@ -949,6 +949,45 @@ def _register_routes(app: Flask) -> None:
             cam=info, history=history,
         )
 
+    @app.route("/trends")
+    def trends():
+        """Spec G: Cam 健康趨勢總覽（mini sparkline grid）。
+
+        Query params:
+            range: 24h | 7d（預設 24h；其他值 fallback 24h，不 500）
+            nvr_id: 限定單一 NVR（可選）
+            status: any | abnormal_only（預設 any；其他值 raise ValueError）
+        """
+        from web.trends import get_all_cams_health_summary
+        from web.db import list_enabled_nvrs
+
+        range_str = request.args.get("range", "24h")
+        range_hours = 24 if range_str == "24h" else (168 if range_str == "7d" else 24)
+        nvr_filter = request.args.get("nvr_id") or None
+        status_filter = request.args.get("status", "any")
+
+        db_path = _get_db_path(app)
+        summaries = get_all_cams_health_summary(
+            db_path,
+            range_hours=range_hours,
+            nvr_filter=nvr_filter,
+            status_filter=status_filter,
+        )
+        # 給 dropdown 的 NVR 清單（沿用 web.db.list_enabled_nvrs 既有 helper）
+        try:
+            nvrs = list_enabled_nvrs(db_path)
+        except Exception:
+            nvrs = []
+
+        return render_template(
+            "trends.html",
+            summaries=summaries,
+            range_hours=range_hours,
+            nvrs=nvrs,
+            current_nvr=nvr_filter,
+            current_status=status_filter,
+        )
+
     @app.errorhandler(404)
     def not_found(e):
         return render_template("error.html", code=404, message=str(e)), 404

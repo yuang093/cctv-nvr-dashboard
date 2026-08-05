@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Cam 健康趨勢{% endblock %}
+
+{% block content %}
+<h2>📈 Cam 健康趨勢</h2>
+<p>共 {{ summaries|length }} 台 cam（{{ range_hours }}h 視窗）</p>
+
+{% if nvrs %}
+<div class="filters">
+  <ul>
+  {% for n in nvrs %}
+    <li>{{ n.id }} - {{ n.name }}</li>
+  {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<p>Range: {{ range_hours }}h</p>
+{% endblock %}
