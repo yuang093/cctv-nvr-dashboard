@@ -7,7 +7,7 @@
   .trends-filters {
     margin: 16px 0;
     padding: 12px;
-    background: var(--bg-card, #f8fafc);
+    background: var(--bg-secondary);
     border-radius: 6px;
     display: flex;
     align-items: center;
@@ -17,17 +17,16 @@
   .trends-filters a {
     padding: 6px 12px;
     text-decoration: none;
-    border: 1px solid var(--border, #cbd5e1);
+    border: 1px solid var(--border-primary);
     border-radius: 4px;
-    color: var(--text, #334155);
+    color: var(--text-secondary);
   }
   .trends-filters a.active {
-    background: #2563eb;
+    background: var(--primary);
+    border-color: var(--primary);
     color: white;
   }
-  .trends-filters select {
-    padding: 6px 12px;
-  }
+  .trends-filters select { padding: 6px 12px; }
   .cam-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -36,13 +35,14 @@
   }
   .cam-card {
     padding: 12px;
-    border: 1px solid var(--border, #e2e8f0);
+    border: 1px solid var(--border-primary);
     border-radius: 6px;
-    background: var(--bg-card, white);
+    background: var(--bg-card);
+    color: var(--text-primary);
     cursor: pointer;
   }
   .cam-card.abnormal {
-    border: 2px solid #ef4444;
+    border: 2px solid var(--danger-border);
   }
   .cam-card h3 {
     margin: 0 0 4px 0;
@@ -50,7 +50,7 @@
   }
   .cam-card .meta {
     font-size: 12px;
-    color: #64748b;
+    color: var(--text-muted);
     margin-bottom: 8px;
   }
   .cam-card .badge {
@@ -58,11 +58,11 @@
     padding: 2px 8px;
     border-radius: 10px;
     font-size: 11px;
-    background: #ef4444;
-    color: white;
+    background: var(--danger-text);
+    color: var(--bg-card);
   }
   .cam-card .badge.zero {
-    background: #22c55e;
+    background: var(--success-text);
   }
   .cam-canvas-wrapper {
     height: 80px;
@@ -80,8 +80,8 @@
   .empty-state {
     padding: 32px;
     text-align: center;
-    color: #64748b;
-    border: 1px dashed #cbd5e1;
+    color: var(--text-muted);
+    border: 1px dashed var(--border-secondary);
     border-radius: 6px;
     margin-top: 16px;
   }
@@ -90,16 +90,21 @@
 <h2>📈 Cam 健康趨勢</h2>
 <p>共 {{ summaries|length }} 台 cam（{{ range_hours }}h 視窗）</p>
 
-<!-- Filters -->
+<!-- Filters（用 data-* 屬性 + JS event listener，避免 inline JS 字串拼接 XSS） -->
 <div class="trends-filters">
   <span>視窗：</span>
-  <a href="?{% if current_nvr %}nvr_id={{ current_nvr }}&{% endif %}{% if current_status != 'any' %}status={{ current_status }}&{% endif %}range=24h"
-     class="{% if range_hours == 24 %}active{% endif %}">24h</a>
-  <a href="?{% if current_nvr %}nvr_id={{ current_nvr }}&{% endif %}{% if current_status != 'any' %}status={{ current_status }}&{% endif %}range=7d"
-     class="{% if range_hours == 168 %}active{% endif %}">7d</a>
+  <a href="?{% if current_nvr %}nvr_id={{ current_nvr|urlencode }}&{% endif %}{% if current_status != 'any' %}status={{ current_status|urlencode }}&{% endif %}range=24h"
+     class="{% if range_hours == 24 %}active{% endif %}"
+     data-preserve="range" data-value="24h">24h</a>
+  <a href="?{% if current_nvr %}nvr_id={{ current_nvr|urlencode }}&{% endif %}{% if current_status != 'any' %}status={{ current_status|urlencode }}&{% endif %}range=7d"
+     class="{% if range_hours == 168 %}active{% endif %}"
+     data-preserve="range" data-value="7d">7d</a>
 
   {% if nvrs %}
-  <select onchange="window.location.href='?' + (this.value ? 'nvr_id=' + this.value : '') + '&range={{ '7d' if range_hours == 168 else '24h' }}'">
+  <select id="nvr-filter-select"
+          data-current-nvr="{{ current_nvr|default('', true)|urlencode }}"
+          data-current-status="{{ current_status|default('any', true)|urlencode }}"
+          data-current-range="{{ '7d' if range_hours == 168 else '24h' }}">
     <option value="">所有 NVR</option>
     {% for n in nvrs %}
     <option value="{{ n.id }}" {% if current_nvr == n.id %}selected{% endif %}>
@@ -110,9 +115,8 @@
   {% endif %}
 
   <label>
-    <input type="checkbox" onchange="
-      window.location.href='?' + ('{% if current_nvr %}nvr_id={{ current_nvr }}&{% endif %}range={{ '7d' if range_hours == 168 else '24h' }}&') + (this.checked ? 'status=abnormal_only' : 'status=any')
-    " {% if current_status == 'abnormal_only' %}checked{% endif %}>
+    <input type="checkbox" id="abnormal-only-toggle"
+           {% if current_status == 'abnormal_only' %}checked{% endif %}>
     只看異常
   </label>
 </div>
@@ -128,9 +132,11 @@
 {% else %}
 <div class="cam-grid">
   {% for s in summaries %}
+  {# 複合 id 用 (nvr_id, device_id) 因為 DB UNIQUE 是 (nvr_id, device_id)；cam_id 跨 NVR 可能重複 #}
   <div class="cam-card {% if s.abnormal_bins > 0 %}abnormal{% endif %}"
-       data-cam-id="{{ s.cam_id }}"
-       onclick="toggleDetail(this)">
+       data-nvr-id="{{ s.nvr_id|default('', true)|urlencode }}"
+       data-cam-id="{{ s.cam_id|default('', true)|urlencode }}"
+       data-cam-name="{{ s.cam_name|e }}">
     <h3>{{ s.cam_name }}</h3>
     <div class="meta">
       NVR: {{ s.nvr_name }} |
@@ -141,11 +147,11 @@
       {% endif %}
     </div>
     <div class="cam-canvas-wrapper">
-      <canvas id="chart-{{ s.cam_id }}"></canvas>
+      <canvas id="chart-{{ s.nvr_id|default('', true) }}-{{ s.cam_id|default('', true) }}"></canvas>
     </div>
     <div class="cam-detail">
       <div class="cam-canvas-wrapper">
-        <canvas id="chart-detail-{{ s.cam_id }}"></canvas>
+        <canvas id="chart-detail-{{ s.nvr_id|default('', true) }}-{{ s.cam_id|default('', true) }}"></canvas>
       </div>
     </div>
   </div>
@@ -161,12 +167,26 @@
   // 注意：s.bins 是 newest→oldest 排序（bins[0]=最新）；
   // chart X 軸希望「左舊 → 右新」，故在 JS 端 reverse 一次。
   const summaries = {{ summaries|tojson }};
+  const currentRangeHours = {{ range_hours|tojson }};
 
+  // 從 CSS tokens 讀取顏色（支援 12 theme 自動套色）；fallback hex 防 theme 沒定義
+  function readCssVar(name, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
   const COLORS = {
-    online: '#22c55e',
-    frozen: '#f59e0b',
-    underexposed: '#ef4444',
+    online: readCssVar('--success-text', '#22c55e'),
+    frozen: readCssVar('--warning-text', '#f59e0b'),
+    underexposed: readCssVar('--danger-text', '#ef4444'),
   };
+
+  // 7d daily bin X 軸用 MM-DD；24h hourly 用 HH:MM
+  function binLabel(startUtc) {
+    if (currentRangeHours === 168) {
+      return startUtc.slice(5, 10);  // "MM-DD"
+    }
+    return startUtc.slice(11, 16);   // "HH:MM"
+  }
 
   function makeChart(canvas, detail) {
     return new Chart(canvas, {
@@ -198,26 +218,65 @@
   function populateChart(chart, bins, detail) {
     // bins 是 newest→oldest；reversed = oldest→newest，X 軸左→右
     const ordered = bins.slice().reverse();
-    chart.data.labels = ordered.map(b => b.start_utc.slice(11, 16));  // HH:MM
+    chart.data.labels = ordered.map(b => binLabel(b.start_utc));
     chart.data.datasets[0].data = ordered.map(b => b.online_pct);
     chart.data.datasets[1].data = ordered.map(b => b.frozen_pct);
     chart.data.datasets[2].data = ordered.map(b => b.underexposed_pct);
     chart.update();
   }
 
-  // Init
+  // === Filter interactions（純 JS event，不靠 inline onchange 字串拼接，防 XSS） ===
+  function buildFilterUrl(updates) {
+    const params = new URLSearchParams();
+    // 保留當前其他 filter 與 updates merge
+    const currentNvr = document.getElementById('nvr-filter-select')?.dataset.currentNvr || '';
+    const currentStatus = document.getElementById('abnormal-only-toggle')?.checked
+      ? 'abnormal_only' : 'any';
+    const currentRange = document.getElementById('nvr-filter-select')?.dataset.currentRange || '24h';
+    if (updates.nvr_id ?? currentNvr) params.set('nvr_id', updates.nvr_id ?? currentNvr);
+    if ((updates.status ?? currentStatus) !== 'any') params.set('status', updates.status ?? currentStatus);
+    params.set('range', updates.range ?? currentRange);
+    const qs = params.toString();
+    return '?' + qs;
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
+    // 1. Cam card init
     summaries.forEach(s => {
-      const canvasMini = document.getElementById('chart-' + s.cam_id);
-      const canvasDetail = document.getElementById('chart-detail-' + s.cam_id);
+      // 用 encodeURIComponent 防 device_id 含特殊字元破壞 CSS selector
+      const safeNvr = encodeURIComponent(s.nvr_id || '');
+      const safeCam = encodeURIComponent(s.cam_id || '');
+      const canvasMini = document.getElementById('chart-' + safeNvr + '-' + safeCam);
+      const canvasDetail = document.getElementById('chart-detail-' + safeNvr + '-' + safeCam);
       if (canvasMini) populateChart(makeChart(canvasMini, false), s.bins, false);
       if (canvasDetail) populateChart(makeChart(canvasDetail, true), s.bins, true);
-    });
-  });
 
-  function toggleDetail(card) {
-    const detail = card.querySelector('.cam-detail');
-    detail.classList.toggle('expanded');
-  }
+      // 點 cam card → toggle detail（取代 inline onclick）
+      const card = canvasMini?.closest('.cam-card');
+      if (card) {
+        card.addEventListener('click', () => {
+          card.querySelector('.cam-detail')?.classList.toggle('expanded');
+        });
+      }
+    });
+
+    // 2. NVR select onchange
+    const select = document.getElementById('nvr-filter-select');
+    if (select) {
+      select.addEventListener('change', (e) => {
+        window.location.href = buildFilterUrl({ nvr_id: e.target.value });
+      });
+    }
+
+    // 3. Abnormal-only toggle onchange
+    const toggle = document.getElementById('abnormal-only-toggle');
+    if (toggle) {
+      toggle.addEventListener('change', (e) => {
+        window.location.href = buildFilterUrl({
+          status: e.target.checked ? 'abnormal_only' : 'any',
+        });
+      });
+    }
+  });
 </script>
 {% endblock %}

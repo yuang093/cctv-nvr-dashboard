@@ -212,3 +212,124 @@ class TestTrendsRouteFilters:
         body = r.data.decode("utf-8")
         assert "HealthyCam" not in body, \
             "abnormal_only 應過濾掉 0 異常的 cam"
+
+    def test_invalid_status_filter_falls_back_to_any(self, flask_client):
+        """無效 status_filter 不應 500 — peer reviewer 2026-08-05 修法：route 寬鬆 normalization。"""
+        client, _ = flask_client
+        r = client.get("/trends?status=garbage")
+        assert r.status_code == 200, \
+            "?status=garbage 應 fallback 200（route normalization），不 500"
+
+
+class TestTrendsTemplateSecurity:
+    """Peer reviewer 2026-08-05 提出的 Critical/Important 修法回歸測試。"""
+
+    def test_xss_safe_in_filter_url_construction(self, flask_client):
+        """?nvr_id=';alert(1);// 應被 URL-encoded，不應作為 inline JS 字串渲染。
+
+        修法：data-* 屬性 + JS event listener（不靠 inline onchange 字串拼接）。
+        任何 href URL 內的 current_nvr 都應 URL-encoded。
+        """
+        client, db_path = flask_client
+        # 先 seed 1 NVR（讓 select 才會渲染）
+        conn = sqlite3.connect(db_path)
+        conn.execute("INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')")
+        conn.commit()
+        conn.close()
+
+        # '、;、a、l、e、r、t 都會被 |urlencode 編碼
+        r = client.get("/trends?nvr_id=';alert(1);//")
+        assert r.status_code == 200
+        body = r.data.decode("utf-8")
+
+        # 不可在 inline onchange 內看到未編碼的 nvr_id payload
+        assert "';alert(1)" not in body, \
+            "Critical: inline JS 字串拼接 XSS regression — payload 未 URL 編碼"
+        # Select 元素的 data-current-nvr 應 URL 編碼（safe）
+        assert "data-current-nvr=" in body, "select 應用 data-current-* 屬性模式"
+        # %27 是 ' 的 URL 編碼；應在 data attribute 內出現
+        assert "%27" in body or "&#x27;" in body or "&apos;" in body, \
+            "data attribute 內 nvr_id 應 URL 編碼"
+
+    def test_canvas_id_uses_composite_nvr_cam(self, flask_client):
+        """Canvas id 應是 chart-{nvr_id}-{cam_id}（DB UNIQUE 是 (nvr_id, device_id)）。
+
+        修法：peer reviewer 指出只用 cam_id 跨 NVR 會撞 id。
+        """
+        client, db_path = flask_client
+        conn = sqlite3.connect(db_path)
+        nvr_a = conn.execute(
+            "INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')"
+        ).lastrowid
+        nvr_b = conn.execute(
+            "INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-b', 'ACC-9')"
+        ).lastrowid
+        # 兩台 cam 用相同 device_id "shared"（模擬跨 NVR 同 device_id）
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, 'shared', 'CamOnA', 0, '2026-08-05T00:00:00Z')",
+            (nvr_a,),
+        )
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, 'shared', 'CamOnB', 0, '2026-08-05T00:00:00Z')",
+            (nvr_b,),
+        )
+        conn.commit()
+        conn.close()
+
+        r = client.get("/trends")
+        body = r.data.decode("utf-8")
+        # 兩台 cam 各自的 canvas id 應不同：chart-nvr-a-shared vs chart-nvr-b-shared
+        assert 'id="chart-nvr-a-shared"' in body, "CamOnA 應有 nvr-prefixed canvas id"
+        assert 'id="chart-nvr-b-shared"' in body, "CamOnB 應有 nvr-prefixed canvas id"
+        # 不應該只有 chart-shared（會撞 id）
+        assert 'id="chart-shared"' not in body, \
+            "不能只用 cam_id 沒 nvr_id prefix（peer reviewer 修法回歸）"
+
+    def test_data_attributes_carry_filter_state_for_js(self, flask_client):
+        """select / checkbox 應用 data-* 屬性把當前 filter 狀態交給 JS（避免 inline JS）。"""
+        client, db_path = flask_client
+        conn = sqlite3.connect(db_path)
+        conn.execute("INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')")
+        conn.commit()
+        conn.close()
+
+        r = client.get("/trends?nvr_id=nvr-a&status=abnormal_only&range=7d")
+        body = r.data.decode("utf-8")
+        # select 有 id + data-* 屬性
+        assert 'id="nvr-filter-select"' in body
+        assert 'data-current-nvr="nvr-a"' in body
+        assert 'data-current-status="abnormal_only"' in body
+        assert 'data-current-range="7d"' in body
+        # toggle 有 id，給 JS event listener 綁
+        assert 'id="abnormal-only-toggle"' in body
+        assert "checked" in body, "?status=abnormal_only 應 pre-check"
+
+    def test_no_inline_onchange_or_onclick_attributes(self, flask_client):
+        """Filter / click handlers 應全走 JS addEventListener，不能有 inline on* 屬性。
+
+        修法：peer reviewer Critical XSS。Template 沒 inline onchange/onclick。
+        """
+        client, db_path = flask_client
+        conn = sqlite3.connect(db_path)
+        conn.execute("INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')")
+        conn.commit()
+        conn.close()
+
+        r = client.get("/trends")
+        body = r.data.decode("utf-8")
+        # 不能有 inline JS 屬性（除了安全範例如 onclick="#" 等；本 template 全不該有）
+        assert 'onchange="' not in body, "filter UI 不應用 inline onchange 字串拼接"
+        assert 'onclick=' not in body, \
+            "cam card 不應用 inline onclick；改用 addEventListener"
+
+    def test_css_var_references_for_theme_awareness(self, flask_client):
+        """inline style block 應用 design tokens（var(--bg-card) 等），不寫死 hex。"""
+        client, _ = flask_client
+        r = client.get("/trends")
+        body = r.data.decode("utf-8")
+        # 至少 5 個 var() 引用
+        css_block_count = body.count("var(--")
+        assert css_block_count >= 5, \
+            f"應用 CSS var 做 theme 自動套色，got {css_block_count} refs（peer reviewer 修法）"
