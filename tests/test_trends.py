@@ -166,3 +166,22 @@ class TestComputeHealthTimeseries24hWithData:
         assert len(nonzero) >= 1
         assert all(b.frozen_pct == 0.0 for b in nonzero)
         assert all(b.underexposed_pct == 0.0 for b in nonzero)
+
+
+class TestComputeHealthTimeseries7d:
+    def test_7d_aggregates_to_daily_bins(self, empty_db: str):
+        """range_hours=168 → 7 個 daily bins。"""
+        for day in range(7):
+            for hour in (0, 6, 12, 18):
+                _seed_record(empty_db, "cam-5", day * 24 + (23 - hour), False, False)
+        bins = compute_health_timeseries(empty_db, "cam-5", range_hours=168)
+        assert len(bins) == 7, f"7d 應回 7 個 daily bin，got {len(bins)}"
+        # 全部 bin 都應有 record（seed 分散 7 天）
+        online_bins = [b for b in bins if b.sample_count > 0]
+        assert len(online_bins) == 7, "7d 全部 7 天都有 record"
+        assert all(b.online_pct == 100.0 for b in online_bins)
+
+    def test_7d_invalid_range_raises(self, empty_db: str):
+        """range_hours=99 → ValueError（不是 24 也不是 168）。"""
+        with pytest.raises(ValueError, match="range_hours 必須"):
+            compute_health_timeseries(empty_db, "cam-x", range_hours=99)
