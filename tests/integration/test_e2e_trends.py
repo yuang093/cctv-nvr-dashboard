@@ -221,6 +221,83 @@ class TestTrendsRouteFilters:
             "?status=garbage 應 fallback 200（route normalization），不 500"
 
 
+class TestTrendsCamIdDeepLink:
+    """Spec G Batch C Task 12：route 接受 ?cam_id= query param，template JS auto-expand + scrollIntoView。
+
+    修法：deep link 從 devices/dashboard/coverage 點進來時，要直接 focus 到該 cam。
+    用 JS 端 find `.cam-card[data-cam-id="..."]` 自動展開 detail chart + scroll。
+    """
+
+    def test_cam_id_query_param_returns_200(self, flask_client):
+        client, db_path = flask_client
+        # seed 1 cam
+        conn = sqlite3.connect(db_path)
+        nvr_int = conn.execute(
+            "INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')"
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, 'd-1', 'Cam1', 0, '2026-08-05T00:00:00Z')",
+            (nvr_int,),
+        )
+        conn.commit()
+        conn.close()
+
+        r = client.get("/trends?cam_id=d-1")
+        assert r.status_code == 200
+
+    def test_cam_id_marked_for_focus_in_html(self, flask_client):
+        """?cam_id=d-1 → HTML 內含 data-cam-id="d-1" 標記，給 JS 找目標。
+
+        修法：route 把 cam_id 傳到 template，template 在 data-focus-cam-id 屬性暴露。
+        """
+        client, db_path = flask_client
+        conn = sqlite3.connect(db_path)
+        nvr_int = conn.execute(
+            "INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')"
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, 'd-1', 'Cam1', 0, '2026-08-05T00:00:00Z')",
+            (nvr_int,),
+        )
+        conn.commit()
+        conn.close()
+
+        r = client.get("/trends?cam_id=d-1")
+        body = r.data.decode("utf-8")
+        # HTML 內有 data-cam-id="d-1" 標記
+        assert 'data-cam-id="d-1"' in body
+        # route 把 cam_id 注入到 root container（給 JS 讀）
+        assert "data-focus-cam-id" in body
+        assert 'data-focus-cam-id="d-1"' in body
+
+    def test_unknown_cam_id_returns_200_gracefully(self, flask_client):
+        """不存在的 cam_id → 仍 200，只是 JS 找不到對應 card（不 500）。"""
+        client, _ = flask_client
+        r = client.get("/trends?cam_id=does-not-exist")
+        assert r.status_code == 200
+        body = r.data.decode("utf-8")
+        # root 有 data-focus-cam-id 但不會找到任何 card（no crash）
+        assert 'data-focus-cam-id="does-not-exist"' in body
+
+    def test_cam_id_with_special_chars_is_url_encoded(self, flask_client):
+        """cam_id 含特殊字元 → URL-encoded 後注入 HTML attribute（防 XSS）。
+
+        修法：用 |urlencode 過濾 user-controllable ID。
+        """
+        client, _ = flask_client
+        # %27 = ', %22 = ", %3C = <
+        r = client.get("/trends?cam_id=%27%22%3Cscript%3E")
+        assert r.status_code == 200
+        body = r.data.decode("utf-8")
+        # 未編碼的 raw 字元不應出現在 attribute 內
+        assert "'\"<script>" not in body, \
+            "Critical: ?cam_id= payload 未 URL 編碼 → inline attribute XSS"
+        # 編碼後的版本應出現
+        assert "data-focus-cam-id=" in body
+
+
 class TestTrendsTemplateSecurity:
     """Peer reviewer 2026-08-05 提出的 Critical/Important 修法回歸測試。"""
 

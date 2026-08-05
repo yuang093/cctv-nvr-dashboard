@@ -957,6 +957,8 @@ def _register_routes(app: Flask) -> None:
             range: 24h | 7d（預設 24h；其他值 fallback 24h，不 500）
             nvr_id: 限定單一 NVR（可選）
             status: any | abnormal_only（預設 any；其他值 raise ValueError）
+            cam_id: deep-link 目標 cam（Spec G Batch C Task 12）
+                   不存在時仍 200，template JS 找不到對應 card 而 no-op
         """
         from web.trends import get_all_cams_health_summary
         from web.db import list_enabled_nvrs
@@ -969,6 +971,10 @@ def _register_routes(app: Flask) -> None:
         status_filter = request.args.get("status", "any")
         if status_filter not in ("any", "abnormal_only"):
             status_filter = "any"
+        # Spec G Batch C Task 12：deep-link 目標 cam（純字串傳遞，template JS 端
+        # 用 querySelector 找對應 .cam-card[data-cam-id] 並 auto-expand + scrollIntoView）。
+        # 不存在 / 亂打也沒關係 — JS 找不到對應 card 是 silent no-op。
+        focus_cam_id = request.args.get("cam_id") or None
 
         db_path = _get_db_path(app)
         summaries = get_all_cams_health_summary(
@@ -990,6 +996,7 @@ def _register_routes(app: Flask) -> None:
             nvrs=nvrs,
             current_nvr=nvr_filter,
             current_status=status_filter,
+            focus_cam_id=focus_cam_id,
         )
 
     @app.errorhandler(404)

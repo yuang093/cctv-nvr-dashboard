@@ -90,6 +90,10 @@
 <h2>📈 Cam 健康趨勢</h2>
 <p>共 {{ summaries|length }} 台 cam（{{ range_hours }}h 視窗）</p>
 
+{# Spec G Batch C Task 12：deep-link 目標 cam 標記 — 永遠渲染（即使 summaries 空）
+   JS 端讀 data-focus-cam-id，找對應 .cam-card 並 auto-expand + scrollIntoView #}
+<div id="trends-focus-marker" {% if focus_cam_id %}data-focus-cam-id="{{ focus_cam_id|urlencode }}"{% endif %} hidden></div>
+
 <!-- Filters（用 data-* 屬性 + JS event listener，避免 inline JS 字串拼接 XSS） -->
 <div class="trends-filters">
   <span>視窗：</span>
@@ -130,7 +134,7 @@
   {% endif %}
 </div>
 {% else %}
-<div class="cam-grid">
+<div class="cam-grid" {% if focus_cam_id %}data-focus-cam-id="{{ focus_cam_id|urlencode }}"{% endif %}>
   {% for s in summaries %}
   {# 複合 id 用 (nvr_id, device_id) 因為 DB UNIQUE 是 (nvr_id, device_id)；cam_id 跨 NVR 可能重複 #}
   <div class="cam-card {% if s.abnormal_bins > 0 %}abnormal{% endif %}"
@@ -276,6 +280,27 @@
           status: e.target.checked ? 'abnormal_only' : 'any',
         });
       });
+    }
+
+    // 4. Spec G Batch C Task 12：deep-link ?cam_id=X auto-expand + scrollIntoView
+    // 從 devices/dashboard/coverage 點進來的 cam 連結 → 直接 focus 到該 cam card
+    // 標記 element 永遠渲染（即使 cam-grid 是 empty state）；找不到 card 時 silent no-op
+    const marker = document.getElementById('trends-focus-marker');
+    const focusCamId = marker && marker.dataset.focusCamId;
+    if (focusCamId) {
+      // 用 CSS attribute selector；CSS.escape 防 user-controllable 字元破壞 selector
+      // (data-cam-id 雖已 |urlencode，但 CSS.escape 仍加一層保險)
+      const target = document.querySelector(
+        '.cam-card[data-cam-id="' + CSS.escape(focusCamId) + '"]'
+      );
+      if (target) {
+        // Auto-expand detail chart（不靠 user click）
+        const detail = target.querySelector('.cam-detail');
+        if (detail) detail.classList.add('expanded');
+        // Scroll into view（block:center 把 card 拉到視窗中央）
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      // 找不到 → silent no-op（route 不 500，UI 正常顯示全 grid）
     }
   });
 </script>
