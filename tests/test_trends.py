@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 
 from web.trends import (
-    HealthBin,
     compute_health_timeseries,
     get_all_cams_health_summary,
 )

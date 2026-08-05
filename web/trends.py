@@ -35,7 +35,7 @@ class CamHealthSummary:
     nvr_id: str
     nvr_name: str
     bins: list[HealthBin]
-    abnormal_bins: int       # frozen/underexposed/offline 任一 > 0 的 bin 數
+    abnormal_bins: int       # frozen/underexposed 任一 > 0 的 bin 之 sample 總數（不含 offline）
 
 
 def _connect(db_path: str) -> sqlite3.Connection:
@@ -93,7 +93,7 @@ def compute_health_timeseries(
         range_hours: 24 或 168（7d）
 
     Returns:
-        由舊到新排序的 list[HealthBin]，長度 = range_hours / bin_size_hours
+        由新到舊排序的 list[HealthBin]（bins[0] = 最新時段），長度 = range_hours / bin_size_hours
     """
     bin_h = _bin_size_hours(range_hours)
     n_bins = range_hours // bin_h
