@@ -956,9 +956,10 @@ def _register_routes(app: Flask) -> None:
         Query params:
             range: 24h | 7d（預設 24h；其他值 fallback 24h，不 500）
             nvr_id: 限定單一 NVR（可選）
-            status: any | abnormal_only（預設 any；其他值 raise ValueError）
-            cam_id: deep-link 目標 cam（Spec G Batch C Task 12）
-                   不存在時仍 200，template JS 找不到對應 card 而 no-op
+            status: any | abnormal_only（預設 any；其他值 route 端寬鬆 fallback 'any'，
+                    避免炸 500；函式 get_all_cams_health_summary 內部仍 strict raise）
+            cam_id: deep-link 目標 cam（Spec G Batch C Task 12；不存在時仍 200，
+                   template JS 找不到對應 card 而 silent no-op）
         """
         from web.trends import get_all_cams_health_summary
         from web.db import list_enabled_nvrs
