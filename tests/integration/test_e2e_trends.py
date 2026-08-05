@@ -369,6 +369,90 @@ class TestDevicesListTrendsLink:
         assert "data-focus-cam-id=" in body
 
 
+class TestDashboardTopMissingTrendsLink:
+    """Spec G Batch C Task 10：dashboard.html「24h 缺錄最多」表每行加 📈 deep-link。"""
+
+    @staticmethod
+    def _seed_top_missing_schema(db_path: str) -> None:
+        """建 dashboard 需要的 nvr_servers + cameras + recording_status 表。"""
+        conn = sqlite3.connect(db_path)
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS recording_status (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nvr_id INTEGER NOT NULL,
+                camera_id TEXT NOT NULL,
+                window_start TEXT NOT NULL,
+                window_end TEXT NOT NULL,
+                completeness REAL NOT NULL,
+                missing_seconds REAL NOT NULL DEFAULT 0,
+                checked_at TEXT NOT NULL
+            );
+        """)
+        conn.commit()
+        conn.close()
+
+    def test_dashboard_top_missing_has_trends_link_per_cam(self, flask_client):
+        """dashboard「24h 缺錄最多」表每台 cam 都應有 /trends?cam_id= 連結。"""
+        client, db_path = flask_client
+        self._seed_top_missing_schema(db_path)
+        conn = sqlite3.connect(db_path)
+        nvr_int = conn.execute(
+            "INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')"
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, 'missing-cam', 'MissingCam', 0, '2026-08-05T00:00:00Z')",
+            (nvr_int,),
+        )
+        conn.execute(
+            "INSERT INTO recording_status "
+            "(nvr_id, camera_id, window_start, window_end, completeness, missing_seconds, checked_at) "
+            "VALUES (?, 'missing-cam', '2026-08-04T00:00:00Z', '2026-08-05T00:00:00Z', 0.3, 60480.0, '2026-08-05T00:00:00Z')",
+            (nvr_int,),
+        )
+        conn.commit()
+        conn.close()
+
+        r = client.get("/")
+        assert r.status_code == 200
+        body = r.data.decode("utf-8")
+        # top_missing row 應有 /trends?cam_id=missing-cam 連結
+        assert 'href="/trends?cam_id=missing-cam"' in body
+        # 📈 emoji 應出現
+        assert "📈" in body
+
+    def test_dashboard_link_is_xss_safe_for_special_camera_id(self, flask_client):
+        """camera_id 含特殊字元 → url_for 自動 URL-encode 防 XSS。"""
+        client, db_path = flask_client
+        self._seed_top_missing_schema(db_path)
+        conn = sqlite3.connect(db_path)
+        nvr_int = conn.execute(
+            "INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')"
+        ).lastrowid
+        # 含 '、"、< 的 camera_id
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, ?, 'XssCam', 0, '2026-08-05T00:00:00Z')",
+            (nvr_int, "evil'id\"><script>"),
+        )
+        conn.execute(
+            "INSERT INTO recording_status "
+            "(nvr_id, camera_id, window_start, window_end, completeness, missing_seconds, checked_at) "
+            "VALUES (?, ?, '2026-08-04T00:00:00Z', '2026-08-05T00:00:00Z', 0.2, 69120.0, '2026-08-05T00:00:00Z')",
+            (nvr_int, "evil'id\"><script>"),
+        )
+        conn.commit()
+        conn.close()
+
+        r = client.get("/")
+        body = r.data.decode("utf-8")
+        # 原始 raw payload 不應出現在 href attribute 內
+        assert 'href="/trends?cam_id=evil\'id\"' not in body, \
+            "Critical: camera_id 未 URL-encoded 直接拼接 href → XSS"
+        # 編碼後的版本應在 href 內
+        assert "cam_id=evil" in body, "deep-link 應被 render（即使含特殊字元）"
+
+
 class TestTrendsTemplateSecurity:
     """Peer reviewer 2026-08-05 提出的 Critical/Important 修法回歸測試。"""
 
