@@ -11,6 +11,7 @@ import pytest
 from web.trends import (
     HealthBin,
     compute_health_timeseries,
+    get_all_cams_health_summary,
 )
 
 
@@ -185,3 +186,105 @@ class TestComputeHealthTimeseries7d:
         """range_hours=99 → ValueError（不是 24 也不是 168）。"""
         with pytest.raises(ValueError, match="range_hours 必須"):
             compute_health_timeseries(empty_db, "cam-x", range_hours=99)
+
+
+def _seed_nvr_and_cams(db_path: str, nvr_id: str, nvr_name: str,
+                       cam_specs: list[tuple[str, str, bool]]) -> None:
+    """塞 1 台 NVR + 數台 cam。cam_specs = [(device_id, name, is_ghost), ...]"""
+    conn = sqlite3.connect(db_path)
+    nvr_int = conn.execute(
+        "INSERT INTO nvr_servers (nvr_id, name) VALUES (?, ?)",
+        (nvr_id, nvr_name),
+    ).lastrowid
+    for device_id, name, is_ghost in cam_specs:
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (nvr_int, device_id, name, 1 if is_ghost else 0, _now_iso()),
+        )
+    conn.commit()
+    conn.close()
+
+
+class TestGetAllCamsHealthSummary:
+    """對應 spec §7.1: ghost / nvr filter / status filter / sort。"""
+
+    def test_empty_db_returns_empty_list(self, empty_db: str):
+        """空 DB → 空 list（不 crash）。"""
+        result = get_all_cams_health_summary(empty_db, range_hours=24)
+        assert result == []
+
+    def test_filters_ghost_cams(self, empty_db: str):
+        """is_ghost=1 的 cam 不在結果中。"""
+        _seed_nvr_and_cams(empty_db, "nvr-a", "ACC-8", [
+            ("d-1", "Cam1", False),
+            ("d-2", "Ghost", True),  # 應過濾
+            ("d-3", "Cam3", False),
+        ])
+        result = get_all_cams_health_summary(empty_db, range_hours=24)
+        ids = [s.cam_id for s in result]
+        assert "d-2" not in ids, f"Ghost cam d-2 應過濾，got {ids}"
+        assert set(ids) == {"d-1", "d-3"}
+
+    def test_nvr_filter_only_returns_target_nvr(self, empty_db: str):
+        """nvr_filter='nvr-a' 只列該 NVR 的 cam。"""
+        _seed_nvr_and_cams(empty_db, "nvr-a", "ACC-8", [("d-1", "Cam1", False)])
+        _seed_nvr_and_cams(empty_db, "nvr-b", "ACC-9", [("d-2", "Cam2", False)])
+        result = get_all_cams_health_summary(empty_db, range_hours=24, nvr_filter="nvr-a")
+        ids = [s.cam_id for s in result]
+        assert ids == ["d-1"], f"nvr_filter=nvr-a 應只剩 d-1，got {ids}"
+
+    def test_abnormal_only_filter(self, empty_db: str):
+        """status_filter='abnormal_only' 只列有 abnormal 的 cam。"""
+        _seed_nvr_and_cams(empty_db, "nvr-a", "ACC-8", [
+            ("healthy", "HealthyCam", False),
+            ("frozen", "FrozenCam", False),
+            ("underexposed", "DarkCam", False),
+        ])
+        # healthy cam：8 筆 healthy record（分布 8h ago~15h ago）
+        for h in range(8, 16):
+            _seed_record(empty_db, "healthy", h, False, False)
+        # frozen cam：3 bin frozen = 3 abnormal
+        for h_ago in (4.2, 5.2, 6.2):
+            _seed_record(empty_db, "frozen", h_ago, True, False)
+        # underexposed cam：2 bin underexposed
+        for h_ago in (10.5, 11.5):
+            _seed_record(empty_db, "underexposed", h_ago, False, True)
+
+        result = get_all_cams_health_summary(empty_db, range_hours=24)
+        all_ids = {s.cam_id for s in result}
+        assert all_ids == {"healthy", "frozen", "underexposed"}
+
+        result_filtered = get_all_cams_health_summary(
+            empty_db, range_hours=24, status_filter="abnormal_only",
+        )
+        filtered_ids = {s.cam_id for s in result_filtered}
+        # healthy 0 abnormal → 過濾掉
+        assert "healthy" not in filtered_ids
+        assert "frozen" in filtered_ids
+        assert "underexposed" in filtered_ids
+        # 各 summary 的 abnormal_bins 數
+        by_id = {s.cam_id: s.abnormal_bins for s in result_filtered}
+        assert by_id["frozen"] == 3
+        assert by_id["underexposed"] == 2
+
+    def test_sorted_by_abnormal_bins_desc(self, empty_db: str):
+        """排序：abnormal_bins DESC, cam_name ASC。"""
+        _seed_nvr_and_cams(empty_db, "nvr-a", "ACC-8", [
+            ("alpha", "Alpha", False),
+            ("bravo", "Bravo", False),
+            ("charlie", "Charlie", False),
+        ])
+        # bravo 5 bins abnormal, alpha 2, charlie 0
+        for h in range(2):
+            for _ in range(2):
+                _seed_record(empty_db, "bravo", h + 0.1, True, False)
+                _seed_record(empty_db, "bravo", h + 0.2, True, False)
+                _seed_record(empty_db, "bravo", h + 0.3, True, False)
+        for h_ago in (1.5, 2.5):
+            _seed_record(empty_db, "alpha", h_ago, True, False)
+
+        result = get_all_cams_health_summary(empty_db, range_hours=24)
+        ids = [s.cam_id for s in result]
+        # bravo(5) > alpha(2) > charlie(0)
+        assert ids.index("bravo") < ids.index("alpha") < ids.index("charlie")

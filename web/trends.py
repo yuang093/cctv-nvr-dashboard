@@ -162,3 +162,72 @@ def compute_health_timeseries(
             sample_count=total,
         ))
     return result
+
+
+def get_all_cams_health_summary(
+    db_path: str,
+    range_hours: int = 24,
+    nvr_filter: str | None = None,
+    status_filter: str = "any",
+) -> list[CamHealthSummary]:
+    """列所有 cam（含 NVR JOIN，過濾 ghost），各呼叫 compute_health_timeseries。
+
+    Args:
+        db_path: SQLite DB 路徑
+        range_hours: 24 或 168
+        nvr_filter: 限定單一 NVR（None = 不限）
+        status_filter: "any" = 全部 / "abnormal_only" = 只列 abnormal_bins > 0
+
+    Returns:
+        按 abnormal_bins DESC, cam_name ASC 排序的 list[CamHealthSummary]
+    """
+    if status_filter not in ("any", "abnormal_only"):
+        status_filter = "any"
+
+    conn = _connect(db_path)
+    try:
+        # JOIN cameras + nvr_servers，過濾 ghost 與 nvr_filter
+        query = """
+            SELECT c.device_id AS cam_id, c.camera_name AS cam_name,
+                   n.nvr_id AS nvr_id, n.name AS nvr_name
+            FROM cameras c
+            JOIN nvr_servers n ON c.nvr_id = n.id
+            WHERE c.is_ghost = 0
+        """
+        params: tuple = ()
+        if nvr_filter:
+            query += " AND n.nvr_id = ?"
+            params = (nvr_filter,)
+        query += " ORDER BY c.camera_name ASC"
+        rows = conn.execute(query, params).fetchall()
+    finally:
+        conn.close()
+
+    summaries: list[CamHealthSummary] = []
+    for row in rows:
+        cam_id = row["cam_id"]
+        bins = compute_health_timeseries(db_path, cam_id, range_hours)
+        # 算 abnormal_bins：含 frozen/underexposed 之 bin 的 sample_count 總和
+        # （即 abnormal record 數；同 bin 多筆 frozen 算多次，凸顯嚴重度）
+        abnormal_count = sum(
+            b.sample_count
+            for b in bins
+            if b.frozen_pct > 0 or b.underexposed_pct > 0
+        )
+        summaries.append(CamHealthSummary(
+            cam_id=cam_id,
+            cam_name=row["cam_name"],
+            nvr_id=row["nvr_id"],
+            nvr_name=row["nvr_name"],
+            bins=bins,
+            abnormal_bins=abnormal_count,
+        ))
+
+    # 排序：abnormal_bins DESC, cam_name ASC
+    summaries.sort(key=lambda s: (-s.abnormal_bins, s.cam_name))
+
+    # status_filter: abnormal_only
+    if status_filter == "abnormal_only":
+        summaries = [s for s in summaries if s.abnormal_bins > 0]
+
+    return summaries
