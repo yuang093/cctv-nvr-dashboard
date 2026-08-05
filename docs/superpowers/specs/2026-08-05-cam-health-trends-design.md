@@ -372,6 +372,20 @@ Python bin 處理：
 
 ---
 
-**Status**: Draft，user 已通過 brainstorming 4 個澄清問題 + 設計草案確認。
+## 11. 實作勘誤（2026-08-05 Batch B review）
 
-**Next**: writing-plans skill 寫實作計畫。
+實作過程中 3 處語意對齊調整（spec 文件原意不變，僅實作端 minor 偏離）：
+
+| # | 項目 | Spec 原意 | 實作結果 | 原因 |
+|---|---|---|---|---|
+| 1 | `compute_health_timeseries` 回傳順序 | §4.1「由舊到新排序」 | **由新到舊**（`bins[0]` = 最新）。Template JS 端 `bins.slice().reverse()` 顯示為「左舊 → 右新」。 | 對齊 plan Task 1 測試斷言（`test_frozen_spike_3_bins` 隱含 newest-first 才能 idx 4-6）。 |
+| 2 | `CamHealthSummary.abnormal_bins` 語意 | §4.1「frozen/dark/offline 任一 > 0 的 bin 數」 | **frozen/underexposed 任一 > 0 之 bin 的 sample_count 總數（不含 offline）** | plan Task 4 sort test seed 設計改為 record count 才能唯一排序；offline 不計入避免「沒被掃過的 cam 一片紅誤導」。UI badge 顯示「N 異常筆次」。 |
+| 3 | Range query string format | §4.2 範例用 `?range=24\|168` (int parsing) | **`?range=24h\|7d` (string 比對)** | 對齊 §2.3 URL pattern 描述。Route 把 `?range=99` 等 fallback 到 24h。`?range=168` 在新行為下會 fallback 24h，是已知 trade-off（與 plan 一致）。 |
+
+另：spec §4.4 寫「顏色從 CSS var 讀取」實作端先寫 hex fallback（spec §2.3 明說「沿用預設色票，之後再說」）。後續可換 `getComputedStyle(document.documentElement).getPropertyValue('--success')` 達成 12 theme 自動套色（**本次不做**）。
+
+---
+
+**Status**: Draft → Implementation v0（2026-08-05 Batch A+B 落地，含 3 處勘誤）。
+
+**Next**: Batch C（4 處 deep link）→ Batch D（最終視覺驗證 + merge SPEC G）。

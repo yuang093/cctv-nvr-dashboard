@@ -964,7 +964,11 @@ def _register_routes(app: Flask) -> None:
         range_str = request.args.get("range", "24h")
         range_hours = 24 if range_str == "24h" else (168 if range_str == "7d" else 24)
         nvr_filter = request.args.get("nvr_id") or None
+        # status_filter 寬鬆 normalization（無效值 fallback 'any'，避免炸 500）
+        # 對齊 range 行為一致。函式 get_all_cams_health_summary 內部仍 strict（raise ValueError）。
         status_filter = request.args.get("status", "any")
+        if status_filter not in ("any", "abnormal_only"):
+            status_filter = "any"
 
         db_path = _get_db_path(app)
         summaries = get_all_cams_health_summary(
