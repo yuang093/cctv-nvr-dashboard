@@ -287,3 +287,185 @@ class TestBatchScanEndToEnd:
                 config, integration_credentials, writer,
                 timeout=5, verbose=False,
             )
+
+
+# === NVR 完全離線場景（user 2026-08-05「目前 NVR 離線中」）===
+# 區別於 login_fail（server 啟動但回 403）：這個場景 server 根本沒啟動，
+# scanner 連過去是 Connection refused，模擬真實「NVR 機房端死掉」。
+
+class TestNvrFullyOffline:
+    """NVR 完全離線（connection refused / 連線逾時）的 batch_scan 行為。
+
+    區別於 make_login_fail_nvr：login_fail 測試 server 啟動但 auth 失敗；
+    本 class 測試 server 根本不存在（TCP connection refused）或 listen 但無回應。
+    """
+
+    def _get_unbound_port(self) -> int:
+        """拿一個當下未綁定的 port（用 socket bind 0 取得，馬上 close）。"""
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+
+    def test_single_nvr_offline_status_failed(
+        self, integration_db, integration_credentials, flush_urllib3_warnings,
+    ):
+        """單台 NVR 完全離線（connection refused）→ batch status='failed'。"""
+        from db.sqlite_writer import SqliteWriter
+
+        db_path = str(integration_db[0])
+        writer = SqliteWriter(db_path)
+
+        dead_port = self._get_unbound_port()  # 未綁定的 port = connection refused
+        config = {
+            "scan_settings": {"db_path": db_path, "timeout_seconds": 3},
+            "nvr_servers": [{
+                "id": "dead-nvr-1",
+                "name": "DeadNVR-1",
+                "host": "127.0.0.1",
+                "port": dead_port,
+                "username": "admin",
+                "password": "secret",
+                "verify_ssl": False,
+                "enabled": True,
+            }],
+        }
+        result = batch_scan(
+            config, integration_credentials, writer,
+            timeout=3, verbose=False,
+        )
+        assert result["status"] == "failed"
+        assert result["ok_nvrs"] == 0
+        assert result["failed_nvrs"] == 1
+        assert result["total_cameras"] == 0
+
+    def test_offline_nvr_does_not_pollute_db(
+        self, integration_db, integration_credentials, flush_urllib3_warnings,
+    ):
+        """離線 NVR 不寫 events（即使 nvr_servers 已 upsert）。"""
+        from db.sqlite_writer import SqliteWriter
+
+        db_path = str(integration_db[0])
+        writer = SqliteWriter(db_path)
+
+        dead_port = self._get_unbound_port()
+        config = {
+            "scan_settings": {"db_path": db_path, "timeout_seconds": 3},
+            "nvr_servers": [{
+                "id": "dead-nvr-2",
+                "name": "DeadNVR-2",
+                "host": "127.0.0.1",
+                "port": dead_port,
+                "username": "admin",
+                "password": "secret",
+                "verify_ssl": False,
+                "enabled": True,
+            }],
+        }
+        result = batch_scan(
+            config, integration_credentials, writer,
+            timeout=3, verbose=False,
+        )
+        run_id = result["scan_run_id"]
+        events = writer.get_events_for_run(run_id)
+        assert events == [], f"離線 NVR 不應寫 events，got {len(events)} 筆"
+
+    def test_mixed_dead_and_alive_nvrs_partial_status(
+        self, integration_db, integration_credentials, flush_urllib3_warnings,
+    ):
+        """1 台離線 + 1 台正常 → status='partial'、failed_nvrs=1、ok_nvrs=1。
+
+        模擬 user 2026-08-05 場景：1 台 NVR 死掉、其他正常運作，
+        batch_scan 應回報 partial 且繼續處理其他 NVR。
+        """
+        from db.sqlite_writer import SqliteWriter
+
+        db_path = str(integration_db[0])
+        writer = SqliteWriter(db_path)
+
+        # 啟動 1 台正常 NVR
+        alive = MockAvigilonServer(make_normal_nvr(camera_count=3))
+        alive.start()
+        try:
+            dead_port = self._get_unbound_port()
+            config = {
+                "scan_settings": {"db_path": db_path, "timeout_seconds": 5},
+                "nvr_servers": [
+                    {
+                        "id": "alive-nvr",
+                        "name": "AliveNVR",
+                        "host": alive.host,
+                        "port": alive.port,
+                        "username": "admin",
+                        "password": "secret",
+                        "verify_ssl": False,
+                        "enabled": True,
+                    },
+                    {
+                        "id": "dead-nvr",
+                        "name": "DeadNVR",
+                        "host": "127.0.0.1",
+                        "port": dead_port,
+                        "username": "admin",
+                        "password": "secret",
+                        "verify_ssl": False,
+                        "enabled": True,
+                    },
+                ],
+            }
+            result = batch_scan(
+                config, integration_credentials, writer,
+                timeout=5, verbose=False,
+            )
+            assert result["status"] == "partial"
+            assert result["ok_nvrs"] == 1
+            assert result["failed_nvrs"] == 1
+            assert result["total_cameras"] == 3  # 來自 alive_nvr
+        finally:
+            alive.stop()
+
+    def test_offline_nvr_logs_to_nvr_failure_table(
+        self, integration_db, integration_credentials, flush_urllib3_warnings,
+    ):
+        """離線 NVR 應寫 nvr_failure_log（給 dashboard 顯示紅色提示）。"""
+        from db.sqlite_writer import SqliteWriter
+
+        db_path = str(integration_db[0])
+        writer = SqliteWriter(db_path)
+
+        dead_port = self._get_unbound_port()
+        config = {
+            "scan_settings": {"db_path": db_path, "timeout_seconds": 3},
+            "nvr_servers": [{
+                "id": "dead-nvr-3",
+                "name": "DeadNVR-3",
+                "host": "127.0.0.1",
+                "port": dead_port,
+                "username": "admin",
+                "password": "secret",
+                "verify_ssl": False,
+                "enabled": True,
+            }],
+        }
+        batch_scan(
+            config, integration_credentials, writer,
+            timeout=3, verbose=False,
+        )
+
+        # 查 nvr_failure_log 表（給 dashboard 紅色提示）
+        conn = writer._get_conn()
+        rows = conn.execute(
+            "SELECT nvr_id, error_type, error_message FROM nvr_failure_log "
+            "WHERE nvr_id = ? ORDER BY failed_at DESC LIMIT 1",
+            ("dead-nvr-3",),
+        ).fetchall()
+        assert len(rows) == 1, \
+            "離線 NVR 應寫入 nvr_failure_log，給 dashboard 顏色化"
+        row = dict(rows[0])
+        assert row["nvr_id"] == "dead-nvr-3"
+        assert "ConnectionError" in row["error_type"] or \
+               "ConnectionRefused" in row["error_type"] or \
+               "RemoteDisconnected" in row["error_type"] or \
+               "Aborted" in row["error_type"], \
+            f"error_type 應反映連線失敗類型，got {row['error_type']!r}"
+        assert "127.0.0.1" in row["error_message"]
