@@ -64,12 +64,11 @@ def _truncate_to_bin(t: datetime, bin_size_h: int) -> datetime:
     """把時間截到該 bin 起始（UTC, 去除時區情報）。"""
     if bin_size_h >= 24:
         return t.replace(hour=0, minute=0, second=0, microsecond=0)
-    return t.replace(minute=0, second=0, microsecond=0, hour=(t.hour // bin_size_h) * bin_size_h)
+    return t.replace(minute=0, second=0, microsecond=0)
 
 
 def _bin_start_iso(bin_start: datetime) -> str:
-    return bin_start.strftime("%Y-%m-%dT%H:00:00Z") if bin_start.hour or bin_start.minute \
-        else bin_start.strftime("%Y-%m-%dT00:00:00Z")
+    return bin_start.strftime("%Y-%m-%dT%H:00:00Z")
 
 
 def compute_health_timeseries(
@@ -182,7 +181,9 @@ def get_all_cams_health_summary(
         按 abnormal_bins DESC, cam_name ASC 排序的 list[CamHealthSummary]
     """
     if status_filter not in ("any", "abnormal_only"):
-        status_filter = "any"
+        raise ValueError(
+            f"status_filter 必須是 'any' 或 'abnormal_only'，got {status_filter!r}"
+        )
 
     conn = _connect(db_path)
     try:

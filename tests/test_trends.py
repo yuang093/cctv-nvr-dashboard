@@ -104,7 +104,7 @@ class TestComputeHealthTimeseries24hWithData:
         assert len(bins) == 24
         # 至少有 record 的 bin 全 100% online；最舊幾個 bin 可能沒 record（fallback 0%）
         online_bins = [b for b in bins if b.sample_count > 0]
-        assert len(online_bins) >= 20, f"應有 ≥20 bin 含 record，got {len(online_bins)}"
+        assert len(online_bins) == 24, f"應有 24 bin 含 record，got {len(online_bins)}"
         assert all(b.online_pct == 100.0 for b in online_bins)
         assert all(b.frozen_pct == 0.0 for b in online_bins)
         assert all(b.underexposed_pct == 0.0 for b in online_bins)
