@@ -176,3 +176,39 @@ class TestTrendsTemplateRendering:
         # 強化：明確找 "目前沒有" 中文字串
         assert "目前沒有" in body, \
             f"空 DB 應顯示「目前沒有」字串，got body length {len(body)}"
+
+
+class TestTrendsRouteFilters:
+    """進階 query param 行為：range=7d、status=abnormal_only。"""
+
+    def test_range_7d_query(self, flask_client):
+        client, db_path = flask_client
+        conn = sqlite3.connect(db_path)
+        conn.execute("INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')")
+        conn.commit()
+        conn.close()
+        r = client.get("/trends?range=7d")
+        assert r.status_code == 200
+        body = r.data.decode("utf-8")
+        # 7d 按鈕應 active（class 標記 + 「168h 視窗」顯示）
+        assert "168" in body, "?range=7d 應顯示 168h 視窗"
+
+    def test_status_filter_abnormal_only(self, flask_client):
+        client, db_path = flask_client
+        conn = sqlite3.connect(db_path)
+        nvr_int = conn.execute(
+            "INSERT INTO nvr_servers (nvr_id, name) VALUES ('nvr-a', 'ACC-8')"
+        ).lastrowid
+        conn.execute(
+            "INSERT INTO cameras (nvr_id, device_id, camera_name, is_ghost, last_seen_at) "
+            "VALUES (?, 'd-healthy', 'HealthyCam', 0, '2026-08-05T00:00:00Z')",
+            (nvr_int,),
+        )
+        conn.commit()
+        conn.close()
+        r = client.get("/trends?status=abnormal_only")
+        assert r.status_code == 200
+        # 沒 abnormal → 看不到 HealthyCam（abnormal_only 過濾）
+        body = r.data.decode("utf-8")
+        assert "HealthyCam" not in body, \
+            "abnormal_only 應過濾掉 0 異常的 cam"
