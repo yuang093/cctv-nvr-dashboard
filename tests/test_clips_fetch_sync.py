@@ -591,6 +591,7 @@ def test_fetch_sync_excludes_stale_cam(seeded_sync_app, monkeypatch):
     payload = {
         "nvr_id": 1, "target_seconds": 60,
         "t_center": t0.isoformat(),
+        "probe": "1",  # 2026-08-06 perf：probe 預設關，stale tests 顯式 opt-in
         "cameras": [
             {"device_id": "cam-a", "name": "Cam A"},
             {"device_id": "cam-b", "name": "Cam B"},
@@ -632,6 +633,7 @@ def test_fetch_sync_all_cams_stale_returns_502(seeded_sync_app, monkeypatch):
     payload = {
         "nvr_id": 1, "target_seconds": 60,
         "t_center": t0.isoformat(),
+        "probe": "1",  # 2026-08-06 perf：probe 預設關，stale tests 顯式 opt-in
         "cameras": [
             {"device_id": "cam-a", "name": "Cam A"},
             {"device_id": "cam-b", "name": "Cam B"},
@@ -674,6 +676,7 @@ def test_fetch_sync_partial_stale_includes_excluded_header(seeded_sync_app, monk
     payload = {
         "nvr_id": 1, "target_seconds": 60,
         "t_center": t0.isoformat(),
+        "probe": "1",  # 2026-08-06 perf：probe 預設關，stale tests 顯式 opt-in
         "cameras": [
             {"device_id": "cam-a", "name": "Cam A"},
             {"device_id": "cam-b", "name": "Cam B"},

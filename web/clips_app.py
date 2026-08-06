@@ -1013,6 +1013,18 @@ def clips_fetch_sync():
     stale_cam_ids: set[str] = set()
     # Stale probe 開關：mock 模式跟 test client 一律 skip（避免 mock mp4 都一樣被誤判）
     skip_stale_probe = is_mock or getattr(client, "disable_stale_probe", False)
+    # 2026-08-06 perf critical：probe 預設關掉。
+    # 原因：3 anchor × 2 cam × NVR latency 在用戶環境常卡 30s+（040/041.PNG、self-test 90s+）
+    # 而 spec F 1 年只發生 1 次 stale（無法證明值得每 request 多付 12 requests）。
+    # 重新啟用：clips.html 加 query param ?probe=1，或直接改此 default。
+    if not skip_stale_probe:
+        _probe_enabled = str(payload.get("probe", "")).lower() in ("1", "true", "yes")
+        if not _probe_enabled:
+            skip_stale_probe = True
+            logger.info(
+                "[fetch_sync] probe opt-out (payload.probe=%r), skip",
+                payload.get("probe"),
+            )
     # 2026-08-06 perf: trust TTL skip probe
     if not skip_stale_probe:
         import time as _time_trust
