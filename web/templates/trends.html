@@ -134,7 +134,7 @@
   {% endif %}
 </div>
 {% else %}
-<div class="cam-grid" {% if focus_cam_id %}data-focus-cam-id="{{ focus_cam_id|urlencode }}"{% endif %}>
+<div class="cam-grid">
   {% for s in summaries %}
   {# 複合 id 用 (nvr_id, device_id) 因為 DB UNIQUE 是 (nvr_id, device_id)；cam_id 跨 NVR 可能重複 #}
   <div class="cam-card {% if s.abnormal_bins > 0 %}abnormal{% endif %}"

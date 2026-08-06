@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -164,7 +165,6 @@ class TestTrendsTemplateRendering:
         r = client.get("/trends")
         body = r.data.decode("utf-8")
         # 紅色框線 badge（class 標記）—— 用 regex 找 class 包含 abnormal 的元素
-        import re
         pattern = re.compile(r'class\s*=\s*["\'][^"\']*\babnormal\b', re.IGNORECASE)
         assert pattern.search(body), \
             "異常 cam 應有 cam-card.abnormal CSS class"
@@ -250,7 +250,6 @@ class TestDevicesListTrendsLink:
         assert r.status_code == 200
         body = r.data.decode("utf-8")
         # 兩台 cam 都應有 /trends?cam_id=cam-X 連結（含 range=24h）
-        import re
         assert re.search(r'href="/trends\?cam_id=cam-A[^"]*range=24h', body), \
             "cam-A 應有 /trends?cam_id=...&range=24h deep link"
         assert re.search(r'href="/trends\?cam_id=cam-B[^"]*range=24h', body), \
@@ -420,7 +419,6 @@ class TestDashboardTopMissingTrendsLink:
         assert r.status_code == 200
         body = r.data.decode("utf-8")
         # top_missing row 應有 /trends?cam_id=missing-cam&range=24h 連結
-        import re
         assert re.search(r'href="/trends\?cam_id=missing-cam[^"]*range=24h', body), \
             "top_missing row 應有 /trends?cam_id=...&range=24h deep link"
         # 📈 emoji 應出現
