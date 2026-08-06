@@ -933,11 +933,15 @@ def clips_fetch_sync():
     with ThreadPoolExecutor(max_workers=min(8, len(cameras))) as ex:
         _t_mpd_start = _time.monotonic()
         cam_results = list(ex.map(query_cam_availability, cameras))
-        _t_phase["mpd"] = _time.monotonic() - _t_mpd_start
+    _t_phase["mpd"] = _time.monotonic() - _t_mpd_start
 
     # === Step 2: 算交集（intersection of all available ranges）===
     # 排除查詢失敗（duration=0）的 cam — 它們不算交集
     active_cams = [c for c in cam_results if c["duration"] > 0]
+    logger.info(
+        "[fetch_sync] MPD done: %.2fs cams=%d active=%d",
+        _t_phase["mpd"], len(cameras), len(active_cams),
+    )
     if not active_cams:
         # 2026-08-06 修：若所有 cam 都因 stale session（auth_failed=True）失敗，
         # 主動 invalidate SESSION_STORE + 重新登入 + 重試一次，避免 user 卡死需手動重啟 8555。
@@ -1202,16 +1206,25 @@ def clips_fetch_sync():
 
     # 修飾 active_cams 給 fetch（2026-07-15 fix：原本用 cam_results，但 stale probe
     # 排除過的 cam 仍會被 fetch，造成 fetch 對被排除 cam 又 fetch 一次）
+    if not skip_stale_probe:
+        _t_phase["probe"] = _time.monotonic() - _t_probe_start
+        logger.info(
+            "[fetch_sync] probe done: %.2fs",
+            _t_phase["probe"],
+        )
+
+    _t_fetch_start = _time.monotonic()
     cam_with_idx = [
         {**r, "slot_idx": i} for i, r in enumerate(active_cams)
     ]
     with ThreadPoolExecutor(max_workers=min(8, len(cam_with_idx))) as ex:
         futures = [ex.submit(fetch_one_cam, c) for c in cam_with_idx]
         fetch_results = [f.result() for f in futures]
-        _t_phase["fetch"] = _time.monotonic() - (_t_mpd_start + _t_phase["mpd"] + _t_phase["probe"])
-
-    if not skip_stale_probe:
-        _t_phase["probe"] = _time.monotonic() - _t_probe_start
+    _t_phase["fetch"] = _time.monotonic() - _t_fetch_start
+    logger.info(
+        "[fetch_sync] fetch done: %.2fs cams=%d active=%d",
+        _t_phase["fetch"], len(cameras), len(active_cams),
+    )
     # === Step 5: 串成 multipart response ===
     # 統一格式：每段都是 video/mp4 Content-Type，metadata 全在 X-* headers。
     # 失敗的 cam 用 0 bytes body + X-Slot-Error header（ASCII 字串）。
