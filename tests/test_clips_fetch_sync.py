@@ -55,6 +55,8 @@ def seeded_sync_app(monkeypatch, tmp_path):
     gc.collect()
 
     app.config["SESSION_STORE"] = _SessionStore()
+    # 2026-08-06 perf：清掉 NVR stale-trust cache 防跨測試污染
+    app.config.pop("NO_STALE_TRUST", None)
     app.config["TESTING"] = True
     # 預設 disable NVR stale cache probe（測試 mock mp4 bytes 都一樣會誤判）
     # 個別 test 可用 monkeypatch 蓋回真 probe 來測 stale 邏輯

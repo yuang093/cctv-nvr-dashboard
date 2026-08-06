@@ -78,6 +78,12 @@ _bootstrap_env()
 # ---------------------------------------------------------------------------
 # In-memory session token cache（per-NVR，TTL 30 分鐘）
 # ---------------------------------------------------------------------------
+# 2026-08-06：NVR 「no stale cache」 trust cache — 若某 NVR 探測一輪無 stale，
+# 在 _TRUST_TTL 秒內 skip probe（節省每 cam × 3 anchor × fmp4 head 的 12 個 NVR requests）。
+# 存在 app.config["NO_STALE_TRUST"]（test 易隔離）；無 config 時 fallback module 級 dict。
+_NO_STALE_TRUST_DEFAULT: dict[int, float] = {}  # fallback for 8555 主 process
+_NO_STALE_TRUST_TTL = 600  # 10 分鐘
+
 class _SessionStore:
     """Avigilon session token 快取。Key = NVR 內部 id（int）。"""
 
@@ -979,6 +985,17 @@ def clips_fetch_sync():
     stale_cam_ids: set[str] = set()
     # Stale probe 開關：mock 模式跟 test client 一律 skip（避免 mock mp4 都一樣被誤判）
     skip_stale_probe = is_mock or getattr(client, "disable_stale_probe", False)
+    # 2026-08-06 perf: trust TTL skip probe
+    if not skip_stale_probe:
+        import time as _time_trust
+        _trust_dict = app.config.setdefault("NO_STALE_TRUST", {})
+        _trust_expire = _trust_dict.get(internal_id, 0)
+        if _trust_expire > _time_trust.time():
+            skip_stale_probe = True
+            logger.info(
+                "[fetch_sync] NVR %d trust TTL 內剩 %.0fs, skip probe",
+                internal_id, _trust_expire - _time_trust.time(),
+            )
     if not skip_stale_probe:
         from concurrent.futures import ThreadPoolExecutor as _TPE
         def _run_probe(cam_info):
@@ -1010,8 +1027,19 @@ def clips_fetch_sync():
                             cid,
                         ),
                     )
+        # 2026-08-06 perf：probe 跑完若**沒有** stale → trust 此 NVR，
+        # 下次 fetch_sync 直接 skip probe（節省 12 個 NVR requests）。
+        # 若 probe 過程中出 exception（網路問題），保留舊 trust（保守）。
+        if not stale_cam_ids:
+            _trust_dict = app.config.setdefault("NO_STALE_TRUST", {})
+            _trust_dict[internal_id] = _time_trust.time() + _NO_STALE_TRUST_TTL
+            logger.info(
+                "[fetch_sync] NVR %d probe clean, trust %.0fs",
+                internal_id, _NO_STALE_TRUST_TTL,
+            )
     if stale_cam_ids:
         # 從 active_cams 移除、記 error
+        # ... (existing code)
         excluded = []
         for c in active_cams:
             if c["camera_id"] in stale_cam_ids:
