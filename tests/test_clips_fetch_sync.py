@@ -704,3 +704,83 @@ def test_clips_html_template_has_stale_message_marker():
     assert "NVR Media API 異常" in html
     assert "s.excluded" in html
     assert "excludedCams" in html
+
+
+class TestStaleSessionAutoRetry:
+    """2026-08-06 修：stale session cache 自動 invalidate + retry 一次。
+
+    Scenario: SESSION_STORE 持有舊 token → NVR MPD query 用舊 token raise 401
+    → fetch_sync 偵測並自動 invalidate + 重新登入 + retry。
+    """
+
+    def test_stale_session_triggers_invalidate_and_retry(
+        self, seeded_sync_app, monkeypatch,
+    ):
+        """stale token → 第一輪 query 都失敗 → fetch_sync 自動 retry → 第二輪成功。"""
+        from web.clip_retrieval import NvrAuthError as _NvrAuthError
+
+        flask_app, db_path = seeded_sync_app
+        flask_app.config["SESSION_STORE"].set(1, "EXPIRED-TOKEN-AAA")
+
+        # Session token 流程：第一次回 EXPIRED（觸發 auth 失敗），
+        # 第二次之後回 FRESH（模擬 invalidate 後重新登入成功）
+        session_calls = {"n": 0}
+        session_sequence = ["EXPIRED-TOKEN-AAA", "FRESH-TOKEN-XYZ"]
+
+        def fake_get_session(internal_id, store):
+            idx = min(session_calls["n"], len(session_sequence) - 1)
+            token = session_sequence[idx]
+            session_calls["n"] += 1
+            return token
+
+        # Client 流程：看到 EXPIRED token → raise NvrAuthError；看到 FRESH → 回 60s
+        mpd_calls = {"n": 0}
+
+        class _StaleThenFreshClient(_FixedDurationClient):
+            def __init__(self, *, host, port, session, verify_ssl, **_kw):
+                super().__init__(
+                    durations_by_cam={"cam-a": 60.0, "cam-b": 60.0},
+                )
+                self._session = session
+
+            def get_recording_duration(self, camera_id, at_time):
+                mpd_calls["n"] += 1
+                if self._session == "EXPIRED-TOKEN-AAA":
+                    raise _NvrAuthError("NVR 認證失敗（401）：invalid session")
+                return super().get_recording_duration(camera_id, at_time)
+
+        import web.clips_app as ca
+        monkeypatch.setattr(ca, "get_session_for_nvr", fake_get_session)
+        monkeypatch.setattr(ca, "get_client_for_nvr",
+                            lambda nvr_row, session_token: _StaleThenFreshClient(
+                                host=nvr_row["host"], port=nvr_row.get("port", 8443),
+                                session=session_token, verify_ssl=False,
+                            ))
+        monkeypatch.setattr(ca, "_probe_nvr_stale_cache",
+                            lambda *a: (False, []))
+        monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-stale-test")
+
+        client = flask_app.test_client()
+        resp = client.post("/clips/fetch_sync", json={
+            "nvr_id": 1,
+            "cameras": [
+                {"device_id": "cam-a", "name": "CamA"},
+                {"device_id": "cam-b", "name": "CamB"},
+            ],
+            "t_center": "2026-07-14T12:00:00Z",
+            "target_seconds": 60,
+        })
+        # 觀察點：retry 機制必須被觸發
+        assert session_calls["n"] >= 2, (
+            f"stale session 應觸發 invalidate + 重新登入（session_calls.n ≥ 2），"
+            f"got {session_calls['n']}"
+        )
+        assert mpd_calls["n"] >= 4, (
+            f"query_cam_availability 應被跑 2 次（stale + retry），"
+            f"每輪 2 cam → ≥ 4 mpds；got {mpd_calls['n']}"
+        )
+        # 最終 status：第二輪成功 → intersection 有結果 → multipart 回應
+        # 或 active_cams 全空 → 404（mock mp4 沒真的 video bytes 也可能走 multipart 空殼）
+        assert resp.status_code in (200, 404), (
+            f"retry 後應至少完成流程，got {resp.status_code} body={resp.data[:200]}"
+        )

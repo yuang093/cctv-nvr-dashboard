@@ -231,11 +231,18 @@ class MpdMediaClient:
         return r.content
 
     def get_mpd_manifest(self, camera_id: str, at_time: datetime | str = "live") -> str:
-        """拿 DASH MPD manifest XML（給需要 seek 的進階用途；v1 不一定用得到）。"""
+        """拿 DASH MPD manifest XML（給需要 seek 的進階用途；v1 不一定用得到）。
+        2026-08-06 修：401/403 raise NvrAuthError，讓 caller 偵測 stale session。
+        """
         r = self._get("mpd", camera_id, self._format_t(at_time))
         if r.status_code != 200:
+            body_preview = (r.text or "")[:200]
+            if r.status_code in (401, 403):
+                raise NvrAuthError(
+                    f"NVR 認證失敗（{r.status_code}）：{body_preview}"
+                )
             raise RuntimeError(
-                f"NVR get_mpd_manifest 失敗 HTTP {r.status_code}：{r.text[:200]}"
+                f"NVR get_mpd_manifest 失敗 HTTP {r.status_code}：{body_preview}"
             )
         return r.content.decode("utf-8")
 

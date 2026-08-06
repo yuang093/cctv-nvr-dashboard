@@ -37,7 +37,10 @@ from flask import (
 from web import db as webdb
 
 # Protocol + 兩個實作
-from web.clip_retrieval import MediaApiClient, MockMediaClient, MpdMediaClient
+from web.clip_retrieval import (
+    MediaApiClient, MockMediaClient, MpdMediaClient,
+    NvrAuthError, NvrInternalError, NvrNoRecordingError,
+)
 
 # NVR CRUD Blueprint（Phase 2.7 補：讓 clips app 自帶 NVR 管理）
 from web.nvr_routes import nvr_bp
@@ -866,6 +869,23 @@ def clips_fetch_sync():
                 "available_end": request_start + timedelta(seconds=dur) if dur > 0 else request_start,
                 "duration": dur,
                 "error": None,
+                "auth_failed": False,
+            }
+        except NvrAuthError as e:
+            # 2026-08-06 修：stale session 識別 → 標記 auth_failed=True，
+            # 讓 caller 偵測後 invalidate session 並 retry 一次。
+            logger.warning(
+                "[fetch_sync] MPD query AUTH_FAILED（stale session）: cam=%s (%s) err=%s",
+                cam_name, cam_id, e,
+            )
+            return {
+                "camera_id": cam_id,
+                "name": cam_name,
+                "available_start": request_start,
+                "available_end": request_start,
+                "duration": 0,
+                "error": str(e),
+                "auth_failed": True,
             }
         except Exception as e:
             logger.warning(
@@ -879,6 +899,7 @@ def clips_fetch_sync():
                 "available_end": request_start,
                 "duration": 0,
                 "error": str(e),
+                "auth_failed": False,
             }
 
     with ThreadPoolExecutor(max_workers=min(8, len(cameras))) as ex:
@@ -888,13 +909,65 @@ def clips_fetch_sync():
     # 排除查詢失敗（duration=0）的 cam — 它們不算交集
     active_cams = [c for c in cam_results if c["duration"] > 0]
     if not active_cams:
-        return jsonify({
-            "error": "NO_COMMON_RECORDING",
-            "message": "無可用的錄影時段（所有 cam 都查無資料）",
-            "stage": "no_cam_available",
-            "intersection_start": request_start.isoformat(),
-            "intersection_end": request_end.isoformat(),
-        }), 404
+        # 2026-08-06 修：若所有 cam 都因 stale session（auth_failed=True）失敗，
+        # 主動 invalidate SESSION_STORE + 重新登入 + 重試一次，避免 user 卡死需手動重啟 8555。
+        if cam_results and all(c.get("auth_failed") for c in cam_results):
+            logger.warning(
+                "[fetch_sync] All cams stale-session（auth_failed），invalidate cache + retry"
+            )
+            app.config["SESSION_STORE"].clear(internal_id)
+            try:
+                session_token = get_session_for_nvr(
+                    internal_id, app.config["SESSION_STORE"],
+                )
+            except Exception as e:
+                logger.error("[fetch_sync] retry login 失敗：%s", e)
+                return jsonify({"error": f"retry login 失敗：{e}"}), 502
+            client = get_client_for_nvr(nvr_row, session_token=session_token)
+
+            def query_cam_availability_fresh(cam_spec):
+                cam_id = cam_spec.get("device_id", "")
+                cam_name = cam_spec.get("name", cam_id)
+                try:
+                    dur = client.get_recording_duration(cam_id, request_start)
+                    return {
+                        "camera_id": cam_id, "name": cam_name,
+                        "available_start": request_start,
+                        "available_end": request_start + timedelta(seconds=dur) if dur > 0 else request_start,
+                        "duration": dur, "error": None, "auth_failed": False,
+                    }
+                except NvrAuthError as e:
+                    logger.warning(
+                        "[fetch_sync] MPD query AUTH_FAILED（retry 仍失敗）: cam=%s err=%s",
+                        cam_name, e,
+                    )
+                    return {
+                        "camera_id": cam_id, "name": cam_name,
+                        "available_start": request_start, "available_end": request_start,
+                        "duration": 0, "error": str(e), "auth_failed": True,
+                    }
+                except Exception as e:
+                    logger.warning(
+                        "[fetch_sync] MPD query FAILED: cam=%s err=%s",
+                        cam_name, e,
+                    )
+                    return {
+                        "camera_id": cam_id, "name": cam_name,
+                        "available_start": request_start, "available_end": request_start,
+                        "duration": 0, "error": str(e), "auth_failed": False,
+                    }
+
+            with ThreadPoolExecutor(max_workers=min(8, len(cameras))) as ex2:
+                cam_results = list(ex2.map(query_cam_availability_fresh, cameras))
+            active_cams = [c for c in cam_results if c["duration"] > 0]
+        if not active_cams:
+            return jsonify({
+                "error": "NO_COMMON_RECORDING",
+                "message": "無可用的錄影時段（所有 cam 都查無資料）",
+                "stage": "no_cam_available",
+                "intersection_start": request_start.isoformat(),
+                "intersection_end": request_end.isoformat(),
+            }), 404
 
     # === Step 2.5：NVR stale cache 探測（2026-07-15 user bug） ===
     # NVR Media API 對某些 cam 在多個相鄰時段會回傳完全相同的 mp4 bytes
