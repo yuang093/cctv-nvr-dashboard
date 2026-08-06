@@ -269,6 +269,7 @@ class MpdMediaClient:
         start_time: datetime,
         end_time: datetime,
         target_seconds: Optional[float] = None,
+        max_wall_seconds: Optional[float] = None,
     ) -> Iterator[bytes]:
         """從 NVR 串流 mp4 clip（path B：直接 fmp4 stream，最簡單）。
 
