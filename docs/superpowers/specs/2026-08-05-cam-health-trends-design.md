@@ -416,6 +416,21 @@ window.location.href = window.NVR_DASHBOARD_URL
 
 ---
 
-**Status**: Draft → Implementation v0（2026-08-05 Batch A+B+C 落地，含 3 處勘誤 + 1 §Public Query Contract + 4 deep-link 入口 + Task 12 `?cam_id=` auto-expand）。
+**Status**: Draft → Implementation v0（2026-08-06 Batch A+B+C+D 落地，含 3 處勘誤 + 1 §Public Query Contract + 4 deep-link 入口 + Task 12 `?cam_id=` auto-expand + 視覺驗證 5 張截圖）。
 
-**Next**: Batch C（4 處 deep link）→ Batch D（最終視覺驗證 + merge SPEC G）。
+**Next**: merge SPEC G to main（建議先建 PR review）。
+
+**Batch D 視覺驗證截圖**（2026-08-06）：
+- `docs/screenshots/spec-g-batch-c-01-trends-24h.png`：24h 預設視窗，異常 cam 紅框
+- `docs/screenshots/spec-g-batch-c-02-trends-7d.png`：7d 視窗，異常筆次累積
+- `docs/screenshots/spec-g-batch-c-03-trends-cam-id-autorender.png`：`?cam_id=parking-1` 自動展開 detail chart（legend + Y 軸 + 台北時間 X 軸）
+- `docs/screenshots/spec-g-batch-c-04-devices-list.png`：5 台 cam + 每行 📈 + 詳情雙按鈕
+- `docs/screenshots/spec-g-batch-c-05-dashboard-top-missing.png`：top_missing Top 5 + 每行 📈
+
+**覆蓋率**：13 個新測試（Task 8×1、9×2、10×2、11×4、12×4）。`pytest tests/test_trends.py tests/integration/test_e2e_trends.py tests/test_coverage_endpoint.py` 54 全綠。
+
+**Peer reviewer 風險處理**：
+1. dashboard 異常 cam 用 `r.camera_id` → 已加 📈 連結
+2. coverage.html 8555 跨 port → 用 `window.NVR_DASHBOARD_URL`（env `NVR_DASHBOARD_URL` 預設 `http://127.0.0.1:8444`）
+3. devices_list + base.html relative → 用 `url_for('trends')`
+4. Route 不接受 `cam_id` → 已擴充 route + template JS auto-expand + scrollIntoView
