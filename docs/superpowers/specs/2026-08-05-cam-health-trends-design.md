@@ -386,6 +386,36 @@ Python bin 處理：
 
 ---
 
-**Status**: Draft → Implementation v0（2026-08-05 Batch A+B 落地，含 3 處勘誤）。
+## 12. Public Query Contract（`/trends` 入口穩定介面）
+
+所有 4 個 deep-link 入口（navbar / devices_list / dashboard top_missing / coverage 8555）**統一使用**：
+
+```
+/trends?cam_id=<device_id>&range=24h
+/trends?nvr_id=<nvr_id>&range=24h|7d&status=any|abnormal_only
+/trends?cam_id=<device_id>&nvr_id=<nvr_id>&status=abnormal_only&range=7d
+```
+
+| 參數 | 必填 | 值 | fallback |
+|---|---|---|---|
+| `range` | 否 | `24h` / `7d` | route 端無效值 → 24h |
+| `nvr_id` | 否 | NVR 配置檔的 id（如 `branch-a`） | None = 不限 |
+| `status` | 否 | `any` / `abnormal_only` | route 端無效值 → `any` |
+| `cam_id` | 否 | device_id（用 `cam_id` 命名而非 `device_id`，避免 caller 困惑） | None = 不定位 |
+
+**已知 trade-off**：
+- `?range=168`（原 spec §4.2 int format）會 fallback 24h（route 只認 `24h` / `7d` 字串）。**新 contract 一律用 `24h` / `7d`**。
+- 任何無效 query 不 500（route 寬鬆 normalization，函式 `get_all_cams_health_summary` 內部仍 strict raise）。
+- `cam_id` 不存在 → 200 + JS silent no-op（auto-expand 找不到 card）。
+
+**Joint 範例**（coverage 8555 跨 port）：
+```js
+window.location.href = window.NVR_DASHBOARD_URL
+  + '/trends?cam_id=' + encodeURIComponent(cam.cam_id) + '&range=24h';
+```
+
+---
+
+**Status**: Draft → Implementation v0（2026-08-05 Batch A+B+C 落地，含 3 處勘誤 + 1 §Public Query Contract + 4 deep-link 入口 + Task 12 `?cam_id=` auto-expand）。
 
 **Next**: Batch C（4 處 deep link）→ Batch D（最終視覺驗證 + merge SPEC G）。
