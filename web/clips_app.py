@@ -824,6 +824,11 @@ def clips_fetch_sync():
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import uuid as uuid_mod
+    import time as _time
+    # 2026-08-06 perf：分階段計時，讓 user 從 server log / browser DevTools
+    # Network > Timing 直接看 MPD / probe / fetch / total 各耗時。
+    _t_phase = {"mpd": 0.0, "probe": 0.0, "fetch": 0.0}
+    _t_total0 = _time.monotonic()
 
     payload = request.get_json(silent=True) or {}
     try:
@@ -909,7 +914,9 @@ def clips_fetch_sync():
             }
 
     with ThreadPoolExecutor(max_workers=min(8, len(cameras))) as ex:
+        _t_mpd_start = _time.monotonic()
         cam_results = list(ex.map(query_cam_availability, cameras))
+        _t_phase["mpd"] = _time.monotonic() - _t_mpd_start
 
     # === Step 2: 算交集（intersection of all available ranges）===
     # 排除查詢失敗（duration=0）的 cam — 它們不算交集
@@ -997,6 +1004,7 @@ def clips_fetch_sync():
                 internal_id, _trust_expire - _time_trust.time(),
             )
     if not skip_stale_probe:
+        _t_probe_start = _time.monotonic()
         from concurrent.futures import ThreadPoolExecutor as _TPE
         def _run_probe(cam_info):
             try:
@@ -1183,11 +1191,22 @@ def clips_fetch_sync():
     with ThreadPoolExecutor(max_workers=min(8, len(cam_with_idx))) as ex:
         futures = [ex.submit(fetch_one_cam, c) for c in cam_with_idx]
         fetch_results = [f.result() for f in futures]
+        _t_phase["fetch"] = _time.monotonic() - (_t_mpd_start + _t_phase["mpd"] + _t_phase["probe"])
 
+    if not skip_stale_probe:
+        _t_phase["probe"] = _time.monotonic() - _t_probe_start
     # === Step 5: 串成 multipart response ===
     # 統一格式：每段都是 video/mp4 Content-Type，metadata 全在 X-* headers。
     # 失敗的 cam 用 0 bytes body + X-Slot-Error header（ASCII 字串）。
     # 這樣前端 parser 只要追蹤 boundary + 讀 X-* headers，不用處理 Content-Type 切換。
+    _t_total = _time.monotonic() - _t_total0
+    logger.info(
+        "[fetch_sync timing] total=%.2fs mpd=%.2fs probe=%.2fs fetch=%.2fs cams=%d stale=%d",
+        _t_total, _t_phase["mpd"], _t_phase["probe"], _t_phase["fetch"],
+        len(cameras), len(stale_cam_ids),
+    )
+    # 摘要放在一個副作用：g object 上掛 X-Server-Timing header（user 可瀏覽 DevTools 看）
+
     def generate_multipart():
         crlf = b"\r\n"
         for slot_idx, meta, body in fetch_results:
@@ -1228,6 +1247,12 @@ def clips_fetch_sync():
             # 2026-07-15：被 stale probe 排除的 cam 列表，給前端用
             # 格式：device_id|reason 字串（多台以逗號分隔；reason 內逗號換分號）
             "X-Excluded-Cams": _format_excluded_cams(stale_cam_ids, list(cam_results)),
+            # 2026-08-06 perf：分階段時序 (W3C Server-Timing 格式 + 自定單位)
+            # 例：X-Server-Timing: mpd;dur=120.5, probe;dur=1850.0, fetch;dur=3200.0, total;dur=5170.5
+            "X-Server-Timing": ", ".join(
+                f"{phase};dur={t * 1000:.1f}"
+                for phase, t in _t_phase.items()
+            ) + f", total;dur={_t_total * 1000:.1f}",
         },
     )
 
