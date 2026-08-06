@@ -136,6 +136,7 @@ class MockMediaClient:
         start_time: datetime,
         end_time: datetime,
         target_seconds: Optional[float] = None,
+        max_wall_seconds: Optional[float] = None,
     ) -> Iterator[bytes]:
         self.clip_calls.append((camera_id, start_time, end_time))
         for _ in range(self._chunk_count):
@@ -280,12 +281,19 @@ class MpdMediaClient:
         必須靠 _truncate_fmp4_chunks 在 server 端解析 mp4 box 結構截斷，
         不然前端 <video>.duration 仍是 mp4 本身長度，多 cam 同步會「影片長度不一」。
 
+        2026-08-06 fix11.txt：加 max_wall_seconds 參數（server-side wall time cap）。
+        NVR fmp4 stream 卡死不吐 bytes 時（user 040/041），整個 fetch 永遠 hang。
+        超過 max_wall_seconds 就 break generator、回 partial bytes 給前端，
+        frontend <video> 也能播（partial mp4 是合法 container）。
+
         Args:
             camera_id: 攝影機 ID
             start_time: UTC；對應 NVR `t=` 參數
             end_time: 保留位置（Protocol 相容性；目前沒用到）
             target_seconds: 若給定，回傳 mp4 在該秒數截斷後的 prefix bytes。
                            None → 原樣 yield 全部。
+            max_wall_seconds: 若給定，超過此秒數就停止讀（partial bytes 返回）。
+                              None → 讀到 NVR stream 自然結束。
 
         Raises:
             NvrNoRecordingError: NVR 回 404 → 該時段無錄影
@@ -313,7 +321,23 @@ class MpdMediaClient:
                     f"NVR fetch_clip 失敗 HTTP {r.status_code}：{body_preview}"
                 )
         # stream=True → 用 iter_content 逐 chunk yield → 包進 truncation wrapper
-        chunks = (chunk for chunk in r.iter_content(chunk_size=self._DEFAULT_CHUNK) if chunk)
+        # 2026-08-06 fix11.txt：max_wall_seconds 是 server-side 最後一道防線，
+        # 防 NVR fmp4 stream 卡死不吐 bytes（user 040/041：CamA 5 分鐘不回應）
+        import time as _t_fc
+        _t_wall0 = _t_fc.monotonic()
+        _wall_timeout_hit = [False]  # mutable closure for early-exit signal
+
+        def _chunks_with_wall_cap():
+            for chunk in r.iter_content(chunk_size=self._DEFAULT_CHUNK):
+                if not chunk:
+                    continue
+                if max_wall_seconds is not None:
+                    if _t_fc.monotonic() - _t_wall0 > max_wall_seconds:
+                        _wall_timeout_hit[0] = True
+                        break
+                yield chunk
+
+        chunks = _chunks_with_wall_cap()
         if target_seconds is not None:
             yield from _truncate_fmp4_chunks(chunks, target_seconds=target_seconds)
         else:

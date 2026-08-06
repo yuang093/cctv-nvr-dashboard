@@ -83,7 +83,7 @@ class _BoomClient:
     def get_recording_duration(self, camera_id, at_time):
         return 30.0  # 讓擴搜邏輯以為有錄影
 
-    def fetch_clip(self, camera_id, start_time, end_time):
+    def fetch_clip(self, camera_id, start_time, end_time, target_seconds=None, max_wall_seconds=None):
         # 模擬 NVR fmp4 endpoint 在 iterator 起始就拋 generic RuntimeError
         # 對應舊版的行為；現版本會被歸類成 NVR_INTERNAL_ERROR
         raise RuntimeError(self.error_msg)
@@ -101,7 +101,7 @@ class _NoRecordingClient:
     def get_recording_duration(self, camera_id, at_time):
         return 0.0  # duration ≈ 0 → NO_RECORDING 觸發在 clips_app.py
 
-    def fetch_clip(self, camera_id, start_time, end_time):
+    def fetch_clip(self, camera_id, start_time, end_time, target_seconds=None, max_wall_seconds=None):
         from web.clip_retrieval import NvrNoRecordingError
         raise NvrNoRecordingError("NVR 找不到此時段錄影（404）")
 
@@ -118,7 +118,7 @@ class _AuthFailedClient:
     def get_recording_duration(self, camera_id, at_time):
         return 30.0
 
-    def fetch_clip(self, camera_id, start_time, end_time):
+    def fetch_clip(self, camera_id, start_time, end_time, target_seconds=None, max_wall_seconds=None):
         from web.clip_retrieval import NvrAuthError
         raise NvrAuthError("NVR 認證失敗（401）")
 
@@ -135,7 +135,7 @@ class _NvrInternalClient:
     def get_recording_duration(self, camera_id, at_time):
         return 30.0
 
-    def fetch_clip(self, camera_id, start_time, end_time):
+    def fetch_clip(self, camera_id, start_time, end_time, target_seconds=None, max_wall_seconds=None):
         from web.clip_retrieval import NvrInternalError
         raise NvrInternalError("NVR 內部錯誤（500）：{\"meta\":{\"code\":-1}}")
 
@@ -249,7 +249,7 @@ def test_empty_body_returns_404_json(seeded_app_for_fetch, monkeypatch):
     """NVR fetch_clip 回 0 bytes 應回 JSON 404（不是空的 MP4）。"""
 
     class _EmptyClient(_BoomClient):
-        def fetch_clip(self, camera_id, start_time, end_time):
+        def fetch_clip(self, camera_id, start_time, end_time, target_seconds=None, max_wall_seconds=None):
             return iter([])  # 空 generator
 
     flask_app, db_path = seeded_app_for_fetch

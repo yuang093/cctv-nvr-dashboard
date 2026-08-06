@@ -102,7 +102,7 @@ class _FixedDurationClient:
     def get_recording_duration(self, camera_id, at_time):
         return self.durations_by_cam.get(camera_id, 0.0)
 
-    def fetch_clip(self, camera_id, start_time, end_time=None, target_seconds=None):
+    def fetch_clip(self, camera_id, start_time, end_time=None, target_seconds=None, max_wall_seconds=None):
         self.clip_calls.append((camera_id, start_time, target_seconds))
         # 回 8KB dummy mp4 bytes
         yield b"\x00" * (8 * 1024)
@@ -317,7 +317,7 @@ def test_one_cam_fetch_clip_fails_other_slots_still_have_body(seeded_sync_app, m
     """fetch_clip 階段 1 台 cam 失敗 → 該 slot 帶 X-Slot-Error，其他 slot 仍正常。"""
 
     class _PartialClipFailClient(_FixedDurationClient):
-        def fetch_clip(self, camera_id, start_time, end_time=None, target_seconds=None):
+        def fetch_clip(self, camera_id, start_time, end_time=None, target_seconds=None, max_wall_seconds=None):
             self.clip_calls.append((camera_id, start_time, target_seconds))
             if camera_id == "cam-b":
                 from web.clip_retrieval import NvrInternalError
@@ -445,7 +445,7 @@ def test_fetch_sync_passes_end_time_to_client(seeded_sync_app, monkeypatch):
     """
     class _StrictSignatureClient(_FixedDurationClient):
         """fetch_clip 簽名嚴格 (camera_id, start_time, end_time)，沒預設值。"""
-        def fetch_clip(self, camera_id, start_time, end_time, target_seconds=None):
+        def fetch_clip(self, camera_id, start_time, end_time, target_seconds=None, max_wall_seconds=None):
             self.clip_calls.append((camera_id, start_time, end_time, target_seconds))
             yield b"\x00" * (8 * 1024)
 
@@ -508,7 +508,7 @@ class _StaleProbeClientV2:
         self.mpd_calls.append((camera_id, at_time, int(at_time.timestamp())))
         return self.durations_by_cam.get(camera_id, 60.0)
 
-    def fetch_clip(self, camera_id, start_time, end_time=None, target_seconds=None):
+    def fetch_clip(self, camera_id, start_time, end_time=None, target_seconds=None, max_wall_seconds=None):
         self.clip_calls.append((camera_id, start_time, end_time))
         # bytes_per_anchor_by_cam[cam] 順序：[-60, 0, +60]
         # 為對應 probe 呼叫 3 次，依呼叫順序輪流 anchor bytes

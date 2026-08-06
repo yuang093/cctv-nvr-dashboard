@@ -52,6 +52,16 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("nvr.clips")
+# 2026-08-06 fix11.txt：fmp4 stream wall time cap。NVR 卡死不吐 bytes 時
+# （user 040/041：CamA 5 分鐘沒回應），超過此秒就 break generator、回 partial bytes，
+# frontend <video> 可播（partial mp4 is valid container）。
+_MAX_FETCH_WALL_SECONDS = 30.0  # default；可從 env NVR_MAX_FETCH_WALL_SECONDS 覆寫
+import os as _os_wall
+if _os_wall.environ.get("NVR_MAX_FETCH_WALL_SECONDS"):
+    try:
+        _MAX_FETCH_WALL_SECONDS = float(_os_wall.environ["NVR_MAX_FETCH_WALL_SECONDS"])
+    except ValueError:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -627,7 +637,7 @@ def clips_fetch():
     )
     try:
         _t_fetch_start = _time_cf.monotonic()
-        body = b"".join(client.fetch_clip(camera_id, actual_start, actual_end))
+        body = b"".join(client.fetch_clip(camera_id, actual_start, actual_end, max_wall_seconds=_MAX_FETCH_WALL_SECONDS))
         _t_cf["fetch"] = _time_cf.monotonic() - _t_fetch_start
         logger.info(
             "[fetch] fetched: cam=%s bytes=%d actual_start=%s actual_end=%s",
@@ -1180,6 +1190,7 @@ def clips_fetch_sync():
                 client.fetch_clip(
                     cam_id, intersection_start, intersection_end,
                     target_seconds=intersection_length,
+                    max_wall_seconds=_MAX_FETCH_WALL_SECONDS,
                 )
             )
             if not body:
