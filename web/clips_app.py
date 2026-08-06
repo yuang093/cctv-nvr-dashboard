@@ -536,6 +536,9 @@ def clips_fetch():
        response header 回傳給前端顯示
     """
     from datetime import timedelta
+    import time as _time_cf
+    _t_cf = {"mpd": 0.0, "fetch": 0.0}
+    _t_cf_total0 = _time_cf.monotonic()
     payload = request.get_json(silent=True) or {}
     try:
         internal_id = int(payload.get("nvr_id", 0))
@@ -601,6 +604,7 @@ def clips_fetch():
         camera_id, actual_start.isoformat(), actual_end.isoformat(),
         actual_seconds, target_seconds,
     )
+    _t_cf["mpd"] = _time_cf.monotonic() - _t_cf_total0
     if actual_seconds <= 0.5:
         return jsonify({
             "error": "NO_RECORDING",
@@ -622,7 +626,9 @@ def clips_fetch():
         NvrNoRecordingError, NvrAuthError, NvrInternalError,
     )
     try:
+        _t_fetch_start = _time_cf.monotonic()
         body = b"".join(client.fetch_clip(camera_id, actual_start, actual_end))
+        _t_cf["fetch"] = _time_cf.monotonic() - _t_fetch_start
         logger.info(
             "[fetch] fetched: cam=%s bytes=%d actual_start=%s actual_end=%s",
             camera_id, len(body), actual_start.isoformat(), actual_end.isoformat(),
@@ -706,7 +712,18 @@ def clips_fetch():
             "X-Requested-Duration": f"{target_seconds:.2f}",
             "X-Truncated": "true" if actual_seconds < target_seconds else "false",
             "Content-Length": str(len(body)),
+            # 2026-08-06 perf：分階段時序，瀏覽器 DevTools Network > Timing 直接讀
+            "X-Server-Timing": ", ".join(
+                f"{phase};dur={t * 1000:.1f}"
+                for phase, t in _t_cf.items()
+            ) + f", total;dur={(_time_cf.monotonic() - _t_cf_total0) * 1000:.1f}",
         },
+    )
+    logger.info(
+        "[fetch timing] total=%.2fs mpd=%.2fs fetch=%.2fs cam=%s bytes=%d",
+        _time_cf.monotonic() - _t_cf_total0,
+        _t_cf["mpd"], _t_cf["fetch"],
+        camera_id, len(body),
     )
 
 
