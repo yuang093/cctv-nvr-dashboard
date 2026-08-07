@@ -1,7 +1,7 @@
 """
 web/clip_retrieval.py
 =====================
-Phase 2.7 影片片段調閱：對應 NVR Media API 的 Protocol 與實作。
+Phase 2.7 機票回放調閱：對應 NVR Media API 的 Protocol 與實作。
 
 設計
 ----
