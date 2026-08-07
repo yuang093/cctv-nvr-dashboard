@@ -5,14 +5,16 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- **2026-08-05 ~ 08-06**：Spec G Cam 健康趨勢圖 — `/trends` 頁面從 snapshot 升級到趨勢判斷（22 commits，898 → 939 tests）：
+- **2026-08-05 ~ 08-06**（Spec G released）：Cam 健康趨勢圖 — `/trends` 頁面從 snapshot 升級到趨勢判斷（**25 commits**：plan + 4 batches，898 → 974 tests）：
   - **Batch A**（6 commits）：純 DB 查詢層 `web/trends.py`（`HealthBin` / `CamHealthSummary` dataclass + `compute_health_timeseries` 24h/7d + `get_all_cams_health_summary` with ghost/nvr/status filter），13 項純函式測試
   - **Batch B**（8 commits）：`/trends` Flask route + Chart.js 4.4.0 sparkline grid（mini + inline expand detail），peer-review 修法（Critical XSS、filter state preservation、loop.index0 canvas id、theme tokens via CSS var、台北時區、lazy chart init），9 項 route 整合測試 + 3 視覺驗證截圖
-  - **Batch C**（8 commits）：4 處 deep-link 入口（navbar「📈 健康趨勢」、devices_list 每 row、dashboard top_missing、coverage 8555 跨 port via `NVR_DASHBOARD_URL` env）+ Task 12 `?cam_id=` auto-expand via `scrollIntoView` + `CSS.escape` + lazy chart 整合。13 項新測試
+  - **Batch C**（6 commits）：4 處 deep-link 入口（navbar「📈 健康趨勢」、devices_list 每 row、dashboard top_missing、coverage 8555 跨 port via `NVR_DASHBOARD_URL` env）+ Task 12 `?cam_id=` auto-expand via `scrollIntoView` + `CSS.escape` + lazy chart 整合。13 項新測試
+  - **Batch D**（2 commits）：Spec §12 Public Query Contract + CHANGELOG 收尾 + 5 張視覺驗證截圖（spec-g-batch-c-01..05） + `scripts/seed_visual_demo.py` 灌 sample DB helper
   - **零 schema 改動**（沿用既有 `image_health_checks.metrics_json` 物件欄位代理「健康掃描記錄」）
   - **Spec G §11 勘誤**：`abnormal_bins` 從「bin count」改為「record count 不含 offline」、bin order 從「old→new」改為「new→old」、range query 從 `24|168` int 改為 `24h|7d` string
   - **Spec G §12 Public Query Contract**：所有 deep-link 統一用 `/trends?cam_id=X&range=24h` 形式（公約穩定介面）
   - 重啟提醒：改 `web/app.py` 必重啟 8444 + 改 `web/clips_app.py` 必重啟 8555
+  - 規格：`docs/superpowers/specs/2026-08-05-cam-health-trends-design.md`；計畫：`docs/superpowers/plans/2026-08-05-cam-health-trends.md`
 - **2026-08-05**：`theme_preview.html` 補 6 個 theme 卡片（user #565，`35c5f45`）—— base.html 在 `036414c` 已補 12 個 theme light link chain，但 `/theme` 頁面只展示 6 張卡片（nordic / brutal / fintech / earthy / editorial / eink），user 沒辦法在 UI 切到 enterprise / glass / gradient / minimal / cyberpunk / terminal。修法：加 6 個新卡片（n7..n12 CSS + 對應 HTML），每張對應其 theme 的設計語彙（enterprise 深藍漸層 / glass 紫粉漸層半透明 / gradient 藍紫漸層 text-clip / minimal 純白黑灰 / cyberpunk 青色霓虹 Orbitron / terminal GitHub dark JetBrains Mono 命令列）+ 2 個 regression test 防日後新增 theme 又漏卡片。視覺驗證：12 卡片齊（037.PNG）；點 Cyberpunk 卡片 → dashboard 套上 cyberpunk 主題（038.PNG，深藍黑底 + 青色霓虹 + Orbitron + 「>」prompt）。895 全綠。
 - **2026-08-04**：MockMediaClient 缺 `get_recording_duration`（user 032.PNG，`021fc14`）—— `MediaApiClient` Protocol 沒強制宣告，導致 `MpdMediaClient` 加新方法後 mock 沒實作 → `/clips/fetch_sync` 在 mock 環境下完全壞掉（兩台 cam MPD query 都 AttributeError → NO_COMMON_RECORDING → 前端誤顯示「NVR 連線失敗」）。修法：Protocol 加 method、MockMediaClient 回固定 240s、加 3 個 regression test 防 mock drift。視覺驗證：coverage → 點綠帶 → 1 台自動播放、`/clips` 2×2 同步撥放成功（033/034.PNG）。
 - **2026-08-04**：NVR /timeline 範圍查詢 bug (`e145562`) — NVR API 忽略 from/to，回傳視窗外的舊 records。`compute_per_camera_completeness` 內部用 `_clip_to_window` 過濾（所以完整率數字一直對），但 `fetch_coverage_from_nvr` 序列化 records 沒 clip → 前端在視窗外誤繪綠帶。修法：序列化前先 clip 到視窗內，完全在視窗外 drop、邊界重疊裁切。3 新測試（clip / partial overlap / drop outside）+ 864 全綠。

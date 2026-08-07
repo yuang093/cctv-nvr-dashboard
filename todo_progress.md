@@ -156,6 +156,7 @@
 - [x] Webhook 推播（Slack / Teams，§8 已完整實作 + 36 項測試）
 - [x] GitHub Actions CI（`.github/workflows/ci.yml`，3×Python 矩陣 + pip cache + 132 項測試）
 - [x] **Phase 1 事件 resolved 追蹤**（2026-06-30）：DB schema 加 `resolved_at` + worker `mark_resolved()` + Web UI `/events` status 篩選 + `/query` ad-hoc 頁
+- [x] **Spec G Cam 健康趨勢圖**（2026-08-06）：`/trends` 頁面（24h/7d mini sparkline + inline detail）+ 4 處 deep-link（navbar / devices_list / dashboard top_missing / coverage 8555 cross-port via `NVR_DASHBOARD_URL` env）+ `?cam_id=` auto-expand。25 commits（plan + 4 batches）、974 tests 全綠、5 張視覺驗證截圖。零 schema 改動。Spec：`docs/superpowers/specs/2026-08-05-cam-health-trends-design.md`。
 - [ ] 常駐服務（systemd / NSSM）
 - [ ] 帳號權限管理（`users` / `roles`）
 - [ ] 即時更新（WebSocket / SSE）
