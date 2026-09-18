@@ -1,0 +1,58 @@
+# .pre-commit-config.yaml
+# ======================
+# 本地 commit 前自動跑的 hook 鏈。對應 evolution-roadmap §4.2。
+#
+# 安裝：
+#   pip install pre-commit
+#   pre-commit install
+#
+# 手動全檔跑：
+#   pre-commit run --all-files
+#
+# 跳過（緊急）：
+#   git commit --no-verify
+#
+# Hook 順序（從快到慢）：
+#   1. detect-secrets   - 掃 hardcoded secret（最便宜，先抓）
+#   2. ruff --fix       - 自動修 lint
+#   3. ruff-format      - 自動 format
+#
+# mypy 故意拿掉：
+#   - Week 7 Issue #023 才會把現有 23 個 mypy error 清完
+#   - CI 仍跑 mypy（會 fail，不會 block 本地 commit 但會擋 PR merge）
+
+# 共用排除：CI 配置 / 文件 / screenshots / 模板不算 Python
+exclude: |
+  (?x)^(
+      \.github/.*|
+      docs/.*|
+      .*\.md|
+      .*\.html|
+      .*\.bat|
+      .*\.ps1|
+      .*\.sh|
+      _local/.*
+  )$
+
+repos:
+  # 1. detect-secrets：掃 hardcoded secret/credential
+  # 排除 tests/fixtures/（內含測試用 dummy creds）
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+
+  # 2. ruff + ruff-format：Python lint 與 format（極快）
+  # 取代 flake8 + black + isort，速度快 10-100 倍
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # mypy 暫時不放 pre-commit（Week 7 Issue #023 完成後再加）
+  # CI 仍跑 mypy（見 .github/workflows/ci.yml 的 mypy job）
