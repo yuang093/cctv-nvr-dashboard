@@ -1,0 +1,75 @@
+# CODEOWNERS
+# ==========
+# 自動要求對應 owner 在 PR merge 前 review。
+# 配合 GitHub Branch Protection Rules (issue #003)：
+#   - Require review from Code Owners: ✅
+#   - 鎖定的 owner PR 必須由其本人 approve 才能 merge
+#
+# 語法：每行 `<pattern>  <owner>`
+#   - 空格開頭的行是註解
+#   - 越具體的 pattern 放越前面（後面行會被前面的覆蓋）
+#   - 最後一行 `* @owner` 是 fallback default owner
+#
+# 對應 evolution-roadmap §4.3 + Week 1 Issue #002
+
+# === Default owner（所有檔案，若無更 specific 規則匹配） ===
+*                               @yuang093
+
+# === Security-sensitive areas（最高優先） ===
+# SECRET_KEY 強制 env var、HOST bind 行為都在這裡
+/web/app.py                     @yuang093
+/run_web.sh                     @yuang093
+/run_web.ps1                    @yuang093
+/run_web.bat                    @yuang093
+/_write_bat.py                  @yuang093
+/.env.example                   @yuang093
+
+# === DB schema 與 migrations ===
+# schema 變更會破壞既有資料,需 owner 仔細 review
+/database_schema.md             @yuang093
+/db/migrations/                 @yuang093
+/db/event_partition.py          @yuang093
+/db/sqlite_writer.py            @yuang093
+
+# === CI / Security tooling ===
+/.github/                        @yuang093
+/.github/workflows/              @yuang093
+/.pre-commit-config.yaml        @yuang093
+
+# === 程式入口與設定 ===
+# 修改這些檔案會影響 production 行為,必須 owner review
+/nvr_config.example.json        @yuang093
+/pytest.ini                     @yuang093
+/requirements.txt               @yuang093
+/requirements-web.txt           @yuang093
+/requirements-dev.txt           @yuang093
+
+# === 文件契約（修改必同步更新程式碼） ===
+/api_endpoints.md               @yuang093
+/class_interface.md             @yuang093
+/overview.md                    @yuang093
+/CLAUDE.md                      @yuang093
+/CHANGELOG.md                   @yuang093
+
+# === Dashboard 核心 routes（app.py / clips_app.py）===
+# 因為 app.py 1746 行暫時還沒拆 Blueprint (Week 6 #017-021),
+# 整個檔案都鎖 owner review
+/web/app.py                     @yuang093
+/web/clips_app.py               @yuang093
+/web/clip_retrieval.py          @yuang093
+/web/coverage.py                @yuang093
+/web/timeline.py                @yuang093
+/web/trends.py                  @yuang093
+/web/fleet.py                   @yuang093
+/web/db.py                      @yuang093
+/web/snapshot.py                @yuang093
+/web/discover.py                @yuang093
+/web/image_health.py            @yuang093
+/web/nvr_crud.py                @yuang093
+/web/nvr_routes.py              @yuang093
+/web/report_archive.py          @yuang093
+
+# === Worker 與背景排程（影響 production scan 行為） ===
+/batch_scan.py                  @yuang093
+/nvr_scanner.py                 @yuang093
+/scripts/                       @yuang093
