@@ -14,6 +14,7 @@ URL prefix: `/nvrs`
 - 8555 改用 Blueprint，endpoint 名是 `nvr.list`（template url_for 要加 prefix）
 - `_get_db_path` 改用 `current_app.config["DB_PATH"]`（Blueprint 內沒 app 變數）
 """
+
 from __future__ import annotations
 
 import csv
@@ -25,12 +26,19 @@ import time
 import traceback
 
 from flask import (
-    Blueprint, abort, current_app, flash, jsonify, redirect,
-    render_template, request, Response, url_for,
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    Response,
+    url_for,
 )
 
 from web import db as webdb
-from web import nvr_crud
 
 # AvigilonScanner 改在 runtime 才 import（避免 module-level import 失敗時
 # 把整個 Blueprint 廢掉，後續所有 NVR 路由都 500）。
@@ -49,7 +57,6 @@ def _get_db_path() -> str:
 # 2026-07-13 Phase 3：抽到 web/nvr_crud.py 共用模組
 from web.nvr_crud import (
     parse_nvr_form as _parse_nvr_form,
-    normalize_nvr_dict as _normalize_nvr_dict,
     parse_csv as _parse_csv,
     parse_json as _parse_json,
     detect_format as _detect_format,
@@ -58,6 +65,7 @@ from web.nvr_crud import (
 )
 
 # === Routes ===
+
 
 @nvr_bp.route("/")
 def list():
@@ -105,7 +113,10 @@ def new():
             return redirect(url_for("nvr.list"))
         except ValueError as e:
             return render_template(
-                "nvr_form.html", mode="new", nvr=request.form.to_dict(), error=str(e),
+                "nvr_form.html",
+                mode="new",
+                nvr=request.form.to_dict(),
+                error=str(e),
             )
     return render_template("nvr_form.html", mode="new", nvr={}, error=None)
 
@@ -121,14 +132,20 @@ def edit(nvr_id: int):
             if password_changed:
                 nvr_data["password"] = password
             webdb.update_nvr(
-                _get_db_path(), nvr_id, nvr_data, password_changed=password_changed,
+                _get_db_path(),
+                nvr_id,
+                nvr_data,
+                password_changed=password_changed,
             )
             flash(f"已更新 NVR「{nvr_data['nvr_id']}」", "success")
             return redirect(url_for("nvr.list"))
         except ValueError as e:
             nvr = webdb.get_nvr(_get_db_path(), nvr_id) or {}
             return render_template(
-                "nvr_form.html", mode="edit", nvr=nvr, error=str(e),
+                "nvr_form.html",
+                mode="edit",
+                nvr=nvr,
+                error=str(e),
             )
     nvr = webdb.get_nvr(_get_db_path(), nvr_id)
     if not nvr:
@@ -167,10 +184,12 @@ def test_connection():
         # "db is not a package"。修法：用 importlib 直接指定 db package 的檔案路徑。
         import importlib.util
         import pathlib
+
         db_pkg_path = pathlib.Path(__file__).resolve().parent.parent / "db"
         if (db_pkg_path / "__init__.py").exists():
             spec = importlib.util.spec_from_file_location(
-                "db", db_pkg_path / "__init__.py",
+                "db",
+                db_pkg_path / "__init__.py",
                 submodule_search_locations=[str(db_pkg_path)],
             )
             if spec and spec.loader:
@@ -180,11 +199,13 @@ def test_connection():
         from nvr_scanner import AvigilonScanner
     except ImportError as e:
         tb = traceback.format_exc()
-        return jsonify({
-            "ok": False,
-            "message": f"伺服器缺少 nvr_scanner 模組：{e}",
-            "traceback": tb[-1500:],
-        }), 500
+        return jsonify(
+            {
+                "ok": False,
+                "message": f"伺服器缺少 nvr_scanner 模組：{e}",
+                "traceback": tb[-1500:],
+            }
+        ), 500
 
     try:
         data = request.get_json(force=True, silent=False)
@@ -198,10 +219,12 @@ def test_connection():
     user_nonce = os.environ.get("AVIGILON_USER_NONCE", "")
     user_key = os.environ.get("AVIGILON_USER_KEY", "")
     if not user_nonce or not user_key:
-        return jsonify({
-            "ok": False,
-            "message": "伺服器未設定 AVIGILON_USER_NONCE / AVIGILON_USER_KEY（檢查 .env）",
-        }), 500
+        return jsonify(
+            {
+                "ok": False,
+                "message": "伺服器未設定 AVIGILON_USER_NONCE / AVIGILON_USER_KEY（檢查 .env）",
+            }
+        ), 500
 
     nvr_cfg = {
         "host": data["host"],
@@ -221,18 +244,22 @@ def test_connection():
     try:
         scanner.login()
         latency_ms = int((time.time() - start) * 1000)
-        return jsonify({
-            "ok": True,
-            "message": f"連線成功（latency {latency_ms}ms）",
-            "latency_ms": latency_ms,
-        })
+        return jsonify(
+            {
+                "ok": True,
+                "message": f"連線成功（latency {latency_ms}ms）",
+                "latency_ms": latency_ms,
+            }
+        )
     except Exception as e:
         latency_ms = int((time.time() - start) * 1000)
-        return jsonify({
-            "ok": False,
-            "message": f"連線失敗：{type(e).__name__}: {e}",
-            "latency_ms": latency_ms,
-        })
+        return jsonify(
+            {
+                "ok": False,
+                "message": f"連線失敗：{type(e).__name__}: {e}",
+                "latency_ms": latency_ms,
+            }
+        )
     finally:
         try:
             scanner.session.close()
@@ -263,7 +290,9 @@ def import_():
         if errors:
             return render_template(
                 "nvr_import.html",
-                errors=errors, preview_count=0, filename=file.filename,
+                errors=errors,
+                preview_count=0,
+                filename=file.filename,
             )
         if not parsed:
             flash("檔案沒有有效資料", "warning")
@@ -286,7 +315,10 @@ def import_():
             )
 
     return render_template(
-        "nvr_import.html", errors=None, preview_count=0, filename=None,
+        "nvr_import.html",
+        errors=None,
+        preview_count=0,
+        filename=None,
     )
 
 
@@ -347,7 +379,10 @@ def export_csv():
     nvrs = webdb.get_all_nvrs_for_export(_get_db_path())
     buf = io.StringIO()
     writer = csv.DictWriter(
-        buf, fieldnames=_CSV_FIELDS, quoting=csv.QUOTE_MINIMAL, lineterminator="\r\n",
+        buf,
+        fieldnames=_CSV_FIELDS,
+        quoting=csv.QUOTE_MINIMAL,
+        lineterminator="\r\n",
     )
     writer.writeheader()
     for nvr in nvrs:

@@ -1,8 +1,15 @@
 """驗證 terminal-dark.css 內容齊全。"""
+
 import re
 from pathlib import Path
 
-DARK_CSS = Path(__file__).resolve().parent.parent / "web" / "static" / "themes" / "terminal-dark.css"
+DARK_CSS = (
+    Path(__file__).resolve().parent.parent
+    / "web"
+    / "static"
+    / "themes"
+    / "terminal-dark.css"
+)
 
 
 def test_dark_file_exists():
@@ -29,4 +36,6 @@ def test_dark_accent_is_terminal_blue():
     g = int(color[3:5], 16)
     r = int(color[1:3], 16)
     # 終端藍：b 高，g 中，r 低
-    assert b > 200 and g > 150 and r < 200, f"terminal --primary 應為終端藍，實際 {color}"
+    assert (
+        b > 200 and g > 150 and r < 200
+    ), f"terminal --primary 應為終端藍，實際 {color}"

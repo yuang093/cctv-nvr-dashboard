@@ -10,6 +10,7 @@ verbose 版把錯誤訊息回傳，給 batch_scan 與未來 caller 診斷用。
   - 成功 → (jpeg_bytes, None)
   - 失敗 → (None, "HTTP 403"/"HTTP 404"/"non-JPEG ..."/"ConnectionError: ..."/"尚未登入...")
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -39,6 +40,7 @@ def test_no_session_returns_error():
 def test_success_returns_bytes_no_error():
     from PIL import Image
     from io import BytesIO
+
     img = Image.new("RGB", (10, 10), (128, 128, 128))
     buf = BytesIO()
     img.save(buf, format="JPEG")
@@ -127,6 +129,7 @@ def test_connection_error_returns_error():
 # === 8. at_time 帶時間戳 ===
 def test_at_time_param_in_request():
     from datetime import datetime, timezone
+
     s = _make_scanner()
     resp = MagicMock()
     resp.ok = True

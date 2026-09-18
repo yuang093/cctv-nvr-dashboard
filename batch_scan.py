@@ -22,7 +22,6 @@ import json
 import sys
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 from db.sqlite_writer import SqliteWriter
 from nvr_scanner import (
@@ -83,14 +82,14 @@ def _summarize_timeline(
     for cam_id, records in parsed.items():
         completeness = compute_completeness(records, window_start, window_end)
         gaps = compute_missing_segments(records, window_start, window_end)
-        missing_seconds = sum(
-            (g[1] - g[0]).total_seconds() for g in gaps
+        missing_seconds = sum((g[1] - g[0]).total_seconds() for g in gaps)
+        out.append(
+            {
+                "camera_id": cam_id,
+                "completeness": completeness,
+                "missing_seconds": missing_seconds,
+            }
         )
-        out.append({
-            "camera_id": cam_id,
-            "completeness": completeness,
-            "missing_seconds": missing_seconds,
-        })
     return out
 
 
@@ -117,9 +116,14 @@ def _timeline_check_loop(
     we = window_end.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # 從 DB 拿本次掃描所有 cam 的 device_id
-    cameras = writer._get_conn().execute(
-        "SELECT device_id FROM cameras WHERE nvr_id=?", (nvr_int_id,),
-    ).fetchall()
+    cameras = (
+        writer._get_conn()
+        .execute(
+            "SELECT device_id FROM cameras WHERE nvr_id=?",
+            (nvr_int_id,),
+        )
+        .fetchall()
+    )
 
     checked = 0
     written = 0
@@ -133,7 +137,8 @@ def _timeline_check_loop(
             summaries = _summarize_timeline(parsed, window_start, window_end)
             for s in summaries:
                 writer.upsert_recording_status(
-                    nvr_int_id, s["camera_id"],
+                    nvr_int_id,
+                    s["camera_id"],
                     window_start=ws,
                     window_end=we,
                     completeness=s["completeness"],
@@ -202,14 +207,18 @@ def _image_health_check_loop(
             # 寫入失敗 → 跳過、不影響 image_health 主流程
             try:
                 from web.snapshot import compress_to_thumbnail, get_thumbnail_dimensions
+
                 thumb = compress_to_thumbnail(jpeg_a)
                 try:
                     w_, h_ = get_thumbnail_dimensions(thumb)
                 except Exception:
                     w_, h_ = (160, 120)  # fallback 預設
                 writer.upsert_snapshot(
-                    nvr_int_id, device_id,
-                    jpeg_bytes=thumb, width=w_, height=h_,
+                    nvr_int_id,
+                    device_id,
+                    jpeg_bytes=thumb,
+                    width=w_,
+                    height=h_,
                 )
             except Exception as snap_exc:
                 summary["errors"].append(
@@ -269,17 +278,24 @@ def _image_health_check_loop(
             if triggering_flags:
                 # 觸發就寫一條 event（kind=IMAGE_HEALTH，topic=第一個非 frozen flag）
                 from uuid import uuid4
+
                 primary_topic = "IMAGE_HEALTH_" + (
-                    "BLURRY" if r.is_blurry else
-                    "OVEREXPOSED" if r.is_overexposed else
-                    "UNDEREXPOSED" if r.is_underexposed else
-                    "ANOMALY"
+                    "BLURRY"
+                    if r.is_blurry
+                    else "OVEREXPOSED"
+                    if r.is_overexposed
+                    else "UNDEREXPOSED"
+                    if r.is_underexposed
+                    else "ANOMALY"
                 )
                 ev = {
                     "eventId": f"img-health-{uuid4().hex[:12]}",
                     "deviceId": device_id,
-                    "eventTopics": [primary_topic] + [
-                        f for f in triggering_flags if f != primary_topic.split("IMAGE_HEALTH_")[-1].lower()
+                    "eventTopics": [primary_topic]
+                    + [
+                        f
+                        for f in triggering_flags
+                        if f != primary_topic.split("IMAGE_HEALTH_")[-1].lower()
                     ],
                     "eventTopic": primary_topic,
                     "occurred_at": checked_at,
@@ -337,12 +353,14 @@ def _parse_webhook_configs(raw_list: list[dict] | None) -> list[WebhookConfig]:
         if not url:
             print(f"[WARN] webhooks[{i}] url 為空（跳過）", file=sys.stderr)
             continue
-        valid.append(WebhookConfig(
-            provider=provider,
-            url=url,
-            channel=item.get("channel"),
-            enabled=item.get("enabled", True),
-        ))
+        valid.append(
+            WebhookConfig(
+                provider=provider,
+                url=url,
+                channel=item.get("channel"),
+                enabled=item.get("enabled", True),
+            )
+        )
     return valid
 
 
@@ -433,9 +451,7 @@ def batch_scan(
     started_at = _now_utc_iso()
     run_id = writer.begin_scan_run(started_at)
     if verbose:
-        print(
-            f"[INFO] batch scan_run_id = {run_id}（共 {len(prepared)} 台 NVR）"
-        )
+        print(f"[INFO] batch scan_run_id = {run_id}（共 {len(prepared)} 台 NVR）")
 
     # --- 4. 逐一掃描 ---
     per_nvr_results: list[dict] = []
@@ -455,19 +471,21 @@ def batch_scan(
 
         if nvr_int_id is None:
             # upsert 失敗時跳過（仍記為 failure）
-            err = ScannerError(
-                f"NVR {nvr_id} upsert 失敗，無法記錄 events"
+            err = ScannerError(f"NVR {nvr_id} upsert 失敗，無法記錄 events")
+            failures.append(
+                {
+                    "nvr_id": nvr_id,
+                    "nvr_name": nvr_name,
+                    "type": type(err).__name__,
+                    "error": str(err),
+                }
             )
-            failures.append({
-                "nvr_id": nvr_id,
-                "nvr_name": nvr_name,
-                "type": type(err).__name__,
-                "error": str(err),
-            })
             # 寫 nvr_failure_log（upsert 失敗時 nvr_internal_id=None）
             try:
                 writer.log_nvr_failure(
-                    run_id, nvr_id, nvr_name,
+                    run_id,
+                    nvr_id,
+                    nvr_name,
                     error_type=type(err).__name__,
                     error_message=str(err),
                     nvr_internal_id=None,
@@ -503,7 +521,11 @@ def batch_scan(
             if _IMAGE_HEALTH_ENABLED:
                 try:
                     image_health_summary = _image_health_check_loop(
-                        scanner, nvr_int_id, run_id, writer, verbose=verbose,
+                        scanner,
+                        nvr_int_id,
+                        run_id,
+                        writer,
+                        verbose=verbose,
                     )
                     if verbose:
                         print(
@@ -521,7 +543,10 @@ def batch_scan(
             if _TIMELINE_ENABLED:
                 try:
                     timeline_summary = _timeline_check_loop(
-                        scanner, nvr_int_id, writer, verbose=verbose,
+                        scanner,
+                        nvr_int_id,
+                        writer,
+                        verbose=verbose,
                     )
                     if verbose:
                         print(
@@ -539,16 +564,20 @@ def batch_scan(
         except Exception as exc:
             err_type = type(exc).__name__
             err_msg = str(exc)
-            failures.append({
-                "nvr_id": nvr_id,
-                "nvr_name": nvr_name,
-                "type": err_type,
-                "error": err_msg,
-            })
+            failures.append(
+                {
+                    "nvr_id": nvr_id,
+                    "nvr_name": nvr_name,
+                    "type": err_type,
+                    "error": err_msg,
+                }
+            )
             # 寫 nvr_failure_log（給 dashboard / run_detail 個別顯示）
             try:
                 writer.log_nvr_failure(
-                    run_id, nvr_id, nvr_name,
+                    run_id,
+                    nvr_id,
+                    nvr_name,
                     error_type=err_type,
                     error_message=err_msg,
                     nvr_internal_id=nvr_int_id,
@@ -562,9 +591,7 @@ def batch_scan(
             # 繼續下一台，不中斷整批
 
     # --- 5. 彙總 stats + 結束 scan_run（commit transaction） ---
-    total_cameras = sum(
-        r["result"]["stats"]["total_cameras"] for r in per_nvr_results
-    )
+    total_cameras = sum(r["result"]["stats"]["total_cameras"] for r in per_nvr_results)
     abnormal_cameras = sum(
         r["result"]["stats"]["abnormal_cameras"] for r in per_nvr_results
     )
@@ -607,7 +634,9 @@ def batch_scan(
             per_nvr_results=per_nvr_results,
         )
         webhook_results = send_webhooks(
-            webhook_configs, payload, verbose=verbose,
+            webhook_configs,
+            payload,
+            verbose=verbose,
         )
         # 統計 webhook 結果（加進 batch_result，不丟例外）
         webhook_summary = [
@@ -658,10 +687,7 @@ def _print_batch_summary(batch: dict) -> None:
         print()
         print("[失敗清單]")
         for f in batch["failures"]:
-            print(
-                f"  - {f['nvr_id']} ({f['nvr_name']}): "
-                f"{f['type']}: {f['error']}"
-            )
+            print(f"  - {f['nvr_id']} ({f['nvr_name']}): " f"{f['type']}: {f['error']}")
 
 
 # === CLI 入口（方便直接測試） ===
@@ -672,7 +698,6 @@ def _cli() -> int:
     若 DB 內無 NVR，從 nvr_config.json seed（一次性，向後相容）。
     """
     import os
-    from getpass import getpass
     from pathlib import Path
 
     from db.sqlite_writer import SqliteWriter
@@ -715,9 +740,7 @@ def _cli() -> int:
 
     try:
         credentials = {
-            "user_nonce": get_credential(
-                "AVIGILON_USER_NONCE", "請輸入 userNonce: "
-            ),
+            "user_nonce": get_credential("AVIGILON_USER_NONCE", "請輸入 userNonce: "),
             "user_key": get_credential(
                 "AVIGILON_USER_KEY", "請輸入 userKey: ", hide=True
             ),

@@ -5,6 +5,7 @@ Web UI 路由 smoke test。
 
 策略：用 tempfile 開檔案 DB → 灌測試資料 → 用 Flask test client 跑各路由 → 檢查 200 + 內容。
 """
+
 from __future__ import annotations
 
 import gc
@@ -25,48 +26,85 @@ def seeded_web_app():
 
     w = SqliteWriter(db_path)
     # 灌 2 台 NVR
-    w.upsert_nvr({
-        "id": "NVR-A", "name": "A 分店", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-        "tags": ["branch", "taipei"],
-    })
-    w.upsert_nvr({
-        "id": "NVR-B", "name": "B 分店", "host": "10.0.0.2",
-        "port": 8443, "username": "u", "password": "p",
-        "tags": ["branch", "taichung"],
-    })
+    w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A 分店",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "tags": ["branch", "taipei"],
+        }
+    )
+    w.upsert_nvr(
+        {
+            "id": "NVR-B",
+            "name": "B 分店",
+            "host": "10.0.0.2",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "tags": ["branch", "taichung"],
+        }
+    )
     # 灌 1 次 scan_run + 1 個 event
     nvra_id, nvrb_id = 1, 2
     rid = w.begin_scan_run("2026-06-23T00:00:00Z")
-    w.upsert_cameras(nvra_id, {
-        "d1": {"name": "大門", "connection_state": "CONNECTED", "available": True},
-        "d2": {"name": "停車場", "connection_state": "LONG_FAILED", "available": False},
-    })
-    w.upsert_cameras(nvrb_id, {
-        "d10": {"name": "後門", "connection_state": "CONNECTED", "available": True},
-    })
-    w.insert_events(rid, nvra_id, [{
-        "eventId": "e1", "deviceId": "d2",
-        "eventTopics": ["STATE_LONG_FAILED"],
-        "eventTopic": "STATE_LONG_FAILED",
-        "occurred_at": "2026-06-23T00:00:00Z",
-    }])
+    w.upsert_cameras(
+        nvra_id,
+        {
+            "d1": {"name": "大門", "connection_state": "CONNECTED", "available": True},
+            "d2": {
+                "name": "停車場",
+                "connection_state": "LONG_FAILED",
+                "available": False,
+            },
+        },
+    )
+    w.upsert_cameras(
+        nvrb_id,
+        {
+            "d10": {"name": "後門", "connection_state": "CONNECTED", "available": True},
+        },
+    )
+    w.insert_events(
+        rid,
+        nvra_id,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "d2",
+                "eventTopics": ["STATE_LONG_FAILED"],
+                "eventTopic": "STATE_LONG_FAILED",
+                "occurred_at": "2026-06-23T00:00:00Z",
+            }
+        ],
+    )
     w.finish_scan_run(
-        rid, finished_at="2026-06-23T00:01:00Z",
+        rid,
+        finished_at="2026-06-23T00:01:00Z",
         status="partial",
         stats={
-            "total_cameras": 3, "abnormal_cameras": 1,
-            "total_nvrs": 2, "ok_nvrs": 1, "failed_nvrs": 1,
+            "total_cameras": 3,
+            "abnormal_cameras": 1,
+            "total_nvrs": 2,
+            "ok_nvrs": 1,
+            "failed_nvrs": 1,
         },
     )
     # 灌第 2 次成功的 scan_run
     rid2 = w.begin_scan_run("2026-06-23T01:00:00Z")
     w.finish_scan_run(
-        rid2, finished_at="2026-06-23T01:00:30Z",
+        rid2,
+        finished_at="2026-06-23T01:00:30Z",
         status="success",
         stats={
-            "total_cameras": 3, "abnormal_cameras": 0,
-            "total_nvrs": 2, "ok_nvrs": 2, "failed_nvrs": 0,
+            "total_cameras": 3,
+            "abnormal_cameras": 0,
+            "total_nvrs": 2,
+            "ok_nvrs": 2,
+            "failed_nvrs": 0,
         },
     )
 
@@ -200,8 +238,8 @@ def test_events_list_filter_resolved(seeded_web_app):
     """seed 一筆已 resolved 的事件 → status=resolved 看得到，status=open 看不到。"""
     app, db_path = seeded_web_app
     # 手動灌一筆 resolved 事件
-    from db.sqlite_writer import SqliteWriter
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.execute(
@@ -229,9 +267,9 @@ def test_events_list_filter_resolved(seeded_web_app):
     # status=open + topic=TAMPERING 應該空（該 topic 已全部 resolved）
     resp2 = c.get("/events?status=open&topic=TAMPERING")
     body2 = resp2.get_data(as_text=True)
-    assert "所選條件下無異常事件" in body2, (
-        "TAMPERING 已 resolved，status=open + topic 應無事件"
-    )
+    assert (
+        "所選條件下無異常事件" in body2
+    ), "TAMPERING 已 resolved，status=open + topic 應無事件"
 
     # status=open 不傳 topic 仍看得到 STATE_LONG_FAILED
     resp3 = c.get("/events?status=open")
@@ -261,9 +299,12 @@ def test_query_get_shows_form(client):
 
 def test_query_select_returns_results(client):
     """POST /query 跑合法 SELECT → 顯示結果表"""
-    resp = client.post("/query", data={
-        "sql": "SELECT event_topic, device_id FROM events LIMIT 5",
-    })
+    resp = client.post(
+        "/query",
+        data={
+            "sql": "SELECT event_topic, device_id FROM events LIMIT 5",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "STATE_LONG_FAILED" in body
@@ -272,9 +313,12 @@ def test_query_select_returns_results(client):
 
 def test_query_rejects_insert(client):
     """INSERT 必須被擋 → 顯示『禁止』錯誤，不回 500"""
-    resp = client.post("/query", data={
-        "sql": "INSERT INTO events (event_topic) VALUES ('x')",
-    })
+    resp = client.post(
+        "/query",
+        data={
+            "sql": "INSERT INTO events (event_topic) VALUES ('x')",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert 'class="alert alert-danger"' in body or "INSERT" in body
@@ -282,27 +326,36 @@ def test_query_rejects_insert(client):
 
 
 def test_query_rejects_update(client):
-    resp = client.post("/query", data={
-        "sql": "UPDATE events SET resolved_at='x'",
-    })
+    resp = client.post(
+        "/query",
+        data={
+            "sql": "UPDATE events SET resolved_at='x'",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert 'class="alert alert-danger"' in body
 
 
 def test_query_rejects_delete(client):
-    resp = client.post("/query", data={
-        "sql": "DELETE FROM events",
-    })
+    resp = client.post(
+        "/query",
+        data={
+            "sql": "DELETE FROM events",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert 'class="alert alert-danger"' in body
 
 
 def test_query_rejects_drop(client):
-    resp = client.post("/query", data={
-        "sql": "DROP TABLE events",
-    })
+    resp = client.post(
+        "/query",
+        data={
+            "sql": "DROP TABLE events",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert 'class="alert alert-danger"' in body
@@ -310,9 +363,12 @@ def test_query_rejects_drop(client):
 
 def test_query_rejects_pragma(client):
     """PRAGMA 也被擋（雖然 query_only 已擋，為 defense in depth）"""
-    resp = client.post("/query", data={
-        "sql": "PRAGMA table_info(events)",
-    })
+    resp = client.post(
+        "/query",
+        data={
+            "sql": "PRAGMA table_info(events)",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert 'class="alert alert-danger"' in body
@@ -320,9 +376,12 @@ def test_query_rejects_pragma(client):
 
 def test_query_rejects_multi_statement(client):
     """中段分號（多 statement）被擋"""
-    resp = client.post("/query", data={
-        "sql": "SELECT 1; SELECT 2",
-    })
+    resp = client.post(
+        "/query",
+        data={
+            "sql": "SELECT 1; SELECT 2",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert 'class="alert alert-danger"' in body
@@ -330,9 +389,12 @@ def test_query_rejects_multi_statement(client):
 
 def test_query_rejects_non_select_kw(client):
     """不以 SELECT/WITH 開頭 → 擋"""
-    resp = client.post("/query", data={
-        "sql": "EXPLAIN SELECT * FROM events",
-    })
+    resp = client.post(
+        "/query",
+        data={
+            "sql": "EXPLAIN SELECT * FROM events",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert 'class="alert alert-danger"' in body or "只允許" in body
@@ -340,9 +402,12 @@ def test_query_rejects_non_select_kw(client):
 
 def test_query_accepts_with_cte(client):
     """WITH ... SELECT（CTE）應被視為合法 SELECT"""
-    resp = client.post("/query", data={
-        "sql": "WITH t AS (SELECT 1 AS n) SELECT * FROM t",
-    })
+    resp = client.post(
+        "/query",
+        data={
+            "sql": "WITH t AS (SELECT 1 AS n) SELECT * FROM t",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     # 不應該出現「禁止」「只允許」
@@ -352,9 +417,12 @@ def test_query_accepts_with_cte(client):
 
 def test_query_strips_comments_and_runs(client):
     """註解應被 strip 後執行"""
-    resp = client.post("/query", data={
-        "sql": "-- 這是註解\nSELECT event_topic FROM events LIMIT 1",
-    })
+    resp = client.post(
+        "/query",
+        data={
+            "sql": "-- 這是註解\nSELECT event_topic FROM events LIMIT 1",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "STATE_LONG_FAILED" in body

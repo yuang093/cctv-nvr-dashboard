@@ -11,9 +11,9 @@ Web UI 端到端測試：mock NVR → batch_scan 真實 DB 寫入 → Flask 渲�
 - /events 篩選異常事件（hours / nvr / topic）
 - 真實 SQLite（跨連線讀寫：worker + web.db）
 """
+
 from __future__ import annotations
 
-import pytest
 from flask.testing import FlaskClient
 
 from batch_scan import batch_scan
@@ -24,15 +24,21 @@ class TestWebEndToEnd:
     """完整 pipeline：mock NVR → batch_scan → web 渲染。"""
 
     def test_dashboard_shows_real_stats(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """dashboard 應顯示真實統計（總 NVR/相機/異常數）。"""
         db_path, writer = integration_db
 
         # 1. 跑 batch_scan 真的寫入 DB
         result = batch_scan(
-            integration_config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            integration_config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
         assert result["status"] == "partial"
 
@@ -51,13 +57,19 @@ class TestWebEndToEnd:
         assert "部分成功" in html  # status badge (partial run → 部分成功)
 
     def test_runs_list_with_pagination(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """runs 列表應顯示 scan_run + 分頁。"""
         db_path, writer = integration_db
         batch_scan(
-            integration_config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            integration_config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
         app = create_app(db_path=db_path)
         client: FlaskClient = app.test_client()
@@ -76,13 +88,19 @@ class TestWebEndToEnd:
         assert resp2.status_code == 200
 
     def test_run_detail_with_events_and_cameras(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """run_detail 顯示單次掃描的 events + cameras。"""
         db_path, writer = integration_db
         result = batch_scan(
-            integration_config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            integration_config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
         run_id = result["scan_run_id"]
         app = create_app(db_path=db_path)
@@ -103,13 +121,19 @@ class TestWebEndToEnd:
         assert "倉庫" in html
 
     def test_run_detail_404_for_missing(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """不存在的 run_id 應回 404。"""
         db_path, writer = integration_db
         batch_scan(
-            integration_config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            integration_config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
         app = create_app(db_path=db_path)
         client = app.test_client()
@@ -118,13 +142,19 @@ class TestWebEndToEnd:
         assert resp.status_code == 404
 
     def test_nvrs_list_shows_three_nvrs(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """nvrs 列表應顯示全部 3 台 NVR（含 login-fail 那台）。"""
         db_path, writer = integration_db
         batch_scan(
-            integration_config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            integration_config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
         app = create_app(db_path=db_path)
         client = app.test_client()
@@ -139,13 +169,19 @@ class TestWebEndToEnd:
         assert "MockNVR-2" in html
 
     def test_nvrs_list_shows_camera_count(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """每台 NVR 應顯示其相機數（mock-0=3、mock-1=3、mock-2=0）。"""
         db_path, writer = integration_db
         batch_scan(
-            integration_config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            integration_config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
         app = create_app(db_path=db_path)
         client = app.test_client()
@@ -158,7 +194,10 @@ class TestWebEndToEnd:
         assert "6" in html  # 相機總數
 
     def test_events_list_filter_by_topic(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """events 列表篩選 topic=DEVICE_TAMPERING 應只剩 TAMPERING 事件。
 
@@ -167,8 +206,11 @@ class TestWebEndToEnd:
         """
         db_path, writer = integration_db
         batch_scan(
-            integration_config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            integration_config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
         app = create_app(db_path=db_path)
         client = app.test_client()
@@ -181,7 +223,10 @@ class TestWebEndToEnd:
         # 篩選 URL 應回傳，但頁面仍列出所有 topic 快選連結（這是預期）
 
     def test_events_list_filter_actually_filters(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """web.db.get_events_filtered 確實有套 topic 篩選（直接呼叫 helper 驗證）。
 
@@ -191,13 +236,19 @@ class TestWebEndToEnd:
 
         db_path, writer = integration_db
         batch_scan(
-            integration_config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            integration_config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
 
         all_events = get_events_filtered(db_path, hours=24 * 365, limit=200)
         tampering_only = get_events_filtered(
-            db_path, hours=24 * 365, topic="DEVICE_TAMPERING", limit=200,
+            db_path,
+            hours=24 * 365,
+            topic="DEVICE_TAMPERING",
+            limit=200,
         )
 
         assert len(all_events) >= 3
@@ -206,19 +257,28 @@ class TestWebEndToEnd:
 
         # 另一主題篩選
         state_only = get_events_filtered(
-            db_path, hours=24 * 365, topic="STATE_DISCONNECTED", limit=200,
+            db_path,
+            hours=24 * 365,
+            topic="STATE_DISCONNECTED",
+            limit=200,
         )
         assert len(state_only) == 1
         assert state_only[0]["event_topic"] == "STATE_DISCONNECTED"
 
     def test_events_list_all_topics_visible(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """events 列表應顯示所有異常主題（讓使用者點擊）。"""
         db_path, writer = integration_db
         batch_scan(
-            integration_config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            integration_config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
         app = create_app(db_path=db_path)
         client = app.test_client()
@@ -233,7 +293,10 @@ class TestWebEndToEnd:
         assert "STATE_DISCONNECTED" in html
 
     def test_static_css_loads(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """靜態 CSS 應可取得（健康檢查）。"""
         db_path, writer = integration_db
@@ -248,13 +311,19 @@ class TestWebWithFailedNvr:
     """Web UI 對 partial 狀態的渲染。"""
 
     def test_dashboard_distinguishes_running_vs_finished(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """scan_run 結束後 status 應為 success/partial/finished，不是 running。"""
         db_path, writer = integration_db
         result = batch_scan(
-            integration_config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            integration_config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
         app = create_app(db_path=db_path)
         client = app.test_client()

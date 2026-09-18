@@ -11,6 +11,7 @@ tests/integration/test_e2e_batch_scan.py
     - 真實 SQLite transaction 提交
     - per-NVR session 隔離（AvigilonScanner 各自有 HTTPS connection）
 """
+
 from __future__ import annotations
 
 import pytest
@@ -18,7 +19,6 @@ import pytest
 from batch_scan import batch_scan
 from tests.integration.mock_acc import (
     MockAvigilonServer,
-    make_abnormal_nvr,
     make_login_fail_nvr,
     make_normal_nvr,
 )
@@ -189,17 +189,24 @@ class TestBatchScanEndToEnd:
                 "scan_settings": {"db_path": db_path, "timeout_seconds": 5},
                 "nvr_servers": [
                     {
-                        "id": f"fail-{i}", "name": f"FailNVR-{i}",
-                        "host": s.host, "port": s.port,
-                        "username": "u", "password": "p",
-                        "verify_ssl": False, "enabled": True,
+                        "id": f"fail-{i}",
+                        "name": f"FailNVR-{i}",
+                        "host": s.host,
+                        "port": s.port,
+                        "username": "u",
+                        "password": "p",
+                        "verify_ssl": False,
+                        "enabled": True,
                     }
                     for i, s in enumerate(servers)
                 ],
             }
             result = batch_scan(
-                config, integration_credentials, writer,
-                timeout=5, verbose=False,
+                config,
+                integration_credentials,
+                writer,
+                timeout=5,
+                verbose=False,
             )
             assert result["status"] == "failed"
             assert result["ok_nvrs"] == 0
@@ -230,17 +237,24 @@ class TestBatchScanEndToEnd:
                 "scan_settings": {"db_path": db_path, "timeout_seconds": 5},
                 "nvr_servers": [
                     {
-                        "id": f"normal-{i}", "name": f"NormalNVR-{i}",
-                        "host": s.host, "port": s.port,
-                        "username": "u", "password": "p",
-                        "verify_ssl": False, "enabled": True,
+                        "id": f"normal-{i}",
+                        "name": f"NormalNVR-{i}",
+                        "host": s.host,
+                        "port": s.port,
+                        "username": "u",
+                        "password": "p",
+                        "verify_ssl": False,
+                        "enabled": True,
                     }
                     for i, s in enumerate(servers)
                 ],
             }
             result = batch_scan(
-                config, integration_credentials, writer,
-                timeout=5, verbose=False,
+                config,
+                integration_credentials,
+                writer,
+                timeout=5,
+                verbose=False,
             )
             assert result["status"] == "success"
             assert result["ok_nvrs"] == 2
@@ -252,7 +266,10 @@ class TestBatchScanEndToEnd:
                 s.stop()
 
     def test_batch_request_log_per_server(
-        self, integration_db, integration_config, integration_credentials,
+        self,
+        integration_db,
+        integration_config,
+        integration_credentials,
     ):
         """每台 mock server 都有收到登入請求（驗證 per-NVR session 都真送了）。"""
         db_path, writer = integration_db
@@ -263,8 +280,11 @@ class TestBatchScanEndToEnd:
         multi_servers = integration_config["nvr_servers"]
 
         batch_scan(
-            integration_config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            integration_config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
 
         # 用 config 的主機/埠號從 multi_nvr_servers 找回 objects
@@ -275,7 +295,9 @@ class TestBatchScanEndToEnd:
         assert writer is not None
 
     def test_empty_nvrs_raises(
-        self, integration_db, integration_credentials,
+        self,
+        integration_db,
+        integration_credentials,
     ):
         """config['nvr_servers'] 為空 → ScannerError。"""
         from nvr_scanner import ScannerError
@@ -284,14 +306,18 @@ class TestBatchScanEndToEnd:
         config = {"scan_settings": {}, "nvr_servers": []}
         with pytest.raises(ScannerError):
             batch_scan(
-                config, integration_credentials, writer,
-                timeout=5, verbose=False,
+                config,
+                integration_credentials,
+                writer,
+                timeout=5,
+                verbose=False,
             )
 
 
 # === NVR 完全離線場景（user 2026-08-05「目前 NVR 離線中」）===
 # 區別於 login_fail（server 啟動但回 403）：這個場景 server 根本沒啟動，
 # scanner 連過去是 Connection refused，模擬真實「NVR 機房端死掉」。
+
 
 class TestNvrFullyOffline:
     """NVR 完全離線（connection refused / 連線逾時）的 batch_scan 行為。
@@ -303,12 +329,16 @@ class TestNvrFullyOffline:
     def _get_unbound_port(self) -> int:
         """拿一個當下未綁定的 port（用 socket bind 0 取得，馬上 close）。"""
         import socket
+
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("127.0.0.1", 0))
             return s.getsockname()[1]
 
     def test_single_nvr_offline_status_failed(
-        self, integration_db, integration_credentials, flush_urllib3_warnings,
+        self,
+        integration_db,
+        integration_credentials,
+        flush_urllib3_warnings,
     ):
         """單台 NVR 完全離線（connection refused）→ batch status='failed'。"""
         from db.sqlite_writer import SqliteWriter
@@ -319,20 +349,25 @@ class TestNvrFullyOffline:
         dead_port = self._get_unbound_port()  # 未綁定的 port = connection refused
         config = {
             "scan_settings": {"db_path": db_path, "timeout_seconds": 3},
-            "nvr_servers": [{
-                "id": "dead-nvr-1",
-                "name": "DeadNVR-1",
-                "host": "127.0.0.1",
-                "port": dead_port,
-                "username": "admin",
-                "password": "secret",
-                "verify_ssl": False,
-                "enabled": True,
-            }],
+            "nvr_servers": [
+                {
+                    "id": "dead-nvr-1",
+                    "name": "DeadNVR-1",
+                    "host": "127.0.0.1",
+                    "port": dead_port,
+                    "username": "admin",
+                    "password": "secret",
+                    "verify_ssl": False,
+                    "enabled": True,
+                }
+            ],
         }
         result = batch_scan(
-            config, integration_credentials, writer,
-            timeout=3, verbose=False,
+            config,
+            integration_credentials,
+            writer,
+            timeout=3,
+            verbose=False,
         )
         assert result["status"] == "failed"
         assert result["ok_nvrs"] == 0
@@ -340,7 +375,10 @@ class TestNvrFullyOffline:
         assert result["total_cameras"] == 0
 
     def test_offline_nvr_does_not_pollute_db(
-        self, integration_db, integration_credentials, flush_urllib3_warnings,
+        self,
+        integration_db,
+        integration_credentials,
+        flush_urllib3_warnings,
     ):
         """離線 NVR 不寫 events（即使 nvr_servers 已 upsert）。"""
         from db.sqlite_writer import SqliteWriter
@@ -351,27 +389,35 @@ class TestNvrFullyOffline:
         dead_port = self._get_unbound_port()
         config = {
             "scan_settings": {"db_path": db_path, "timeout_seconds": 3},
-            "nvr_servers": [{
-                "id": "dead-nvr-2",
-                "name": "DeadNVR-2",
-                "host": "127.0.0.1",
-                "port": dead_port,
-                "username": "admin",
-                "password": "secret",
-                "verify_ssl": False,
-                "enabled": True,
-            }],
+            "nvr_servers": [
+                {
+                    "id": "dead-nvr-2",
+                    "name": "DeadNVR-2",
+                    "host": "127.0.0.1",
+                    "port": dead_port,
+                    "username": "admin",
+                    "password": "secret",
+                    "verify_ssl": False,
+                    "enabled": True,
+                }
+            ],
         }
         result = batch_scan(
-            config, integration_credentials, writer,
-            timeout=3, verbose=False,
+            config,
+            integration_credentials,
+            writer,
+            timeout=3,
+            verbose=False,
         )
         run_id = result["scan_run_id"]
         events = writer.get_events_for_run(run_id)
         assert events == [], f"離線 NVR 不應寫 events，got {len(events)} 筆"
 
     def test_mixed_dead_and_alive_nvrs_partial_status(
-        self, integration_db, integration_credentials, flush_urllib3_warnings,
+        self,
+        integration_db,
+        integration_credentials,
+        flush_urllib3_warnings,
     ):
         """1 台離線 + 1 台正常 → status='partial'、failed_nvrs=1、ok_nvrs=1。
 
@@ -414,8 +460,11 @@ class TestNvrFullyOffline:
                 ],
             }
             result = batch_scan(
-                config, integration_credentials, writer,
-                timeout=5, verbose=False,
+                config,
+                integration_credentials,
+                writer,
+                timeout=5,
+                verbose=False,
             )
             assert result["status"] == "partial"
             assert result["ok_nvrs"] == 1
@@ -425,7 +474,10 @@ class TestNvrFullyOffline:
             alive.stop()
 
     def test_offline_nvr_logs_to_nvr_failure_table(
-        self, integration_db, integration_credentials, flush_urllib3_warnings,
+        self,
+        integration_db,
+        integration_credentials,
+        flush_urllib3_warnings,
     ):
         """離線 NVR 應寫 nvr_failure_log（給 dashboard 顯示紅色提示）。"""
         from db.sqlite_writer import SqliteWriter
@@ -436,20 +488,25 @@ class TestNvrFullyOffline:
         dead_port = self._get_unbound_port()
         config = {
             "scan_settings": {"db_path": db_path, "timeout_seconds": 3},
-            "nvr_servers": [{
-                "id": "dead-nvr-3",
-                "name": "DeadNVR-3",
-                "host": "127.0.0.1",
-                "port": dead_port,
-                "username": "admin",
-                "password": "secret",
-                "verify_ssl": False,
-                "enabled": True,
-            }],
+            "nvr_servers": [
+                {
+                    "id": "dead-nvr-3",
+                    "name": "DeadNVR-3",
+                    "host": "127.0.0.1",
+                    "port": dead_port,
+                    "username": "admin",
+                    "password": "secret",
+                    "verify_ssl": False,
+                    "enabled": True,
+                }
+            ],
         }
         batch_scan(
-            config, integration_credentials, writer,
-            timeout=3, verbose=False,
+            config,
+            integration_credentials,
+            writer,
+            timeout=3,
+            verbose=False,
         )
 
         # 查 nvr_failure_log 表（給 dashboard 紅色提示）
@@ -459,13 +516,13 @@ class TestNvrFullyOffline:
             "WHERE nvr_id = ? ORDER BY failed_at DESC LIMIT 1",
             ("dead-nvr-3",),
         ).fetchall()
-        assert len(rows) == 1, \
-            "離線 NVR 應寫入 nvr_failure_log，給 dashboard 顏色化"
+        assert len(rows) == 1, "離線 NVR 應寫入 nvr_failure_log，給 dashboard 顏色化"
         row = dict(rows[0])
         assert row["nvr_id"] == "dead-nvr-3"
-        assert "ConnectionError" in row["error_type"] or \
-               "ConnectionRefused" in row["error_type"] or \
-               "RemoteDisconnected" in row["error_type"] or \
-               "Aborted" in row["error_type"], \
-            f"error_type 應反映連線失敗類型，got {row['error_type']!r}"
+        assert (
+            "ConnectionError" in row["error_type"]
+            or "ConnectionRefused" in row["error_type"]
+            or "RemoteDisconnected" in row["error_type"]
+            or "Aborted" in row["error_type"]
+        ), f"error_type 應反映連線失敗類型，got {row['error_type']!r}"
         assert "127.0.0.1" in row["error_message"]

@@ -9,6 +9,7 @@ tests/integration/conftest.py
     - integration_credentials : 完整 credentials dict
     - flush_urllib3_warnings : pytest caplog 過濾 InsecureRequestWarning
 """
+
 from __future__ import annotations
 
 import sys
@@ -23,7 +24,6 @@ if str(ROOT) not in sys.path:
 
 from db.sqlite_writer import SqliteWriter  # noqa: E402
 from tests.integration.mock_acc import (  # noqa: E402
-    MockAvigilonConfig,
     MockAvigilonServer,
     make_abnormal_nvr,
     make_login_fail_nvr,
@@ -134,6 +134,7 @@ def integration_db(tmp_path):
     writer = SqliteWriter(db_path)
     yield db_path, writer
     import gc
+
     gc.collect()
 
 
@@ -152,5 +153,6 @@ def _disable_insecure_warning_for_integration(request):
     pytest.ini 已設 filterwarnings，但某些工具（如 pytest -W error）會覆蓋。
     """
     import urllib3
+
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     yield

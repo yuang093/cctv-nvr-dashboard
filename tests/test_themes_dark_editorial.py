@@ -1,10 +1,16 @@
 """驗證 editorial-dark.css 內容齊全。"""
+
 import re
 from pathlib import Path
 
-import pytest
 
-DARK_CSS = Path(__file__).resolve().parent.parent / "web" / "static" / "themes" / "editorial-dark.css"
+DARK_CSS = (
+    Path(__file__).resolve().parent.parent
+    / "web"
+    / "static"
+    / "themes"
+    / "editorial-dark.css"
+)
 
 
 def test_dark_file_exists():
@@ -32,4 +38,6 @@ def test_dark_accent_is_neutral_gray():
     g = int(color[3:5], 16)
     b = int(color[5:7], 16)
     # 中性灰：r ≈ g ≈ b
-    assert abs(r - g) < 20 and abs(g - b) < 20, f"editorial --primary 應為中性灰，實際 {color}"
+    assert (
+        abs(r - g) < 20 and abs(g - b) < 20
+    ), f"editorial --primary 應為中性灰，實際 {color}"

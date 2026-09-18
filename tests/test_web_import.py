@@ -11,6 +11,7 @@ Phase 2.5b：CSV / JSON 批次匯入測試。
     - POST 不合法（缺欄位、格式錯）→ 顯示錯誤，整批不寫
     - POST 重複 id → 整批 rollback
 """
+
 from __future__ import annotations
 
 import gc
@@ -51,6 +52,7 @@ def client(import_app):
 
 # === 1. GET /nvrs/import ===
 
+
 def test_import_get_shows_form(client):
     """GET /nvrs/import 200 + 上傳表單。"""
     resp = client.get("/nvrs/import")
@@ -62,6 +64,7 @@ def test_import_get_shows_form(client):
 
 
 # === 2. 下載範本 ===
+
 
 def test_import_template_csv_download(client):
     """GET /nvrs/import/template.csv 200 + 含 header 與範例。"""
@@ -86,6 +89,7 @@ def test_import_template_json_download(client):
 
 # === 3. POST 合法 CSV → 寫入 ===
 
+
 def test_import_post_csv_success(client, import_app):
     """POST 合法 CSV → flash success + redirect + DB 有資料。"""
     app, db_path = import_app
@@ -94,15 +98,23 @@ def test_import_post_csv_success(client, import_app):
         "CSV-1,NVR 一,10.0.0.1,8443,api_reader,secret,0,,branch;taipei\n"
         "CSV-2,NVR 二,10.0.0.2,8443,api_reader,secret,0,,branch;taichung\n"
     )
-    resp = client.post("/nvrs/import", data={
-        "file": (io.BytesIO(csv_content.encode("utf-8")), "nvrs.csv"),
-    }, content_type="multipart/form-data", follow_redirects=False)
+    resp = client.post(
+        "/nvrs/import",
+        data={
+            "file": (io.BytesIO(csv_content.encode("utf-8")), "nvrs.csv"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
     assert resp.status_code == 302  # redirect 回 nvrs_list
 
     # DB 確認
     import sqlite3
+
     conn = sqlite3.connect(db_path)
-    rows = conn.execute("SELECT nvr_id, name FROM nvr_servers ORDER BY nvr_id").fetchall()
+    rows = conn.execute(
+        "SELECT nvr_id, name FROM nvr_servers ORDER BY nvr_id"
+    ).fetchall()
     conn.close()
     assert ("CSV-1", "NVR 一") in rows
     assert ("CSV-2", "NVR 二") in rows
@@ -120,14 +132,22 @@ def test_import_post_csv_tab_delimiter(client, import_app):
         "TSV-1\tNVR 一\t10.0.0.1\t8443\tapi_reader\tsecret\t0\t\tbranch;taipei\n"
         "TSV-2\tNVR 二\t10.0.0.2\t8443\tapi_reader\tsecret\t0\t\tbranch;taichung\n"
     )
-    resp = client.post("/nvrs/import", data={
-        "file": (io.BytesIO(csv_content.encode("utf-8")), "nvrs.csv"),
-    }, content_type="multipart/form-data", follow_redirects=False)
+    resp = client.post(
+        "/nvrs/import",
+        data={
+            "file": (io.BytesIO(csv_content.encode("utf-8")), "nvrs.csv"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
     assert resp.status_code == 302
 
     import sqlite3
+
     conn = sqlite3.connect(db_path)
-    rows = conn.execute("SELECT nvr_id, name FROM nvr_servers ORDER BY nvr_id").fetchall()
+    rows = conn.execute(
+        "SELECT nvr_id, name FROM nvr_servers ORDER BY nvr_id"
+    ).fetchall()
     conn.close()
     assert ("TSV-1", "NVR 一") in rows
     assert ("TSV-2", "NVR 二") in rows
@@ -137,18 +157,38 @@ def test_import_post_json_success(client, import_app):
     """POST 合法 JSON → 寫入成功。"""
     app, db_path = import_app
     json_data = [
-        {"id": "JSON-1", "name": "JSON NVR 一", "host": "10.0.0.10",
-         "port": 8443, "username": "u", "password": "p",
-         "verify_ssl": False, "site_id": "A", "tags": ["hq"]},
-        {"id": "JSON-2", "name": "JSON NVR 二", "host": "10.0.0.11",
-         "port": 8443, "username": "u", "password": "p"},
+        {
+            "id": "JSON-1",
+            "name": "JSON NVR 一",
+            "host": "10.0.0.10",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "verify_ssl": False,
+            "site_id": "A",
+            "tags": ["hq"],
+        },
+        {
+            "id": "JSON-2",
+            "name": "JSON NVR 二",
+            "host": "10.0.0.11",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        },
     ]
-    resp = client.post("/nvrs/import", data={
-        "file": (io.BytesIO(json.dumps(json_data).encode("utf-8")), "nvrs.json"),
-    }, content_type="multipart/form-data", follow_redirects=False)
+    resp = client.post(
+        "/nvrs/import",
+        data={
+            "file": (io.BytesIO(json.dumps(json_data).encode("utf-8")), "nvrs.json"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
     assert resp.status_code == 302
 
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     rows = conn.execute("SELECT nvr_id FROM nvr_servers ORDER BY nvr_id").fetchall()
     conn.close()
@@ -159,18 +199,24 @@ def test_import_post_json_success(client, import_app):
 
 # === 4. POST 不合法 → 整批不寫 ===
 
+
 def test_import_post_csv_missing_id_column(client, import_app):
     """CSV 缺 id 欄位 → 顯示錯誤，不寫入。"""
     app, db_path = import_app
     csv_content = "name,host\nNoId,10.0.0.1\n"
-    resp = client.post("/nvrs/import", data={
-        "file": (io.BytesIO(csv_content.encode("utf-8")), "bad.csv"),
-    }, content_type="multipart/form-data")
+    resp = client.post(
+        "/nvrs/import",
+        data={
+            "file": (io.BytesIO(csv_content.encode("utf-8")), "bad.csv"),
+        },
+        content_type="multipart/form-data",
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "id" in body  # 錯誤訊息提到 id
     # DB 沒寫入
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     cnt = conn.execute("SELECT COUNT(*) FROM nvr_servers").fetchone()[0]
     conn.close()
@@ -185,14 +231,19 @@ def test_import_post_csv_missing_required_field(client, import_app):
         "OK-1,OK NVR,10.0.0.1,8443,api_reader,secret,0,,\n"
         "BAD-1,Bad NVR,,8443,api_reader,secret,0,,\n"  # host 缺
     )
-    resp = client.post("/nvrs/import", data={
-        "file": (io.BytesIO(csv_content.encode("utf-8")), "partial.csv"),
-    }, content_type="multipart/form-data")
+    resp = client.post(
+        "/nvrs/import",
+        data={
+            "file": (io.BytesIO(csv_content.encode("utf-8")), "partial.csv"),
+        },
+        content_type="multipart/form-data",
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "host" in body.lower()  # 錯誤訊息提到 host
     # DB 沒寫入（整批 rollback）
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     cnt = conn.execute("SELECT COUNT(*) FROM nvr_servers").fetchone()[0]
     conn.close()
@@ -210,8 +261,16 @@ def test_import_post_duplicate_id_upserts(client, import_app):
     app, db_path = import_app
     # 先 seed DUP-1
     w = SqliteWriter(db_path)
-    w.upsert_nvr({"id": "DUP-1", "name": "舊名稱", "host": "1.1.1.1",
-                  "port": 8443, "username": "u", "password": "p"})
+    w.upsert_nvr(
+        {
+            "id": "DUP-1",
+            "name": "舊名稱",
+            "host": "1.1.1.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     del w
 
     # 上傳 CSV 含 DUP-1（重複 → 應更新）+ NEW-1（新增）
@@ -220,13 +279,19 @@ def test_import_post_duplicate_id_upserts(client, import_app):
         "NEW-1,New NVR,10.0.0.1,8443,api_reader,secret,0,,\n"
         "DUP-1,新名稱,10.0.0.2,8443,api_reader,new-pw,0,,\n"  # 重複 → 更新
     )
-    resp = client.post("/nvrs/import", data={
-        "file": (io.BytesIO(csv_content.encode("utf-8")), "dup.csv"),
-    }, content_type="multipart/form-data", follow_redirects=False)
+    resp = client.post(
+        "/nvrs/import",
+        data={
+            "file": (io.BytesIO(csv_content.encode("utf-8")), "dup.csv"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
     assert resp.status_code == 302  # 整批成功
 
     # DB 確認：兩筆都在，DUP-1 的 name 已更新
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     rows = conn.execute(
         "SELECT nvr_id, name FROM nvr_servers ORDER BY nvr_id"
@@ -242,8 +307,16 @@ def test_import_post_upsert_keeps_password_when_empty(client, import_app):
     app, db_path = import_app
     # seed DUP-1 含密碼
     w = SqliteWriter(db_path)
-    w.upsert_nvr({"id": "PW-1", "name": "N", "host": "1.1.1.1",
-                  "port": 8443, "username": "u", "password": "ORIG-PW"})
+    w.upsert_nvr(
+        {
+            "id": "PW-1",
+            "name": "N",
+            "host": "1.1.1.1",
+            "port": 8443,
+            "username": "u",
+            "password": "ORIG-PW",
+        }
+    )
     del w
 
     # 上傳新 name 但 password 留空
@@ -251,13 +324,19 @@ def test_import_post_upsert_keeps_password_when_empty(client, import_app):
         "id,name,host,port,username,password,verify_ssl,site_id,tags\n"
         "PW-1,新名字,1.1.1.1,8443,u,,0,,\n"  # password 空
     )
-    resp = client.post("/nvrs/import", data={
-        "file": (io.BytesIO(csv_content.encode("utf-8")), "pw.csv"),
-    }, content_type="multipart/form-data", follow_redirects=False)
+    resp = client.post(
+        "/nvrs/import",
+        data={
+            "file": (io.BytesIO(csv_content.encode("utf-8")), "pw.csv"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
     assert resp.status_code == 302
 
     # 確認 password 仍是原值
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     pw = conn.execute(
         "SELECT password FROM nvr_servers WHERE nvr_id = 'PW-1'"
@@ -272,9 +351,12 @@ def test_import_post_upsert_keeps_password_when_empty(client, import_app):
 
 def test_import_post_no_file_redirects(client):
     """沒選檔案 → flash + redirect 回 /nvrs/import。"""
-    resp = client.post("/nvrs/import", data={},
-                       content_type="multipart/form-data",
-                       follow_redirects=False)
+    resp = client.post(
+        "/nvrs/import",
+        data={},
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
     assert resp.status_code == 302
     assert "/nvrs/import" in resp.headers["Location"]
 
@@ -282,14 +364,19 @@ def test_import_post_no_file_redirects(client):
 def test_import_post_invalid_json_rolls_back(client, import_app):
     """JSON 語法錯 → 顯示錯誤，不寫入。"""
     app, db_path = import_app
-    resp = client.post("/nvrs/import", data={
-        "file": (io.BytesIO(b"{not valid json"), "bad.json"),
-    }, content_type="multipart/form-data")
+    resp = client.post(
+        "/nvrs/import",
+        data={
+            "file": (io.BytesIO(b"{not valid json"), "bad.json"),
+        },
+        content_type="multipart/form-data",
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "JSON" in body
     # DB 沒寫入
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     cnt = conn.execute("SELECT COUNT(*) FROM nvr_servers").fetchone()[0]
     conn.close()

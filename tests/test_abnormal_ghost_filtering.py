@@ -10,6 +10,7 @@ tests/test_abnormal_ghost_filtering.py
 - 修前 → /abnormal 顯示 ghost cam rtsp://（其實 NVR 已不再管理）
 - 修後 → 只列仍被管理的 cam
 """
+
 from __future__ import annotations
 
 import gc
@@ -30,29 +31,59 @@ def abnormal_ghost_env():
         db_path = f.name
 
     w = SqliteWriter(db_path)
-    nvr_int = w.upsert_nvr({
-        "id": "NVR-A", "name": "real nvr", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvr_int = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "real nvr",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-30T00:00:00Z")
-    w.upsert_cameras(nvr_int, {
-        "real-1": {"name": "cam1", "connection_state": "DISCONNECTED"},
-        "real-2": {"name": "cam2", "connection_state": "CONNECTED"},
-        "ghost-1": {"name": "rtsp://192.168.133.105:554/x",
-                    "connection_state": "DISCONNECTED"},
-    })
-    w.insert_events(rid, nvr_int, [
-        {"eventId": "e1", "deviceId": "real-1",
-         "eventTopics": ["STATE_DISCONNECTED"], "eventTopic": "STATE_DISCONNECTED",
-         "occurred_at": "2026-07-30T00:00:00Z"},
-        {"eventId": "e2", "deviceId": "ghost-1",
-         "eventTopics": ["STATE_DISCONNECTED"], "eventTopic": "STATE_DISCONNECTED",
-         "occurred_at": "2026-07-30T00:00:00Z"},
-    ])
+    w.upsert_cameras(
+        nvr_int,
+        {
+            "real-1": {"name": "cam1", "connection_state": "DISCONNECTED"},
+            "real-2": {"name": "cam2", "connection_state": "CONNECTED"},
+            "ghost-1": {
+                "name": "rtsp://192.168.133.105:554/x",
+                "connection_state": "DISCONNECTED",
+            },
+        },
+    )
+    w.insert_events(
+        rid,
+        nvr_int,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "real-1",
+                "eventTopics": ["STATE_DISCONNECTED"],
+                "eventTopic": "STATE_DISCONNECTED",
+                "occurred_at": "2026-07-30T00:00:00Z",
+            },
+            {
+                "eventId": "e2",
+                "deviceId": "ghost-1",
+                "eventTopics": ["STATE_DISCONNECTED"],
+                "eventTopic": "STATE_DISCONNECTED",
+                "occurred_at": "2026-07-30T00:00:00Z",
+            },
+        ],
+    )
     w.finish_scan_run(
-        rid, finished_at="2026-07-30T00:01:00Z", status="complete",
-        stats={"total_cameras": 3, "abnormal_cameras": 2,
-               "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0},
+        rid,
+        finished_at="2026-07-30T00:01:00Z",
+        status="complete",
+        stats={
+            "total_cameras": 3,
+            "abnormal_cameras": 2,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
     )
     w.close()
 
@@ -77,14 +108,10 @@ def test_abnormal_excludes_ghost_cameras(abnormal_ghost_env):
     """異常清單不應包含 ghost cam rtsp:// 的事件。"""
     groups = get_abnormal_cameras_grouped(abnormal_ghost_env)
     keys = {(g["device_id"]) for g in groups}
-    assert "ghost-1" not in keys, (
-        f"ghost cam 不應在 /abnormal；實際：{keys}"
-    )
+    assert "ghost-1" not in keys, f"ghost cam 不應在 /abnormal；實際：{keys}"
     # 真 cam 仍在
     assert "real-1" in keys
     # cam2 沒事件 → 不應該在清單
     assert "real-2" not in keys
     # 修前：2 個 group（real-1 + ghost-1）；修後：1 個 group（real-1）
-    assert len(groups) == 1, (
-        f"預期 1 個 group (real-1)，實際 {len(groups)} 個：{keys}"
-    )
+    assert len(groups) == 1, f"預期 1 個 group (real-1)，實際 {len(groups)} 個：{keys}"

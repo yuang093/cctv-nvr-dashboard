@@ -10,6 +10,7 @@ web/coverage.py
     - web/timeline.py（既有：`parse_timeline_response`, `compute_completeness`）
     - nvr_scanner.AvigilonScanner.get_timeline（既有，注入測試）
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -33,7 +34,9 @@ def _parse_iso_utc(s: str) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
-def parse_records_from_timeline_response(payload: dict | None) -> dict[str, list[tuple[datetime, datetime]]]:
+def parse_records_from_timeline_response(
+    payload: dict | None,
+) -> dict[str, list[tuple[datetime, datetime]]]:
     """
     從 NVR /timeline 原始 payload 抽出 {camera_id: [(start, end), ...]}。
 
@@ -68,9 +71,12 @@ def compute_per_camera_completeness(
 @dataclass
 class CoverageCamera:
     """單台 cam 的 coverage 摘要（給 web.coverage.fetch_coverage_from_nvr 用）。"""
+
     cam_id: str
     camera_name: str
-    records: list[tuple[datetime, datetime]]  # 原始 (start, end) tuples；serializer 自行轉 iso
+    records: list[
+        tuple[datetime, datetime]
+    ]  # 原始 (start, end) tuples；serializer 自行轉 iso
     completeness: float  # 0.0 ~ 1.0
 
 
@@ -168,13 +174,17 @@ def fetch_coverage_from_nvr(
             if clipped is not None:
                 clipped_records.append(clipped)
         records_iso = [[s.isoformat(), e.isoformat()] for s, e in clipped_records]
-        completeness = compute_per_camera_completeness(clipped_records, start_iso, end_iso)
-        out_cameras.append({
-            "cam_id": device_id,
-            "camera_name": cam.get("camera_name", device_id),
-            "records": records_iso,
-            "completeness": round(completeness, 4),
-        })
+        completeness = compute_per_camera_completeness(
+            clipped_records, start_iso, end_iso
+        )
+        out_cameras.append(
+            {
+                "cam_id": device_id,
+                "camera_name": cam.get("camera_name", device_id),
+                "records": records_iso,
+                "completeness": round(completeness, 4),
+            }
+        )
 
     return {
         "nvr_id": nvr.get("nvr_id", ""),

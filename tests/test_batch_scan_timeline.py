@@ -11,6 +11,7 @@ batch_scan 的 timeline 整合測試。
 純函式輔助（_summarize_timeline）：寫在 batch_scan.py 內，
 驗證其從 NVR 回傳 dict 算出 per-cam (completeness, missing_seconds)。
 """
+
 from __future__ import annotations
 
 import gc
@@ -25,7 +26,8 @@ from db.sqlite_writer import SqliteWriter
 
 def _wrap(result):
     return MagicMock(
-        status_code=200, ok=True,
+        status_code=200,
+        ok=True,
         json=lambda: {"status": "success", "result": result},
         text="...",
     )
@@ -33,9 +35,11 @@ def _wrap(result):
 
 # === 純函式 _summarize_timeline 的測試 ===
 
+
 def _import_helper():
     """動態導入避免 module-level 副作用。"""
     from batch_scan import _summarize_timeline
+
     return _summarize_timeline
 
 
@@ -43,12 +47,20 @@ def test_summarize_timeline_full_coverage():
     """24h 完整涵蓋 → completeness=1.0, missing=0。"""
     from datetime import datetime, timedelta, timezone
     from web.timeline import parse_timeline_response
+
     _summarize_timeline = _import_helper()
     start = datetime(2026, 7, 28, 0, 0, tzinfo=timezone.utc)
     end = start + timedelta(hours=24)
-    raw = {"timelines": [{"cameraId": "c1", "record": [
-        {"start": "2026-07-28T00:00:00Z", "end": "2026-07-29T00:00:00Z"},
-    ]}]}
+    raw = {
+        "timelines": [
+            {
+                "cameraId": "c1",
+                "record": [
+                    {"start": "2026-07-28T00:00:00Z", "end": "2026-07-29T00:00:00Z"},
+                ],
+            }
+        ]
+    }
     parsed = parse_timeline_response(raw)
     summaries = _summarize_timeline(parsed, start, end)
     assert len(summaries) == 1
@@ -61,6 +73,7 @@ def test_summarize_timeline_empty_records():
     """沒任何 record → completeness=0。"""
     from datetime import datetime, timedelta, timezone
     from web.timeline import parse_timeline_response
+
     _summarize_timeline = _import_helper()
     start = datetime(2026, 7, 28, 0, 0, tzinfo=timezone.utc)
     end = start + timedelta(hours=24)
@@ -73,6 +86,7 @@ def test_summarize_timeline_empty_records():
 
 # === _timeline_check_loop 整合：寫入 recording_status ===
 
+
 def test_timeline_check_loop_writes_recording_status():
     """_timeline_check_loop 應把每台 cam 的完整率寫入 recording_status 表。"""
     from batch_scan import _timeline_check_loop
@@ -82,14 +96,23 @@ def test_timeline_check_loop_writes_recording_status():
         db_path = f.name
     try:
         w = SqliteWriter(db_path)
-        nvra = w.upsert_nvr({
-            "id": "NVR-A", "name": "A", "host": "10.0.0.1",
-            "port": 8443, "username": "u", "password": "p",
-        })
+        nvra = w.upsert_nvr(
+            {
+                "id": "NVR-A",
+                "name": "A",
+                "host": "10.0.0.1",
+                "port": 8443,
+                "username": "u",
+                "password": "p",
+            }
+        )
         rid = w.begin_scan_run("2026-07-29T00:00:00Z")
-        w.upsert_cameras(nvra, {
-            "c1": {"name": "cam1", "connection_state": "CONNECTED"},
-        })
+        w.upsert_cameras(
+            nvra,
+            {
+                "c1": {"name": "cam1", "connection_state": "CONNECTED"},
+            },
+        )
 
         # mock scanner.get_timeline 回傳 24h 完整涵蓋
         scanner = MagicMock()
@@ -97,9 +120,14 @@ def test_timeline_check_loop_writes_recording_status():
         from_iso = (now - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
         to_iso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         scanner.get_timeline.return_value = {
-            "timelines": [{"cameraId": "c1", "record": [
-                {"start": from_iso, "end": to_iso},
-            ]}],
+            "timelines": [
+                {
+                    "cameraId": "c1",
+                    "record": [
+                        {"start": from_iso, "end": to_iso},
+                    ],
+                }
+            ],
         }
 
         summary = _timeline_check_loop(scanner, nvra, w, verbose=False)
@@ -108,9 +136,13 @@ def test_timeline_check_loop_writes_recording_status():
         assert summary["errors"] == []
 
         # 驗證 DB 寫入
-        row = w._get_conn().execute(
-            "SELECT camera_id, completeness, missing_seconds FROM recording_status"
-        ).fetchone()
+        row = (
+            w._get_conn()
+            .execute(
+                "SELECT camera_id, completeness, missing_seconds FROM recording_status"
+            )
+            .fetchone()
+        )
         assert row["camera_id"] == "c1"
         # 視窗以 datetime.now() 計算 → 與 mock 的 from/to 差幾秒，
         # 完整率非常接近 1 但不嚴格等於 1。用寬鬆比較。
@@ -133,13 +165,24 @@ def test_timeline_check_loop_handles_api_error_gracefully():
         db_path = f.name
     try:
         w = SqliteWriter(db_path)
-        nvra = w.upsert_nvr({"id": "N", "name": "N", "host": "1.1.1.1",
-                             "port": 8443, "username": "u", "password": "p"})
+        nvra = w.upsert_nvr(
+            {
+                "id": "N",
+                "name": "N",
+                "host": "1.1.1.1",
+                "port": 8443,
+                "username": "u",
+                "password": "p",
+            }
+        )
         rid = w.begin_scan_run("2026-07-29T00:00:00Z")
-        w.upsert_cameras(nvra, {
-            "c1": {"name": "cam1", "connection_state": "CONNECTED"},
-            "c2": {"name": "cam2", "connection_state": "CONNECTED"},
-        })
+        w.upsert_cameras(
+            nvra,
+            {
+                "c1": {"name": "cam1", "connection_state": "CONNECTED"},
+                "c2": {"name": "cam2", "connection_state": "CONNECTED"},
+            },
+        )
 
         scanner = MagicMock()
         # 第一次拋例外，第二次回空

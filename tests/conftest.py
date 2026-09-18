@@ -3,6 +3,7 @@ tests/conftest.py
 ==================
 pytest 共用 fixtures。
 """
+
 from __future__ import annotations
 
 import os
@@ -49,6 +50,7 @@ def tmp_db(tmp_path):
     yield SqliteWriter(db_path)
     # 清理：gc 釋放檔案 lock（Windows）
     import gc
+
     gc.collect()
 
 
@@ -92,6 +94,7 @@ def sample_nvr_config(sample_nvr):
 @pytest.fixture
 def three_nvrs_config():
     """3 台 NVR（1 成功 + 2 失敗用）。"""
+
     def _mk(nvr_id, host):
         return {
             "id": nvr_id,
@@ -103,6 +106,7 @@ def three_nvrs_config():
             "verify_ssl": False,
             "enabled": True,
         }
+
     return {
         "scan_settings": {"db_path": ":memory:", "timeout_seconds": 5},
         "nvr_servers": [
@@ -140,31 +144,28 @@ def mock_session():
 @pytest.fixture
 def make_login_response():
     """產生 ACC login 成功回應。"""
+
     def _make(token="session-abc-123"):
-        return MockResponse({
-            "status": "success",
-            "result": {"session": token}
-        })
+        return MockResponse({"status": "success", "result": {"session": token}})
+
     return _make
 
 
 @pytest.fixture
 def make_cameras_response():
     """產生 cameras 回應（包裝或裸 list 都接受）。"""
+
     def _make(cameras):
-        return MockResponse({
-            "status": "success",
-            "result": {"cameras": cameras}
-        })
+        return MockResponse({"status": "success", "result": {"cameras": cameras}})
+
     return _make
 
 
 @pytest.fixture
 def make_events_response():
     """產生 events/search 回應。"""
+
     def _make(events):
-        return MockResponse({
-            "status": "success",
-            "result": {"events": events}
-        })
+        return MockResponse({"status": "success", "result": {"events": events}})
+
     return _make

@@ -11,13 +11,13 @@ test_clips_fetch_sync.py
 5. 1 台 cam fetch_clip 失敗 → 該 slot 標記 X-Slot-Error，其他仍可用
 6. 全部 cam 都查無錄影 → NO_COMMON_RECORDING
 """
+
 from __future__ import annotations
 
 import gc
 import os
 import re
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import datetime, timezone
 
 import pytest
 
@@ -35,21 +35,54 @@ def seeded_sync_app(monkeypatch, tmp_path):
     monkeypatch.setenv("NVR_DB_PATH", db_path)
 
     w = SqliteWriter(db_path)
-    w.upsert_nvr({
-        "id": "NVR-SYNC-A", "name": "Sync Test NVR", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p", "tags": [],
-    })
+    w.upsert_nvr(
+        {
+            "id": "NVR-SYNC-A",
+            "name": "Sync Test NVR",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "tags": [],
+        }
+    )
     w.begin_scan_run("2026-07-14T00:00:00Z")
-    w.upsert_cameras(1, {
-        "cam-a": {"name": "Cam A", "connection_state": "CONNECTED", "available": True},
-        "cam-b": {"name": "Cam B", "connection_state": "CONNECTED", "available": True},
-        "cam-c": {"name": "Cam C", "connection_state": "CONNECTED", "available": True},
-        "cam-d": {"name": "Cam D", "connection_state": "CONNECTED", "available": True},
-    })
+    w.upsert_cameras(
+        1,
+        {
+            "cam-a": {
+                "name": "Cam A",
+                "connection_state": "CONNECTED",
+                "available": True,
+            },
+            "cam-b": {
+                "name": "Cam B",
+                "connection_state": "CONNECTED",
+                "available": True,
+            },
+            "cam-c": {
+                "name": "Cam C",
+                "connection_state": "CONNECTED",
+                "available": True,
+            },
+            "cam-d": {
+                "name": "Cam D",
+                "connection_state": "CONNECTED",
+                "available": True,
+            },
+        },
+    )
     w.finish_scan_run(
-        1, finished_at="2026-07-14T00:00:30Z", status="success",
-        stats={"total_cameras": 4, "abnormal_cameras": 0,
-               "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0},
+        1,
+        finished_at="2026-07-14T00:00:30Z",
+        status="success",
+        stats={
+            "total_cameras": 4,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
     )
     del w
     gc.collect()
@@ -61,8 +94,10 @@ def seeded_sync_app(monkeypatch, tmp_path):
     # 預設 disable NVR stale cache probe（測試 mock mp4 bytes 都一樣會誤判）
     # 個別 test 可用 monkeypatch 蓋回真 probe 來測 stale 邏輯
     import web.clips_app as ca
+
     monkeypatch.setattr(
-        ca, "_probe_nvr_stale_cache",
+        ca,
+        "_probe_nvr_stale_cache",
         lambda client, camera_id, t_center: (False, []),
     )
     yield app, db_path
@@ -77,8 +112,8 @@ def _mpd_with_duration(seconds: float) -> str:
         f'mediaPresentationDuration="{iso_dur}" minBufferTime="PT1.5S">'
         '<Period><AdaptationSet><Representation id="1" bandwidth="1000000" '
         'width="1920" height="1080" mimeType="video/mp4" codecs="avc1.4D4016">'
-        '<BaseURL>/mt/api/rest/v1/media?ctx=MOCK</BaseURL>'
-        '</Representation></AdaptationSet></Period></MPD>'
+        "<BaseURL>/mt/api/rest/v1/media?ctx=MOCK</BaseURL>"
+        "</Representation></AdaptationSet></Period></MPD>"
     )
 
 
@@ -102,7 +137,14 @@ class _FixedDurationClient:
     def get_recording_duration(self, camera_id, at_time):
         return self.durations_by_cam.get(camera_id, 0.0)
 
-    def fetch_clip(self, camera_id, start_time, end_time=None, target_seconds=None, max_wall_seconds=None):
+    def fetch_clip(
+        self,
+        camera_id,
+        start_time,
+        end_time=None,
+        target_seconds=None,
+        max_wall_seconds=None,
+    ):
         self.clip_calls.append((camera_id, start_time, target_seconds))
         # 回 8KB dummy mp4 bytes
         yield b"\x00" * (8 * 1024)
@@ -134,7 +176,7 @@ def _parse_multipart(resp_data: bytes, content_type: str) -> list[dict]:
         if sep == -1:
             continue
         headers_raw = chunk[:sep].decode("ascii", "ignore")
-        body = chunk[sep + 4:]
+        body = chunk[sep + 4 :]
         meta = {}
         for line in headers_raw.split("\r\n"):
             if ":" in line:
@@ -147,21 +189,22 @@ def _parse_multipart(resp_data: bytes, content_type: str) -> list[dict]:
 
 # === 測試案例 ===
 
+
 def test_all_cams_full_overlap_60s(seeded_sync_app, monkeypatch):
     """4 台 cam 都有完整 60s → 交集 60s → 200 multipart。"""
     flask_app, db_path = seeded_sync_app
     durations = {"cam-a": 60.0, "cam-b": 60.0, "cam-c": 60.0, "cam-d": 60.0}
     client = _FixedDurationClient(durations)
     import web.clips_app as ca
+
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(
-        ca, "get_client_for_nvr", lambda nvr_row, session_token: client
-    )
+    monkeypatch.setattr(ca, "get_client_for_nvr", lambda nvr_row, session_token: client)
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-1")
 
     t0 = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 60,
+        "nvr_id": 1,
+        "target_seconds": 60,
         "t_center": t0.isoformat(),
         "cameras": [
             {"device_id": "cam-a", "name": "Cam A"},
@@ -196,18 +239,21 @@ def test_partial_overlap_intersection_is_target(seeded_sync_app, monkeypatch):
     durations = {"cam-a": 60.0, "cam-b": 40.0, "cam-c": 25.0, "cam-d": 10.0}
     client = _FixedDurationClient(durations)
     import web.clips_app as ca
+
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(ca, "get_client_for_nvr",
-                        lambda nvr_row, session_token: client)
+    monkeypatch.setattr(ca, "get_client_for_nvr", lambda nvr_row, session_token: client)
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-2")
 
     t0 = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 60,
+        "nvr_id": 1,
+        "target_seconds": 60,
         "t_center": t0.isoformat(),
         "cameras": [
-            {"device_id": "cam-a"}, {"device_id": "cam-b"},
-            {"device_id": "cam-c"}, {"device_id": "cam-d"},
+            {"device_id": "cam-a"},
+            {"device_id": "cam-b"},
+            {"device_id": "cam-c"},
+            {"device_id": "cam-d"},
         ],
     }
     resp = _post_sync(flask_app, **payload)
@@ -217,7 +263,9 @@ def test_partial_overlap_intersection_is_target(seeded_sync_app, monkeypatch):
     assert float(resp.headers.get("X-Intersection-Length")) == 60.0
 
 
-def test_target_seconds_below_5s_returns_no_common_recording(seeded_sync_app, monkeypatch):
+def test_target_seconds_below_5s_returns_no_common_recording(
+    seeded_sync_app, monkeypatch
+):
     """2026-07-14 改：intersection < 5s 改成 target_seconds < 5s 觸發。
     因為 MPD duration 不再決定 intersection，唯一會變成 < 5s 的可能是 client 傳太小的 target_seconds。
     """
@@ -228,18 +276,21 @@ def test_target_seconds_below_5s_returns_no_common_recording(seeded_sync_app, mo
     durations = {"cam-a": 8.0, "cam-b": 3.0, "cam-c": 60.0, "cam-d": 60.0}
     client = _FixedDurationClient(durations)
     import web.clips_app as ca
+
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(ca, "get_client_for_nvr",
-                        lambda nvr_row, session_token: client)
+    monkeypatch.setattr(ca, "get_client_for_nvr", lambda nvr_row, session_token: client)
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-3")
 
     t0 = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 3,  # ← < 5 觸發
+        "nvr_id": 1,
+        "target_seconds": 3,  # ← < 5 觸發
         "t_center": t0.isoformat(),
         "cameras": [
-            {"device_id": "cam-a"}, {"device_id": "cam-b"},
-            {"device_id": "cam-c"}, {"device_id": "cam-d"},
+            {"device_id": "cam-a"},
+            {"device_id": "cam-b"},
+            {"device_id": "cam-c"},
+            {"device_id": "cam-d"},
         ],
     }
     resp = _post_sync(flask_app, **payload)
@@ -261,17 +312,21 @@ def test_no_cam_available_returns_no_common(seeded_sync_app, monkeypatch):
 
     flask_app, db_path = seeded_sync_app
     import web.clips_app as ca
+
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(ca, "get_client_for_nvr",
-                        lambda nvr_row, session_token: _AllZeroClient())
+    monkeypatch.setattr(
+        ca, "get_client_for_nvr", lambda nvr_row, session_token: _AllZeroClient()
+    )
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-4")
 
     t0 = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 60,
+        "nvr_id": 1,
+        "target_seconds": 60,
         "t_center": t0.isoformat(),
         "cameras": [
-            {"device_id": "cam-a"}, {"device_id": "cam-b"},
+            {"device_id": "cam-a"},
+            {"device_id": "cam-b"},
         ],
     }
     resp = _post_sync(flask_app, **payload)
@@ -294,18 +349,21 @@ def test_one_cam_mpd_query_fails_other_still_works(seeded_sync_app, monkeypatch)
     durations = {"cam-a": 60.0, "cam-b": 60.0, "cam-c": 60.0, "cam-d": 60.0}
     client = _PartialFailClient(durations)
     import web.clips_app as ca
+
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(ca, "get_client_for_nvr",
-                        lambda nvr_row, session_token: client)
+    monkeypatch.setattr(ca, "get_client_for_nvr", lambda nvr_row, session_token: client)
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-5")
 
     t0 = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 60,
+        "nvr_id": 1,
+        "target_seconds": 60,
         "t_center": t0.isoformat(),
         "cameras": [
-            {"device_id": "cam-a"}, {"device_id": "cam-b"},
-            {"device_id": "cam-c"}, {"device_id": "cam-d"},
+            {"device_id": "cam-a"},
+            {"device_id": "cam-b"},
+            {"device_id": "cam-c"},
+            {"device_id": "cam-d"},
         ],
     }
     resp = _post_sync(flask_app, **payload)
@@ -313,14 +371,24 @@ def test_one_cam_mpd_query_fails_other_still_works(seeded_sync_app, monkeypatch)
     assert float(resp.headers.get("X-Intersection-Length")) == 60.0
 
 
-def test_one_cam_fetch_clip_fails_other_slots_still_have_body(seeded_sync_app, monkeypatch):
+def test_one_cam_fetch_clip_fails_other_slots_still_have_body(
+    seeded_sync_app, monkeypatch
+):
     """fetch_clip 階段 1 台 cam 失敗 → 該 slot 帶 X-Slot-Error，其他 slot 仍正常。"""
 
     class _PartialClipFailClient(_FixedDurationClient):
-        def fetch_clip(self, camera_id, start_time, end_time=None, target_seconds=None, max_wall_seconds=None):
+        def fetch_clip(
+            self,
+            camera_id,
+            start_time,
+            end_time=None,
+            target_seconds=None,
+            max_wall_seconds=None,
+        ):
             self.clip_calls.append((camera_id, start_time, target_seconds))
             if camera_id == "cam-b":
                 from web.clip_retrieval import NvrInternalError
+
                 raise NvrInternalError("cam-b fmp4 500")
             yield b"\x00" * (4 * 1024)
 
@@ -328,18 +396,21 @@ def test_one_cam_fetch_clip_fails_other_slots_still_have_body(seeded_sync_app, m
     durations = {"cam-a": 60.0, "cam-b": 60.0, "cam-c": 60.0, "cam-d": 60.0}
     client = _PartialClipFailClient(durations)
     import web.clips_app as ca
+
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(ca, "get_client_for_nvr",
-                        lambda nvr_row, session_token: client)
+    monkeypatch.setattr(ca, "get_client_for_nvr", lambda nvr_row, session_token: client)
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-6")
 
     t0 = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 60,
+        "nvr_id": 1,
+        "target_seconds": 60,
         "t_center": t0.isoformat(),
         "cameras": [
-            {"device_id": "cam-a"}, {"device_id": "cam-b"},
-            {"device_id": "cam-c"}, {"device_id": "cam-d"},
+            {"device_id": "cam-a"},
+            {"device_id": "cam-b"},
+            {"device_id": "cam-c"},
+            {"device_id": "cam-d"},
         ],
     }
     resp = _post_sync(flask_app, **payload)
@@ -366,18 +437,21 @@ def test_videos_in_response_have_same_intersection_length(seeded_sync_app, monke
     durations = {"cam-a": 60.0, "cam-b": 30.0, "cam-c": 22.0, "cam-d": 22.0}
     client = _FixedDurationClient(durations)
     import web.clips_app as ca
+
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(ca, "get_client_for_nvr",
-                        lambda nvr_row, session_token: client)
+    monkeypatch.setattr(ca, "get_client_for_nvr", lambda nvr_row, session_token: client)
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-7")
 
     t0 = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 60,
+        "nvr_id": 1,
+        "target_seconds": 60,
         "t_center": t0.isoformat(),
         "cameras": [
-            {"device_id": "cam-a"}, {"device_id": "cam-b"},
-            {"device_id": "cam-c"}, {"device_id": "cam-d"},
+            {"device_id": "cam-a"},
+            {"device_id": "cam-b"},
+            {"device_id": "cam-c"},
+            {"device_id": "cam-d"},
         ],
     }
     resp = _post_sync(flask_app, **payload)
@@ -407,18 +481,21 @@ def test_cam_has_more_than_target_keeps_target_seconds(seeded_sync_app, monkeypa
     durations = {"cam-a": 60.0, "cam-b": 60.0, "cam-c": 60.0, "cam-d": 15.0}
     client = _FixedDurationClient(durations)
     import web.clips_app as ca
+
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(ca, "get_client_for_nvr",
-                        lambda nvr_row, session_token: client)
+    monkeypatch.setattr(ca, "get_client_for_nvr", lambda nvr_row, session_token: client)
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-8")
 
     t0 = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 60,
+        "nvr_id": 1,
+        "target_seconds": 60,
         "t_center": t0.isoformat(),
         "cameras": [
-            {"device_id": "cam-a"}, {"device_id": "cam-b"},
-            {"device_id": "cam-c"}, {"device_id": "cam-d"},
+            {"device_id": "cam-a"},
+            {"device_id": "cam-b"},
+            {"device_id": "cam-c"},
+            {"device_id": "cam-d"},
         ],
     }
     resp = _post_sync(flask_app, **payload)
@@ -443,9 +520,18 @@ def test_fetch_sync_passes_end_time_to_client(seeded_sync_app, monkeypatch):
     這個測試用 strict-signature stub（沒有預設值）模擬真實 client，
     確保 fetch_sync 傳齊 (camera_id, start_time, end_time) 三個參數。
     """
+
     class _StrictSignatureClient(_FixedDurationClient):
         """fetch_clip 簽名嚴格 (camera_id, start_time, end_time)，沒預設值。"""
-        def fetch_clip(self, camera_id, start_time, end_time, target_seconds=None, max_wall_seconds=None):
+
+        def fetch_clip(
+            self,
+            camera_id,
+            start_time,
+            end_time,
+            target_seconds=None,
+            max_wall_seconds=None,
+        ):
             self.clip_calls.append((camera_id, start_time, end_time, target_seconds))
             yield b"\x00" * (8 * 1024)
 
@@ -453,21 +539,25 @@ def test_fetch_sync_passes_end_time_to_client(seeded_sync_app, monkeypatch):
     durations = {"cam-a": 60.0, "cam-b": 60.0, "cam-c": 60.0, "cam-d": 60.0}
     client = _StrictSignatureClient(durations)
     import web.clips_app as ca
+
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(ca, "get_client_for_nvr",
-                        lambda nvr_row, session_token: client)
+    monkeypatch.setattr(ca, "get_client_for_nvr", lambda nvr_row, session_token: client)
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-9")
 
     t0 = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 60,
+        "nvr_id": 1,
+        "target_seconds": 60,
         "t_center": t0.isoformat(),
         "cameras": [
-            {"device_id": "cam-a"}, {"device_id": "cam-b"},
+            {"device_id": "cam-a"},
+            {"device_id": "cam-b"},
         ],
     }
     resp = _post_sync(flask_app, **payload)
-    assert resp.status_code == 200, f"應該 200 但 {resp.status_code}：{resp.get_data()[:300]}"
+    assert (
+        resp.status_code == 200
+    ), f"應該 200 但 {resp.status_code}：{resp.get_data()[:300]}"
     # 確認 client.fetch_clip 收到的 end_time 是 datetime，不是 NotImplemented
     assert len(client.clip_calls) == 2
     for cam_id, start_time, end_time, target_seconds in client.clip_calls:
@@ -508,12 +598,19 @@ class _StaleProbeClientV2:
         self.mpd_calls.append((camera_id, at_time, int(at_time.timestamp())))
         return self.durations_by_cam.get(camera_id, 60.0)
 
-    def fetch_clip(self, camera_id, start_time, end_time=None, target_seconds=None, max_wall_seconds=None):
+    def fetch_clip(
+        self,
+        camera_id,
+        start_time,
+        end_time=None,
+        target_seconds=None,
+        max_wall_seconds=None,
+    ):
         self.clip_calls.append((camera_id, start_time, end_time))
         # bytes_per_anchor_by_cam[cam] 順序：[-60, 0, +60]
         # 為對應 probe 呼叫 3 次，依呼叫順序輪流 anchor bytes
         bs_list = self.bytes_per_anchor_by_cam.get(camera_id, [b"\x00" * 1024])
-        if not hasattr(self, '_call_idx'):
+        if not hasattr(self, "_call_idx"):
             self._call_idx = 0
         idx = self._call_idx % len(bs_list)
         self._call_idx += 1
@@ -539,6 +636,7 @@ def test_probe_stale_cache_detects_same_bytes(monkeypatch):
 def test_probe_stale_cache_detects_different_bytes(monkeypatch):
     """3 個 anchor 回不同 bytes → not stale。"""
     import web.clips_app as ca
+
     client = _StaleProbeClientV2(
         durations_by_cam={"cam-ok": 60.0},
         bytes_per_anchor_by_cam={
@@ -557,6 +655,7 @@ def test_probe_stale_cache_handles_mpd_error(monkeypatch):
     class _AllZeroMpDClient:
         def get_recording_duration(self, cam_id, at_time):
             return 0.0  # 全部 anchor 都說「無錄影」
+
         def fetch_clip(self, *a, **k):
             yield b"never used"
 
@@ -578,18 +677,19 @@ def test_fetch_sync_excludes_stale_cam(seeded_sync_app, monkeypatch):
         if cam_id == "cam-b":
             return (True, ["anchor 0s: STALE (test fixture)"])
         return (False, [])
+
     monkeypatch.setattr(ca, "_probe_nvr_stale_cache", fake_probe)
 
     durations = {"cam-a": 60.0, "cam-b": 60.0, "cam-c": 60.0, "cam-d": 60.0}
     client = _FixedDurationClient(durations)
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(ca, "get_client_for_nvr",
-                        lambda nvr_row, session_token: client)
+    monkeypatch.setattr(ca, "get_client_for_nvr", lambda nvr_row, session_token: client)
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-stale-1")
 
     t0 = datetime(2026, 7, 15, 14, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 60,
+        "nvr_id": 1,
+        "target_seconds": 60,
         "t_center": t0.isoformat(),
         "probe": "1",  # 2026-08-06 perf：probe 預設關，stale tests 顯式 opt-in
         "cameras": [
@@ -618,20 +718,21 @@ def test_fetch_sync_all_cams_stale_returns_502(seeded_sync_app, monkeypatch):
     import web.clips_app as ca
 
     monkeypatch.setattr(
-        ca, "_probe_nvr_stale_cache",
+        ca,
+        "_probe_nvr_stale_cache",
         lambda client, cam_id, t_center: (True, ["STALE"]),
     )
 
     durations = {"cam-a": 60.0, "cam-b": 60.0}
     client = _FixedDurationClient(durations)
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(ca, "get_client_for_nvr",
-                        lambda nvr_row, session_token: client)
+    monkeypatch.setattr(ca, "get_client_for_nvr", lambda nvr_row, session_token: client)
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-stale-2")
 
     t0 = datetime(2026, 7, 15, 14, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 60,
+        "nvr_id": 1,
+        "target_seconds": 60,
         "t_center": t0.isoformat(),
         "probe": "1",  # 2026-08-06 perf：probe 預設關，stale tests 顯式 opt-in
         "cameras": [
@@ -650,7 +751,9 @@ def test_fetch_sync_all_cams_stale_returns_502(seeded_sync_app, monkeypatch):
     assert ids == {"cam-a", "cam-b"}
 
 
-def test_fetch_sync_partial_stale_includes_excluded_header(seeded_sync_app, monkeypatch):
+def test_fetch_sync_partial_stale_includes_excluded_header(
+    seeded_sync_app, monkeypatch
+):
     """部分 cam stale → 200 multipart + X-Excluded-Cams JSON header。
     前端會用這 header 顯示「找不到回放檔案」訊息。
     """
@@ -663,18 +766,19 @@ def test_fetch_sync_partial_stale_includes_excluded_header(seeded_sync_app, monk
         if cam_id == "cam-b":
             return (True, ["STALE"])
         return (False, [])
+
     monkeypatch.setattr(ca, "_probe_nvr_stale_cache", fake_probe)
 
     durations = {"cam-a": 60.0, "cam-b": 60.0, "cam-c": 60.0, "cam-d": 60.0}
     client = _FixedDurationClient(durations)
     monkeypatch.setattr(ca, "get_session_for_nvr", lambda *a: "FAKE-TOKEN")
-    monkeypatch.setattr(ca, "get_client_for_nvr",
-                        lambda nvr_row, session_token: client)
+    monkeypatch.setattr(ca, "get_client_for_nvr", lambda nvr_row, session_token: client)
     monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-test-partial-stale")
 
     t0 = datetime(2026, 7, 15, 14, 0, 0, tzinfo=timezone.utc)
     payload = {
-        "nvr_id": 1, "target_seconds": 60,
+        "nvr_id": 1,
+        "target_seconds": 60,
         "t_center": t0.isoformat(),
         "probe": "1",  # 2026-08-06 perf：probe 預設關，stale tests 顯式 opt-in
         "cameras": [
@@ -699,7 +803,9 @@ def test_clips_html_template_has_stale_message_marker():
     """前端 template 內必須有 stale excluded 分支的 emoji + 字串標記。"""
     template_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)),
-        "web", "clips_templates", "clips.html",
+        "web",
+        "clips_templates",
+        "clips.html",
     )
     with open(template_path, "r", encoding="utf-8") as f:
         html = f.read()
@@ -719,7 +825,9 @@ class TestStaleSessionAutoRetry:
     """
 
     def test_stale_session_triggers_invalidate_and_retry(
-        self, seeded_sync_app, monkeypatch,
+        self,
+        seeded_sync_app,
+        monkeypatch,
     ):
         """stale token → 第一輪 query 都失敗 → fetch_sync 自動 retry → 第二輪成功。"""
         from web.clip_retrieval import NvrAuthError as _NvrAuthError
@@ -755,26 +863,34 @@ class TestStaleSessionAutoRetry:
                 return super().get_recording_duration(camera_id, at_time)
 
         import web.clips_app as ca
+
         monkeypatch.setattr(ca, "get_session_for_nvr", fake_get_session)
-        monkeypatch.setattr(ca, "get_client_for_nvr",
-                            lambda nvr_row, session_token: _StaleThenFreshClient(
-                                host=nvr_row["host"], port=nvr_row.get("port", 8443),
-                                session=session_token, verify_ssl=False,
-                            ))
-        monkeypatch.setattr(ca, "_probe_nvr_stale_cache",
-                            lambda *a: (False, []))
+        monkeypatch.setattr(
+            ca,
+            "get_client_for_nvr",
+            lambda nvr_row, session_token: _StaleThenFreshClient(
+                host=nvr_row["host"],
+                port=nvr_row.get("port", 8443),
+                session=session_token,
+                verify_ssl=False,
+            ),
+        )
+        monkeypatch.setattr(ca, "_probe_nvr_stale_cache", lambda *a: (False, []))
         monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-stale-test")
 
         client = flask_app.test_client()
-        resp = client.post("/clips/fetch_sync", json={
-            "nvr_id": 1,
-            "cameras": [
-                {"device_id": "cam-a", "name": "CamA"},
-                {"device_id": "cam-b", "name": "CamB"},
-            ],
-            "t_center": "2026-07-14T12:00:00Z",
-            "target_seconds": 60,
-        })
+        resp = client.post(
+            "/clips/fetch_sync",
+            json={
+                "nvr_id": 1,
+                "cameras": [
+                    {"device_id": "cam-a", "name": "CamA"},
+                    {"device_id": "cam-b", "name": "CamB"},
+                ],
+                "t_center": "2026-07-14T12:00:00Z",
+                "target_seconds": 60,
+            },
+        )
         # 觀察點：retry 機制必須被觸發
         assert session_calls["n"] >= 2, (
             f"stale session 應觸發 invalidate + 重新登入（session_calls.n ≥ 2），"
@@ -786,6 +902,7 @@ class TestStaleSessionAutoRetry:
         )
         # 最終 status：第二輪成功 → intersection 有結果 → multipart 回應
         # 或 active_cams 全空 → 404（mock mp4 沒真的 video bytes 也可能走 multipart 空殼）
-        assert resp.status_code in (200, 404), (
-            f"retry 後應至少完成流程，got {resp.status_code} body={resp.data[:200]}"
-        )
+        assert resp.status_code in (
+            200,
+            404,
+        ), f"retry 後應至少完成流程，got {resp.status_code} body={resp.data[:200]}"

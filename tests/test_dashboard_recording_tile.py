@@ -10,6 +10,7 @@ Dashboard 統計：錄影中 cam 數（recording_cameras）。
 簡化版：錄影中數 = total_cameras - pending_events_covered_cameras
 （避免掃描所有 cam 狀態；這與「在線」磁磚採同源）
 """
+
 from __future__ import annotations
 
 import gc
@@ -27,25 +28,50 @@ def db_env():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-29T00:00:00Z")
-    w.upsert_cameras(nvra, {
-        "c1": {"name": "cam1", "connection_state": "CONNECTED"},
-        "c2": {"name": "cam2", "connection_state": "CONNECTED"},
-        "c3": {"name": "cam3", "connection_state": "CONNECTED"},
-    })
-    w.insert_events(rid, nvra, [{
-        "eventId": "e1", "deviceId": "c2",
-        "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
-        "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-        "occurred_at": "2026-07-29T00:00:00Z",
-    }])
-    w.finish_scan_run(rid, finished_at="2026-07-29T00:01:00Z", status="partial",
-                      stats={"total_cameras": 3, "abnormal_cameras": 1,
-                             "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+    w.upsert_cameras(
+        nvra,
+        {
+            "c1": {"name": "cam1", "connection_state": "CONNECTED"},
+            "c2": {"name": "cam2", "connection_state": "CONNECTED"},
+            "c3": {"name": "cam3", "connection_state": "CONNECTED"},
+        },
+    )
+    w.insert_events(
+        rid,
+        nvra,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "c2",
+                "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                "occurred_at": "2026-07-29T00:00:00Z",
+            }
+        ],
+    )
+    w.finish_scan_run(
+        rid,
+        finished_at="2026-07-29T00:01:00Z",
+        status="partial",
+        stats={
+            "total_cameras": 3,
+            "abnormal_cameras": 1,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
+    )
     w.close()
     yield db_path
     del w
@@ -70,8 +96,16 @@ def test_stats_recording_cameras_zero_when_no_cameras(db_env):
         db2 = f.name
     try:
         w = SqliteWriter(db2)
-        w.upsert_nvr({"id": "X", "name": "X", "host": "1.1.1.1", "port": 8443,
-                      "username": "u", "password": "p"})
+        w.upsert_nvr(
+            {
+                "id": "X",
+                "name": "X",
+                "host": "1.1.1.1",
+                "port": 8443,
+                "username": "u",
+                "password": "p",
+            }
+        )
         w.close()
         stats = get_overall_stats(db2)
         assert stats["recording_cameras"] == 0

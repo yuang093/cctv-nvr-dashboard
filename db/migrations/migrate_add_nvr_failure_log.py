@@ -12,6 +12,7 @@ db/migrations/migrate_add_nvr_failure_log.py
 預設 db_path = ./nvr_scan.db（從 cwd 計算）
 退出碼：0 = 已套用（或已存在）/ 1 = 失敗
 """
+
 from __future__ import annotations
 
 import sqlite3

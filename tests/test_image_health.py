@@ -12,6 +12,7 @@ Phase 2.8（Arisan 影像健康巡檢）：web/image_health.py 純函式測試�
   - 邊界值（恰好等於 threshold）
   - 錯誤處理（空 bytes、無效 jpeg、不同尺寸仍可解）
 """
+
 from __future__ import annotations
 
 import io
@@ -27,7 +28,6 @@ from web.image_health import (
     BLUR_VAR_THRESHOLD,
     LUMA_OVEREXPOSED,
     LUMA_UNDEREXPOSED,
-    FROZEN_DIFF_THRESHOLD,
 )
 
 
@@ -199,6 +199,7 @@ def test_luma_at_underexposed_threshold():
 def test_to_metrics_dict_round(blurred_jpeg):
     """to_metrics_dict 應回傳可 JSON 序列化的 dict。"""
     import json
+
     r = analyze_image(blurred_jpeg)
     d = r.to_metrics_dict()
     json.dumps(d)  # 不 raise

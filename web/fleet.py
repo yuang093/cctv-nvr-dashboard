@@ -6,6 +6,7 @@ web/fleet.py
 對應 spec：docs/superpowers/specs/2026-07-29-fleet-view-design.md
 2026-07-31 新功能：相機健康分布 donut 圖表（Spec B 最小可行）。
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,17 +63,19 @@ def get_fleet_view(db_path: str, *, force_refresh: bool = False) -> list[dict]:
             healthy = signal_lost = no_signal = total = 0
             status = "unknown"
 
-        out.append({
-            "nvr_id": nvr["id"],
-            "name": nvr["name"],
-            "host": nvr["host"],
-            "port": nvr.get("port", 8443),
-            "total": total,
-            "healthy": healthy,
-            "signal_lost": signal_lost,
-            "no_signal": no_signal,
-            "status": status,
-        })
+        out.append(
+            {
+                "nvr_id": nvr["id"],
+                "name": nvr["name"],
+                "host": nvr["host"],
+                "port": nvr.get("port", 8443),
+                "total": total,
+                "healthy": healthy,
+                "signal_lost": signal_lost,
+                "no_signal": no_signal,
+                "status": status,
+            }
+        )
 
     _CACHE["db_path"] = db_path
     _CACHE["data"] = out

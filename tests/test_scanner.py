@@ -6,6 +6,7 @@ AvigilonScanner 單元測試。
 策略：建構 AvigilonScanner 時注入 mock_session，
       設定 session.request.return_value / side_effect 模擬 API 回應。
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -14,7 +15,6 @@ import pytest
 
 from nvr_scanner import (
     ABNORMAL_KEYWORDS,
-    ApiResponseError,
     AuthError,
     AvigilonScanner,
     ConnectionError_,
@@ -25,7 +25,8 @@ from nvr_scanner import (
 def test_init_basic(sample_nvr, mock_session):
     s = AvigilonScanner(
         sample_nvr,
-        user_nonce="n", user_key="k",
+        user_nonce="n",
+        user_key="k",
         session=mock_session,
     )
     assert s.base_url == "https://192.168.1.100:8443"
@@ -37,7 +38,10 @@ def test_init_basic(sample_nvr, mock_session):
 def test_init_custom_port(sample_nvr, mock_session):
     sample_nvr["port"] = 9443
     s = AvigilonScanner(
-        sample_nvr, user_nonce="n", user_key="k", session=mock_session,
+        sample_nvr,
+        user_nonce="n",
+        user_key="k",
+        session=mock_session,
     )
     assert s.base_url == "https://192.168.1.100:9443"
 
@@ -46,7 +50,10 @@ def test_init_custom_port(sample_nvr, mock_session):
 def test_login_success(sample_nvr, mock_session, make_login_response):
     mock_session.request.return_value = make_login_response("token-xyz")
     s = AvigilonScanner(
-        sample_nvr, user_nonce="n", user_key="k", session=mock_session,
+        sample_nvr,
+        user_nonce="n",
+        user_key="k",
+        session=mock_session,
     )
     token = s.login()
     assert token == "token-xyz"
@@ -76,7 +83,10 @@ def test_login_missing_session_raises(sample_nvr, mock_session):
     resp.text = "..."
     mock_session.request.return_value = resp
     s = AvigilonScanner(
-        sample_nvr, user_nonce="n", user_key="k", session=mock_session,
+        sample_nvr,
+        user_nonce="n",
+        user_key="k",
+        session=mock_session,
     )
     with pytest.raises(AuthError, match="找不到 session token"):
         s.login()
@@ -90,7 +100,10 @@ def test_login_403_raises_auth_error(sample_nvr, mock_session):
     resp.text = "Forbidden"
     mock_session.request.return_value = resp
     s = AvigilonScanner(
-        sample_nvr, user_nonce="n", user_key="k", session=mock_session,
+        sample_nvr,
+        user_nonce="n",
+        user_key="k",
+        session=mock_session,
     )
     with pytest.raises(AuthError, match="授權失敗"):
         s.login()
@@ -99,9 +112,13 @@ def test_login_403_raises_auth_error(sample_nvr, mock_session):
 # === 5. login timeout → ConnectionError_ ===
 def test_login_timeout_raises_connection_error(sample_nvr, mock_session):
     import requests
+
     mock_session.request.side_effect = requests.exceptions.Timeout("read timeout")
     s = AvigilonScanner(
-        sample_nvr, user_nonce="n", user_key="k", session=mock_session,
+        sample_nvr,
+        user_nonce="n",
+        user_key="k",
+        session=mock_session,
     )
     with pytest.raises(ConnectionError_, match="連線逾時"):
         s.login()
@@ -110,31 +127,47 @@ def test_login_timeout_raises_connection_error(sample_nvr, mock_session):
 # === 6. login SSL error → ConnectionError_ ===
 def test_login_ssl_error_raises(sample_nvr, mock_session):
     import requests
+
     mock_session.request.side_effect = requests.exceptions.SSLError("bad cert")
     s = AvigilonScanner(
-        sample_nvr, user_nonce="n", user_key="k", session=mock_session,
+        sample_nvr,
+        user_nonce="n",
+        user_key="k",
+        session=mock_session,
     )
     with pytest.raises(ConnectionError_, match="SSL 錯誤"):
         s.login()
 
 
 # === 7. get_cameras：解析 + 帶 pageSize ===
-def test_get_cameras_uses_page_size(sample_nvr, mock_session, make_login_response, make_cameras_response):
+def test_get_cameras_uses_page_size(
+    sample_nvr, mock_session, make_login_response, make_cameras_response
+):
     # 第一次 login、第二次 server/ids、第三次 cameras
     mock_session.request.side_effect = [
         make_login_response("tok"),
         MagicMock(
-            status_code=200, ok=True,
+            status_code=200,
+            ok=True,
             json=lambda: {"status": "success", "result": ["server-1"]},
             text="...",
         ),
-        make_cameras_response([
-            {"deviceId": "d1", "name": "cam1",
-             "connectionStatus": {"state": "CONNECTED"}, "available": True},
-        ]),
+        make_cameras_response(
+            [
+                {
+                    "deviceId": "d1",
+                    "name": "cam1",
+                    "connectionStatus": {"state": "CONNECTED"},
+                    "available": True,
+                },
+            ]
+        ),
     ]
     s = AvigilonScanner(
-        sample_nvr, user_nonce="n", user_key="k", session=mock_session,
+        sample_nvr,
+        user_nonce="n",
+        user_key="k",
+        session=mock_session,
     )
     s.login()  # 先取得 session token
     cams = s.get_cameras()
@@ -147,21 +180,32 @@ def test_get_cameras_uses_page_size(sample_nvr, mock_session, make_login_respons
 
 
 # === 8. get_active_events：回傳 raw events ===
-def test_get_active_events(sample_nvr, mock_session, make_login_response, make_events_response):
+def test_get_active_events(
+    sample_nvr, mock_session, make_login_response, make_events_response
+):
     mock_session.request.side_effect = [
         make_login_response("tok"),
         MagicMock(
-            status_code=200, ok=True,
+            status_code=200,
+            ok=True,
             json=lambda: {"status": "success", "result": ["s1"]},
             text="...",
         ),
-        make_events_response([
-            {"eventId": "e1", "deviceId": "d1",
-             "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"]},
-        ]),
+        make_events_response(
+            [
+                {
+                    "eventId": "e1",
+                    "deviceId": "d1",
+                    "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                },
+            ]
+        ),
     ]
     s = AvigilonScanner(
-        sample_nvr, user_nonce="n", user_key="k", session=mock_session,
+        sample_nvr,
+        user_nonce="n",
+        user_key="k",
+        session=mock_session,
     )
     s.login()
     events = s.get_active_events()
@@ -175,59 +219,96 @@ def test_get_active_events(sample_nvr, mock_session, make_login_response, make_e
 # === 9. _is_abnormal 關鍵字匹配（eventTopics）===
 def test_is_abnormal_keyword_match():
     from nvr_scanner import AvigilonScanner
+
     # 匹配 DEVICE_VIDEO_SIGNAL_LOST
-    assert AvigilonScanner._is_abnormal({
-        "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
-    })
+    assert AvigilonScanner._is_abnormal(
+        {
+            "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+        }
+    )
     # 匹配 DEVICE_TAMPERING
-    assert AvigilonScanner._is_abnormal({
-        "eventTopics": ["DEVICE_TAMPERING"],
-    })
+    assert AvigilonScanner._is_abnormal(
+        {
+            "eventTopics": ["DEVICE_TAMPERING"],
+        }
+    )
     # 不匹配
-    assert not AvigilonScanner._is_abnormal({
-        "eventTopics": ["DEVICE_NORMAL_EVENT"],
-    })
+    assert not AvigilonScanner._is_abnormal(
+        {
+            "eventTopics": ["DEVICE_NORMAL_EVENT"],
+        }
+    )
     # 單值 eventTopic
-    assert AvigilonScanner._is_abnormal({
-        "eventTopic": "DEVICE_COMMUNICATION_LOST",
-    })
+    assert AvigilonScanner._is_abnormal(
+        {
+            "eventTopic": "DEVICE_COMMUNICATION_LOST",
+        }
+    )
 
 
 # === 10. _is_abnormal 處理 string 而非 list ===
 def test_is_abnormal_handles_string_topics():
     from nvr_scanner import AvigilonScanner
+
     # eventTopics 為字串而非 list
-    assert AvigilonScanner._is_abnormal({
-        "eventTopics": "DEVICE_VIDEO_SIGNAL_LOST",
-    })
+    assert AvigilonScanner._is_abnormal(
+        {
+            "eventTopics": "DEVICE_VIDEO_SIGNAL_LOST",
+        }
+    )
 
 
 # === 11. scan() 雙重異常檢查：events + connectionStatus.state ===
-def test_scan_double_check_events_and_state(sample_nvr, mock_session, make_login_response, make_cameras_response, make_events_response):
+def test_scan_double_check_events_and_state(
+    sample_nvr,
+    mock_session,
+    make_login_response,
+    make_cameras_response,
+    make_events_response,
+):
     mock_session.request.side_effect = [
         make_login_response("tok"),
         MagicMock(
-            status_code=200, ok=True,
+            status_code=200,
+            ok=True,
             json=lambda: {"status": "success", "result": ["s1"]},
             text="...",
         ),
         # cameras: d1 CONNECTED, d2 LONG_FAILED
-        make_cameras_response([
-            {"deviceId": "d1", "name": "cam1",
-             "connectionStatus": {"state": "CONNECTED"}, "available": True},
-            {"deviceId": "d2", "name": "cam2",
-             "connectionStatus": {"state": "LONG_FAILED"}, "available": False},
-        ]),
+        make_cameras_response(
+            [
+                {
+                    "deviceId": "d1",
+                    "name": "cam1",
+                    "connectionStatus": {"state": "CONNECTED"},
+                    "available": True,
+                },
+                {
+                    "deviceId": "d2",
+                    "name": "cam2",
+                    "connectionStatus": {"state": "LONG_FAILED"},
+                    "available": False,
+                },
+            ]
+        ),
         # events: d1 異常（VIDEO_LOSS）
-        make_events_response([
-            {"eventId": "e1", "deviceId": "d1",
-             "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
-             "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-             "occurred_at": "2026-06-23T00:00:00Z"},
-        ]),
+        make_events_response(
+            [
+                {
+                    "eventId": "e1",
+                    "deviceId": "d1",
+                    "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                    "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                    "occurred_at": "2026-06-23T00:00:00Z",
+                },
+            ]
+        ),
     ]
     s = AvigilonScanner(
-        sample_nvr, user_nonce="n", user_key="k", session=mock_session,
+        sample_nvr,
+        user_nonce="n",
+        user_key="k",
+        session=mock_session,
     )
     result = s.scan()
 
@@ -242,29 +323,50 @@ def test_scan_double_check_events_and_state(sample_nvr, mock_session, make_login
 
 
 # === 12. scan() 去重：event + state 同相機只列一次 ===
-def test_scan_dedup_event_and_state_same_camera(sample_nvr, mock_session, make_login_response, make_cameras_response, make_events_response):
+def test_scan_dedup_event_and_state_same_camera(
+    sample_nvr,
+    mock_session,
+    make_login_response,
+    make_cameras_response,
+    make_events_response,
+):
     mock_session.request.side_effect = [
         make_login_response("tok"),
         MagicMock(
-            status_code=200, ok=True,
+            status_code=200,
+            ok=True,
             json=lambda: {"status": "success", "result": ["s1"]},
             text="...",
         ),
         # cameras: d1 LONG_FAILED
-        make_cameras_response([
-            {"deviceId": "d1", "name": "cam1",
-             "connectionStatus": {"state": "LONG_FAILED"}, "available": False},
-        ]),
+        make_cameras_response(
+            [
+                {
+                    "deviceId": "d1",
+                    "name": "cam1",
+                    "connectionStatus": {"state": "LONG_FAILED"},
+                    "available": False,
+                },
+            ]
+        ),
         # events: d1 也有 VIDEO_LOSS（雙重命中）
-        make_events_response([
-            {"eventId": "e1", "deviceId": "d1",
-             "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
-             "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-             "occurred_at": "2026-06-23T00:00:00Z"},
-        ]),
+        make_events_response(
+            [
+                {
+                    "eventId": "e1",
+                    "deviceId": "d1",
+                    "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                    "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                    "occurred_at": "2026-06-23T00:00:00Z",
+                },
+            ]
+        ),
     ]
     s = AvigilonScanner(
-        sample_nvr, user_nonce="n", user_key="k", session=mock_session,
+        sample_nvr,
+        user_nonce="n",
+        user_key="k",
+        session=mock_session,
     )
     result = s.scan()
     # 1 台異常相機、1 筆 event（去重）
@@ -275,22 +377,38 @@ def test_scan_dedup_event_and_state_same_camera(sample_nvr, mock_session, make_l
 
 
 # === 13. scan() 無異常事件 ===
-def test_scan_no_abnormal(sample_nvr, mock_session, make_login_response, make_cameras_response, make_events_response):
+def test_scan_no_abnormal(
+    sample_nvr,
+    mock_session,
+    make_login_response,
+    make_cameras_response,
+    make_events_response,
+):
     mock_session.request.side_effect = [
         make_login_response("tok"),
         MagicMock(
-            status_code=200, ok=True,
+            status_code=200,
+            ok=True,
             json=lambda: {"status": "success", "result": ["s1"]},
             text="...",
         ),
-        make_cameras_response([
-            {"deviceId": "d1", "name": "cam1",
-             "connectionStatus": {"state": "CONNECTED"}, "available": True},
-        ]),
+        make_cameras_response(
+            [
+                {
+                    "deviceId": "d1",
+                    "name": "cam1",
+                    "connectionStatus": {"state": "CONNECTED"},
+                    "available": True,
+                },
+            ]
+        ),
         make_events_response([]),
     ]
     s = AvigilonScanner(
-        sample_nvr, user_nonce="n", user_key="k", session=mock_session,
+        sample_nvr,
+        user_nonce="n",
+        user_key="k",
+        session=mock_session,
     )
     result = s.scan()
     assert result["stats"]["total_cameras"] == 1

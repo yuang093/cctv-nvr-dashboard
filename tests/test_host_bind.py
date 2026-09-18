@@ -10,6 +10,7 @@ tests/test_host_bind.py
 策略：monkeypatch 掉 socket.socket.bind，記錄被呼叫時的 host/port，
 驗證呼叫過且 host/port 正確。不真正 bind（避免環境 port 衝突）。
 """
+
 from __future__ import annotations
 
 import socket
@@ -52,6 +53,7 @@ def test_default_binds_localhost(monkeypatch, tmp_path):
     db = str(tmp_path / "bind.db")
     monkeypatch.setenv("NVR_DB_PATH", db)
     import web.app as webapp
+
     captured = []
     _capture_bind(monkeypatch, captured)
     webapp.app = _make_fake_app(db, captured)
@@ -65,6 +67,7 @@ def test_env_127_keeps_localhost(monkeypatch, tmp_path):
     db = str(tmp_path / "l.db")
     monkeypatch.setenv("NVR_DB_PATH", db)
     import web.app as webapp
+
     captured = []
     _capture_bind(monkeypatch, captured)
     webapp.app = _make_fake_app(db, captured)
@@ -78,6 +81,7 @@ def test_env_lan_ip(monkeypatch, tmp_path):
     db = str(tmp_path / "l2.db")
     monkeypatch.setenv("NVR_DB_PATH", db)
     import web.app as webapp
+
     captured = []
     _capture_bind(monkeypatch, captured)
     webapp.app = _make_fake_app(db, captured)
@@ -91,6 +95,7 @@ def test_env_custom_port(monkeypatch, tmp_path):
     db = str(tmp_path / "p.db")
     monkeypatch.setenv("NVR_DB_PATH", db)
     import web.app as webapp
+
     captured = []
     _capture_bind(monkeypatch, captured)
     webapp.app = _make_fake_app(db, captured)
@@ -113,9 +118,9 @@ def test_run_web_sh_default_is_localhost():
     sh = (here / "run_web.sh").read_text(encoding="utf-8")
     m = re.search(r'HOST="\$\{NVR_WEB_HOST:-([^}]+)\}"', sh)
     assert m, "找不到 HOST default"
-    assert m.group(1).strip() == "127.0.0.1", (
-        f"預設應為 127.0.0.1，got {m.group(1).strip()!r}"
-    )
+    assert (
+        m.group(1).strip() == "127.0.0.1"
+    ), f"預設應為 127.0.0.1，got {m.group(1).strip()!r}"
 
 
 def test_run_web_bat_default_is_localhost():

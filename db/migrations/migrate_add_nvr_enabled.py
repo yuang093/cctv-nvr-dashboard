@@ -8,6 +8,7 @@ db/migrations/migrate_add_nvr_enabled.py
 
 退出碼：0 = 已套用（或已存在）/ 1 = 失敗
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -32,8 +33,7 @@ def run(db_path: str) -> int:
 
         # 檢查欄位
         cols = [
-            r["name"]
-            for r in conn.execute("PRAGMA table_info(nvr_servers)").fetchall()
+            r["name"] for r in conn.execute("PRAGMA table_info(nvr_servers)").fetchall()
         ]
         if "enabled" in cols:
             print(f"[skip] {db_path} 已含 enabled 欄位（idempotent）")

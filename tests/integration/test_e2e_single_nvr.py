@@ -10,16 +10,15 @@ tests/integration/test_e2e_single_nvr.py
 - 連線失敗 → ConnectionError_
 - DB 寫入：scan() 結果真的寫進 SQLite（cameras + events 表）
 """
+
 from __future__ import annotations
 
 import pytest
 
-from nvr_scanner import AuthError, AvigilonScanner, ConnectionError_
+from nvr_scanner import AuthError, AvigilonScanner
 from tests.integration.mock_acc import (
     MockAvigilonServer,
     make_abnormal_nvr,
-    make_login_fail_nvr,
-    make_normal_nvr,
 )
 
 
@@ -76,15 +75,11 @@ class TestSingleNvrEndToEnd:
         assert abnormal_ids == {"cam-001", "cam-002", "cam-003"}
 
         # cam-001: 來自 event
-        cam_001_event = next(
-            e for e in result["events"] if e["deviceId"] == "cam-001"
-        )
+        cam_001_event = next(e for e in result["events"] if e["deviceId"] == "cam-001")
         assert "DEVICE_VIDEO_SIGNAL_LOST" in cam_001_event["eventTopics"]
 
         # cam-003: 來自 state（無對應 event）
-        cam_003_event = next(
-            e for e in result["events"] if e["deviceId"] == "cam-003"
-        )
+        cam_003_event = next(e for e in result["events"] if e["deviceId"] == "cam-003")
         assert cam_003_event["source"] == "camera_state"
         assert cam_003_event["connection_state"] == "DISCONNECTED"
 
@@ -137,22 +132,26 @@ class TestSingleNvrWithDatabase:
     """End-to-end：scan() 結果真的寫進 SQLite。"""
 
     def test_scan_result_persists_to_db(
-        self, mock_nvr_server, integration_writer,
+        self,
+        mock_nvr_server,
+        integration_writer,
     ):
         """scan() 結果走完整 SqliteWriter 流程（upsert → begin → upsert_cam → insert → finish）。"""
         s = _make_scanner(mock_nvr_server)
         result = s.scan()
 
         # 模擬 batch_scan 流程
-        nvr_int_id = integration_writer.upsert_nvr({
-            "id": "test-nvr",
-            "name": "MockNVR",
-            "host": mock_nvr_server.host,
-            "port": mock_nvr_server.port,
-            "username": "admin",
-            "password": "secret",
-            "verify_ssl": False,
-        })
+        nvr_int_id = integration_writer.upsert_nvr(
+            {
+                "id": "test-nvr",
+                "name": "MockNVR",
+                "host": mock_nvr_server.host,
+                "port": mock_nvr_server.port,
+                "username": "admin",
+                "password": "secret",
+                "verify_ssl": False,
+            }
+        )
         run_id = integration_writer.begin_scan_run("2026-06-23T10:00:00Z")
         integration_writer.upsert_cameras(nvr_int_id, result["cameras"])
         integration_writer.insert_events(run_id, nvr_int_id, result["events"])
@@ -184,7 +183,9 @@ class TestSingleNvrWithDatabase:
         assert "STATE_DISCONNECTED" in topics
 
     def test_event_insert_dedup_via_state_priority(
-        self, mock_nvr_server, integration_writer,
+        self,
+        mock_nvr_server,
+        integration_writer,
     ):
         """同一相機 event + state 都觸發時，去重為一個（events 來源優先）。
 
@@ -194,11 +195,11 @@ class TestSingleNvrWithDatabase:
         s = _make_scanner(mock_nvr_server)
         result = s.scan()
 
-        cam_002_events = [
-            e for e in result["events"] if e["deviceId"] == "cam-002"
-        ]
+        cam_002_events = [e for e in result["events"] if e["deviceId"] == "cam-002"]
         assert len(cam_002_events) == 1
         # 是 event 來源，不是 state 合成
         assert "DEVICE_TAMPERING" in cam_002_events[0]["eventTopics"]
-        assert "source" not in cam_002_events[0] or \
-            cam_002_events[0].get("source") != "camera_state"
+        assert (
+            "source" not in cam_002_events[0]
+            or cam_002_events[0].get("source") != "camera_state"
+        )

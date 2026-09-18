@@ -1,10 +1,16 @@
 """驗證 cyberpunk-dark.css 內容齊全。"""
+
 import re
 from pathlib import Path
 
-import pytest
 
-DARK_CSS = Path(__file__).resolve().parent.parent / "web" / "static" / "themes" / "cyberpunk-dark.css"
+DARK_CSS = (
+    Path(__file__).resolve().parent.parent
+    / "web"
+    / "static"
+    / "themes"
+    / "cyberpunk-dark.css"
+)
 
 
 def test_dark_file_exists():
@@ -32,4 +38,6 @@ def test_dark_accent_is_cyan():
     g = int(color[3:5], 16)
     b = int(color[5:7], 16)
     # 青色系：b > 200, g > 200, r < 100
-    assert r < 100 and g > 150 and b > 150, f"cyberpunk --primary 應為青色系，實際 {color}"
+    assert (
+        r < 100 and g > 150 and b > 150
+    ), f"cyberpunk --primary 應為青色系，實際 {color}"

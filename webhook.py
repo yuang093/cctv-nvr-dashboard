@@ -14,13 +14,13 @@ Webhook 推播模組：在 batch_scan 偵測到異常時，自動 POST 到 Slack
     - "slack"：Slack Incoming Webhooks（https://api.slack.com/messaging/webhooks）
     - "teams"：MS Teams Office 365 Connector（MessageCard 格式）
 """
+
 from __future__ import annotations
 
 import json
 import os
 import re
 import sys
-import time
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -73,9 +73,11 @@ def substitute_env_vars(url: str) -> str:
     Returns:
         替換後的字串（無未解析的佔位符）。
     """
+
     def _replace(match):
         var_name = match.group(1)
         return os.environ.get(var_name, "")
+
     return ENV_VAR_PATTERN.sub(_replace, url)
 
 
@@ -85,6 +87,7 @@ def _build_slack_payload(payload: WebhookPayload) -> dict:
     # 計算 duration
     try:
         from datetime import datetime
+
         start = datetime.fromisoformat(payload.started_at.replace("Z", "+00:00"))
         end = datetime.fromisoformat(payload.finished_at.replace("Z", "+00:00"))
         duration_sec = (end - start).total_seconds()
@@ -103,7 +106,7 @@ def _build_slack_payload(payload: WebhookPayload) -> dict:
     top_anomalies: list[str] = []
     for nvr_result in payload.per_nvr_results:
         result = nvr_result.get("result", nvr_result)
-        for ev in result.get("events", [])[:payload.top_anomaly_limit]:
+        for ev in result.get("events", [])[: payload.top_anomaly_limit]:
             dev_id = ev.get("deviceId", "?")
             topics = ev.get("eventTopics") or [ev.get("eventTopic", "?")]
             topic_str = ", ".join(str(t) for t in topics[:3])
@@ -148,6 +151,7 @@ def _build_teams_payload(payload: WebhookPayload) -> dict:
     # 計算 duration
     try:
         from datetime import datetime
+
         start = datetime.fromisoformat(payload.started_at.replace("Z", "+00:00"))
         end = datetime.fromisoformat(payload.finished_at.replace("Z", "+00:00"))
         duration_sec = (end - start).total_seconds()
@@ -157,8 +161,14 @@ def _build_teams_payload(payload: WebhookPayload) -> dict:
 
     facts = [
         {"name": "狀態", "value": payload.run_status},
-        {"name": "異常相機", "value": f"{payload.abnormal_cameras} / {payload.total_cameras}"},
-        {"name": "NVR 成功/失敗", "value": f"{payload.ok_nvrs} / {payload.failed_nvrs}（總 {payload.total_nvrs}）"},
+        {
+            "name": "異常相機",
+            "value": f"{payload.abnormal_cameras} / {payload.total_cameras}",
+        },
+        {
+            "name": "NVR 成功/失敗",
+            "value": f"{payload.ok_nvrs} / {payload.failed_nvrs}（總 {payload.total_nvrs}）",
+        },
         {"name": "耗時", "value": duration_str},
     ]
 
@@ -254,7 +264,9 @@ def send_webhook(
         if ok:
             print(f"[INFO] webhook 送出成功：{config.provider} → ...{url[-30:]}")
         else:
-            print(f"[WARN] webhook 送出失敗：{config.provider} — {err}", file=sys.stderr)
+            print(
+                f"[WARN] webhook 送出失敗：{config.provider} — {err}", file=sys.stderr
+            )
     return ok, err
 
 
@@ -277,7 +289,11 @@ def send_webhooks(
     results = []
     for cfg in webhooks:
         ok, err = send_webhook(
-            cfg, payload, session=session, timeout=timeout, verbose=verbose,
+            cfg,
+            payload,
+            session=session,
+            timeout=timeout,
+            verbose=verbose,
         )
         results.append((cfg, ok, err))
     return results
@@ -286,24 +302,34 @@ def send_webhooks(
 # === CLI 測試入口 ===
 def _cli() -> int:
     """獨立測試 webhook 模組：python -m webhook。"""
-    import sys
 
     print("webhook module self-check:")
     print(f"  substitute_env_vars: {substitute_env_vars('${NONEXIST}')} (應為空)")
     sample_payload = WebhookPayload(
         run_status="partial",
-        total_nvrs=3, ok_nvrs=2, failed_nvrs=1,
-        total_cameras=8, abnormal_cameras=3,
+        total_nvrs=3,
+        ok_nvrs=2,
+        failed_nvrs=1,
+        total_cameras=8,
+        abnormal_cameras=3,
         started_at="2026-06-30T10:00:00Z",
         finished_at="2026-06-30T10:00:05Z",
         per_nvr_results=[
-            {"result": {"events": [
-                {"deviceId": "cam-001",
-                 "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"]}
-            ]}}
+            {
+                "result": {
+                    "events": [
+                        {
+                            "deviceId": "cam-001",
+                            "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                        }
+                    ]
+                }
+            }
         ],
     )
-    print(f"  slack payload: {json.dumps(_build_slack_payload(sample_payload), ensure_ascii=False, indent=2)}")
+    print(
+        f"  slack payload: {json.dumps(_build_slack_payload(sample_payload), ensure_ascii=False, indent=2)}"
+    )
     return 0
 
 

@@ -7,11 +7,11 @@ regression 測試：
   - clips_app 內部仍可呼叫 _compress_to_thumbnail（向後相容別名）
   - 行為跟原 inline 實作一致
 """
+
 from __future__ import annotations
 
 import io
 
-import pytest
 from PIL import Image
 
 
@@ -25,6 +25,7 @@ def _make_jpeg(width: int = 640, height: int = 480) -> bytes:
 def test_clips_app_has_compress_to_thumbnail_alias():
     """clips_app 應暴露 _compress_to_thumbnail 別名（向後相容）。"""
     from web import clips_app
+
     assert hasattr(clips_app, "_compress_to_thumbnail")
     assert callable(clips_app._compress_to_thumbnail)
 
@@ -58,6 +59,7 @@ def test_compress_to_thumbnail_alias_quality_82():
     out = clips_app._compress_to_thumbnail(src)
     # 跟 snapshot.compress_to_thumbnail 對照
     from web.snapshot import compress_to_thumbnail
+
     assert out == compress_to_thumbnail(src)
 
 

@@ -12,6 +12,7 @@ Web UI 用的唯讀 DB helpers。
     from web.db import get_recent_runs, get_run_with_events
     runs = get_recent_runs(db_path, limit=5)
 """
+
 from __future__ import annotations
 
 import json
@@ -71,9 +72,9 @@ def get_overall_stats(db_path: str) -> dict:
             "SELECT COUNT(*) FROM cameras WHERE is_ghost = 0"
         ).fetchone()[0]
         # 24 小時內的 event 數
-        cutoff = (
-            datetime.now(timezone.utc) - timedelta(hours=24)
-        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
         evs_24h = conn.execute(
             "SELECT COUNT(*) FROM events WHERE detected_at >= ?",
             (cutoff,),
@@ -155,18 +156,14 @@ def get_run(db_path: str, run_id: int) -> dict | None:
     """單次 scan_run 詳情。"""
     conn = _connect(db_path)
     try:
-        row = conn.execute(
-            "SELECT * FROM scan_runs WHERE id = ?", (run_id,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM scan_runs WHERE id = ?", (run_id,)).fetchone()
         if not row:
             return None
         result = dict(row)
         # 解析 duration（如果有 finished_at）
         if result.get("started_at") and result.get("finished_at"):
             try:
-                t0 = datetime.fromisoformat(
-                    result["started_at"].replace("Z", "+00:00")
-                )
+                t0 = datetime.fromisoformat(result["started_at"].replace("Z", "+00:00"))
                 t1 = datetime.fromisoformat(
                     result["finished_at"].replace("Z", "+00:00")
                 )
@@ -292,17 +289,19 @@ def list_enabled_nvrs(db_path: str) -> list[dict]:
                 tags = json.loads(r["tags"] or "[]")
             except (json.JSONDecodeError, TypeError):
                 tags = []
-            out.append({
-                "id": r["nvr_id"],
-                "name": r["name"],
-                "host": r["host"],
-                "port": int(r["port"]),
-                "username": r["username"] or "",
-                "password": r["password"] or "",
-                "verify_ssl": bool(r["verify_ssl"]),
-                "site_id": r["site_id"],
-                "tags": tags,
-            })
+            out.append(
+                {
+                    "id": r["nvr_id"],
+                    "name": r["name"],
+                    "host": r["host"],
+                    "port": int(r["port"]),
+                    "username": r["username"] or "",
+                    "password": r["password"] or "",
+                    "verify_ssl": bool(r["verify_ssl"]),
+                    "site_id": r["site_id"],
+                    "tags": tags,
+                }
+            )
         return out
     finally:
         conn.close()
@@ -364,6 +363,7 @@ def get_nvrs(db_path: str) -> list[dict]:
 
 
 # === NVR CRUD（Phase 2.5a） ===
+
 
 def get_nvrs_paginated(
     db_path: str,
@@ -459,24 +459,28 @@ def get_nvr(db_path: str, internal_id: int) -> dict | None:
 
 # === Phase 2.8（Arisan）Phase #5：/wall 相機牆 ===
 # 訊號 / 無訊號 分類用的關鍵字（與 event_kind_catalog 表一致；State 是過渡）
-_SIGNAL_LOST_TOPICS = frozenset({
-    "DEVICE_VIDEO_SIGNAL_LOST",
-    "DEVICE_COMMUNICATION_LOST",
-    "DEVICE_CONNECTION_ERROR",
-    "DEVICE_TAMPERING",
-})
-_NO_SIGNAL_TOPICS = frozenset({
-    "STATE_LONG_FAILED",
-    "STATE_DISCONNECTED",
-    "STATE_NOT_RESPONDING",
-    "STATE_FAILED",
-    "STATE_TIMED_OUT",
-    "STATE_NETWORK_DOWN",
-    "DEVICE_DISCONNECTED",
-    "DEVICE_LONG_FAILED",
-    "STATE_AUTH_FAILED",
-    "STATE_BAD_CERTIFICATE",
-})
+_SIGNAL_LOST_TOPICS = frozenset(
+    {
+        "DEVICE_VIDEO_SIGNAL_LOST",
+        "DEVICE_COMMUNICATION_LOST",
+        "DEVICE_CONNECTION_ERROR",
+        "DEVICE_TAMPERING",
+    }
+)
+_NO_SIGNAL_TOPICS = frozenset(
+    {
+        "STATE_LONG_FAILED",
+        "STATE_DISCONNECTED",
+        "STATE_NOT_RESPONDING",
+        "STATE_FAILED",
+        "STATE_TIMED_OUT",
+        "STATE_NETWORK_DOWN",
+        "DEVICE_DISCONNECTED",
+        "DEVICE_LONG_FAILED",
+        "STATE_AUTH_FAILED",
+        "STATE_BAD_CERTIFICATE",
+    }
+)
 
 
 def get_wall_cameras(db_path: str, filter_kind: str = "all") -> list[dict]:
@@ -530,17 +534,23 @@ def get_wall_cameras(db_path: str, filter_kind: str = "all") -> list[dict]:
             cat = "online"
         if filter_kind != "all" and cat != filter_kind:
             continue
-        out.append({
-            "nvr_id": r["nvr_id"],
-            "nvr_name": r["nvr_name"],
-            "device_id": r["device_id"],
-            "camera_name": r["camera_name"],
-            "ip_address": r["ip_address"],
-            "latest_topic": topic,
-            "latest_topic_zh": get_event_label_zh(db_path, topic) if topic else None,
-            "category": cat,
-            "recording_pct": get_latest_recording_pct(db_path, r["nvr_id"], r["device_id"]),
-        })
+        out.append(
+            {
+                "nvr_id": r["nvr_id"],
+                "nvr_name": r["nvr_name"],
+                "device_id": r["device_id"],
+                "camera_name": r["camera_name"],
+                "ip_address": r["ip_address"],
+                "latest_topic": topic,
+                "latest_topic_zh": get_event_label_zh(db_path, topic)
+                if topic
+                else None,
+                "category": cat,
+                "recording_pct": get_latest_recording_pct(
+                    db_path, r["nvr_id"], r["device_id"]
+                ),
+            }
+        )
     return out
 
 
@@ -639,21 +649,29 @@ def get_wall_cameras_with_snapshots(
         if filter_kind != "all" and cat != filter_kind:
             continue
         snap_bytes = r["snapshot_bytes"]
-        out.append({
-            "nvr_id": r["nvr_id"],
-            "nvr_name": r["nvr_name"],
-            "device_id": r["device_id"],
-            "camera_name": r["camera_name"],
-            "ip_address": r["ip_address"],
-            "latest_topic": topic,
-            "latest_topic_zh": get_event_label_zh(db_path, topic) if topic else None,
-            "latest_event_at": r["latest_event_at"],
-            "category": cat,
-            "recording_pct": get_latest_recording_pct(db_path, r["nvr_id"], r["device_id"]),
-            "snapshot_b64": _base64.b64encode(snap_bytes).decode("ascii") if snap_bytes else None,
-            "has_snapshot": bool(snap_bytes),
-            "snapshot_captured_at": r["snapshot_captured_at"],
-        })
+        out.append(
+            {
+                "nvr_id": r["nvr_id"],
+                "nvr_name": r["nvr_name"],
+                "device_id": r["device_id"],
+                "camera_name": r["camera_name"],
+                "ip_address": r["ip_address"],
+                "latest_topic": topic,
+                "latest_topic_zh": get_event_label_zh(db_path, topic)
+                if topic
+                else None,
+                "latest_event_at": r["latest_event_at"],
+                "category": cat,
+                "recording_pct": get_latest_recording_pct(
+                    db_path, r["nvr_id"], r["device_id"]
+                ),
+                "snapshot_b64": _base64.b64encode(snap_bytes).decode("ascii")
+                if snap_bytes
+                else None,
+                "has_snapshot": bool(snap_bytes),
+                "snapshot_captured_at": r["snapshot_captured_at"],
+            }
+        )
 
     # 排序：嚴重度 → 事件時間（NULL 排後）→ cam 名稱
     # 邏輯：
@@ -944,7 +962,7 @@ def update_nvr(
             conn.rollback()
             raise ValueError(f"找不到 internal_id={internal_id} 的 NVR")
         conn.commit()
-    except sqlite3.Error as e:
+    except sqlite3.Error:
         conn.rollback()
         raise
     finally:
@@ -970,14 +988,10 @@ def delete_nvr(db_path: str, internal_id: int) -> dict:
         conn.commit()
         conn.execute("PRAGMA foreign_keys = OFF")
 
-        cam_cur = conn.execute(
-            "DELETE FROM cameras WHERE nvr_id = ?", (internal_id,)
-        )
+        cam_cur = conn.execute("DELETE FROM cameras WHERE nvr_id = ?", (internal_id,))
         cameras_deleted = cam_cur.rowcount
 
-        srv_cur = conn.execute(
-            "DELETE FROM nvr_servers WHERE id = ?", (internal_id,)
-        )
+        srv_cur = conn.execute("DELETE FROM nvr_servers WHERE id = ?", (internal_id,))
         if srv_cur.rowcount == 0:
             conn.rollback()
             raise ValueError(f"找不到 internal_id={internal_id} 的 NVR")
@@ -992,6 +1006,7 @@ def delete_nvr(db_path: str, internal_id: int) -> dict:
 
 
 # === Phase 2.6：背景掃描狀態查詢 ===
+
 
 def get_last_scan_run(db_path: str) -> dict | None:
     """最近一次 scan_run（給背景 scan thread 寫入 run_id 用）。"""
@@ -1020,54 +1035,54 @@ def get_last_scan_run(db_path: str) -> dict | None:
 #   - STATE_*：由 connection_state 衍生（連線中、斷線、憑證錯等）
 ABNORMAL_TOPIC_ZH: dict[str, str] = {
     # === DEVICE_*（v1 既有的 8 種）===
-    "DEVICE_VIDEO_SIGNAL_LOST":  "影像訊號斷線（黑畫面）",
-    "DEVICE_TAMPERING":          "破壞/遮蔽（場景改變）",
+    "DEVICE_VIDEO_SIGNAL_LOST": "影像訊號斷線（黑畫面）",
+    "DEVICE_TAMPERING": "破壞/遮蔽（場景改變）",
     "DEVICE_COMMUNICATION_LOST": "通訊中斷",
-    "DEVICE_CONNECTION_ERROR":   "連線錯誤",
-    "DEVICE_LONG_FAILED":        "長期失敗（拔線）",
-    "DEVICE_DISCONNECTED":       "斷線",
-    "DEVICE_ANOMALY_START":      "影像分析異常",
-    "DEVICE_UNUSUAL_STARTED":    "未預期活動",
+    "DEVICE_CONNECTION_ERROR": "連線錯誤",
+    "DEVICE_LONG_FAILED": "長期失敗（拔線）",
+    "DEVICE_DISCONNECTED": "斷線",
+    "DEVICE_ANOMALY_START": "影像分析異常",
+    "DEVICE_UNUSUAL_STARTED": "未預期活動",
     # === STATE_*（由 connection_state 衍生，常見場景）===
-    "STATE_DISCONNECTED":        "斷線（攝影機無回應）",
-    "STATE_NOT_RESPONDING":      "無回應（攝影機 hang）",
-    "STATE_FAILED":              "連線失敗",
-    "STATE_LONG_FAILED":         "長期失敗（拔網路線）",
-    "STATE_BAD_CERTIFICATE":     "憑證錯誤",
-    "STATE_AUTH_FAILED":         "認證失敗（帳密錯）",
-    "STATE_NETWORK_DOWN":        "網路斷線",
-    "STATE_TIMED_OUT":           "連線逾時",
-    "STATE_CONNECTING":          "連線中（短暫狀態）",
+    "STATE_DISCONNECTED": "斷線（攝影機無回應）",
+    "STATE_NOT_RESPONDING": "無回應（攝影機 hang）",
+    "STATE_FAILED": "連線失敗",
+    "STATE_LONG_FAILED": "長期失敗（拔網路線）",
+    "STATE_BAD_CERTIFICATE": "憑證錯誤",
+    "STATE_AUTH_FAILED": "認證失敗（帳密錯）",
+    "STATE_NETWORK_DOWN": "網路斷線",
+    "STATE_TIMED_OUT": "連線逾時",
+    "STATE_CONNECTING": "連線中（短暫狀態）",
 }
 
 
 # 泛用 fallback（沒對照到的 STATE_/DEVICE_ 也給人話）
 _GENERIC_TOPIC_ZH: dict[str, str] = {
     # DEVICE_* 通用
-    "DEVICE_VIDEO_SIGNAL_LOST":  "影像訊號斷線（黑畫面）",
-    "DEVICE_TAMPERING":          "破壞/遮蔽（場景改變）",
+    "DEVICE_VIDEO_SIGNAL_LOST": "影像訊號斷線（黑畫面）",
+    "DEVICE_TAMPERING": "破壞/遮蔽（場景改變）",
     "DEVICE_COMMUNICATION_LOST": "通訊中斷",
-    "DEVICE_CONNECTION_ERROR":   "連線錯誤",
-    "DEVICE_LONG_FAILED":        "長期失敗（拔線）",
-    "DEVICE_DISCONNECTED":       "斷線",
-    "DEVICE_ANOMALY_START":      "影像分析異常",
-    "DEVICE_UNUSUAL_STARTED":    "未預期活動",
+    "DEVICE_CONNECTION_ERROR": "連線錯誤",
+    "DEVICE_LONG_FAILED": "長期失敗（拔線）",
+    "DEVICE_DISCONNECTED": "斷線",
+    "DEVICE_ANOMALY_START": "影像分析異常",
+    "DEVICE_UNUSUAL_STARTED": "未預期活動",
     # STATE_<CONNECTION_STATE> 泛用對照
-    "STATE_CONNECTED":           "已連線（正常）",
-    "STATE_CONNECTING":          "連線中",
-    "STATE_DISCONNECTED":        "斷線（攝影機無回應）",
-    "STATE_FAILED":              "連線失敗",
-    "STATE_LONG_FAILED":         "長期失敗（拔網路線）",
-    "STATE_NOT_RESPONDING":      "無回應（攝影機 hang）",
-    "STATE_BAD_CERTIFICATE":     "憑證錯誤",
-    "STATE_AUTH_FAILED":         "認證失敗（帳密錯）",
-    "STATE_NETWORK_DOWN":        "網路斷線",
-    "STATE_TIMED_OUT":           "連線逾時",
-    "STATE_UNKNOWN":             "連線狀態不明",
-    "STATE_RECONNECTING":        "重新連線中",
-    "STATE_UPGRADING":           "韌體升級中",
-    "STATE_INCOMPATIBLE":        "不相容",
-    "STATE_NOT_SUPPORTED":       "不支援此操作",
+    "STATE_CONNECTED": "已連線（正常）",
+    "STATE_CONNECTING": "連線中",
+    "STATE_DISCONNECTED": "斷線（攝影機無回應）",
+    "STATE_FAILED": "連線失敗",
+    "STATE_LONG_FAILED": "長期失敗（拔網路線）",
+    "STATE_NOT_RESPONDING": "無回應（攝影機 hang）",
+    "STATE_BAD_CERTIFICATE": "憑證錯誤",
+    "STATE_AUTH_FAILED": "認證失敗（帳密錯）",
+    "STATE_NETWORK_DOWN": "網路斷線",
+    "STATE_TIMED_OUT": "連線逾時",
+    "STATE_UNKNOWN": "連線狀態不明",
+    "STATE_RECONNECTING": "重新連線中",
+    "STATE_UPGRADING": "韌體升級中",
+    "STATE_INCOMPATIBLE": "不相容",
+    "STATE_NOT_SUPPORTED": "不支援此操作",
 }
 
 
@@ -1155,6 +1170,7 @@ def get_abnormal_cameras_grouped(db_path: str) -> list[dict]:
 
 # === Phase 2.5c：CSV / JSON 匯出（round-trip：匯出 → 修改 → 匯入） ===
 
+
 def get_all_nvrs_for_export(db_path: str) -> list[dict]:
     """所有 NVR 完整資料（含密碼），給 round-trip 匯出用。
 
@@ -1200,6 +1216,7 @@ def get_all_nvrs_for_export(db_path: str) -> list[dict]:
 
 
 # === Phase 2.5b：CSV / JSON 批次匯入 ===
+
 
 def bulk_create_nvrs(db_path: str, nvr_list: list[dict]) -> dict:
     """批次新增多台 NVR（all-or-nothing transaction）。
@@ -1298,10 +1315,12 @@ def bulk_upsert_nvrs(db_path: str, nvr_list: list[dict]) -> dict:
                 (target_host, target_port, new_nvr_id),
             ).fetchall()
             for row in old_rows:
-                collisions.append({
-                    "new_nvr_id": new_nvr_id,
-                    "old_id": row["id"],
-                })
+                collisions.append(
+                    {
+                        "new_nvr_id": new_nvr_id,
+                        "old_id": row["id"],
+                    }
+                )
         # 統計既有 id（用 nvr_id 比對，不是 internal id）
         existing = {
             r["nvr_id"]
@@ -1429,12 +1448,11 @@ def bulk_upsert_nvrs(db_path: str, nvr_list: list[dict]) -> dict:
             # 2) DELETE 剩下的 OLD row
             for tbl, col, uniq_cols in UNIQ_TABLES:
                 uniq_select = ", ".join(uniq_cols)
-                uniq_list = ", ".join(
-                    f"{uc} = excluded.{uc}" for uc in uniq_cols
-                )
+                uniq_list = ", ".join(f"{uc} = excluded.{uc}" for uc in uniq_cols)
                 # 從 OLD 撈出每列（除了 nvr_id）並 INSERT OR IGNORE 到 NEW
                 other_cols = [
-                    r[1] for r in conn.execute(f"PRAGMA table_info({tbl})").fetchall()
+                    r[1]
+                    for r in conn.execute(f"PRAGMA table_info({tbl})").fetchall()
                     if r[1] not in ("id", col)
                 ]
                 cols_csv = ", ".join(other_cols)
@@ -1505,9 +1523,9 @@ def get_events_filtered(
               AND (c.id IS NULL OR c.is_ghost = 0)
         """
         params: list[Any] = []
-        cutoff = (
-            datetime.now(timezone.utc) - timedelta(hours=hours)
-        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
         params.append(cutoff)
         if nvr_id is not None:
             sql += " AND e.nvr_id = ?"
@@ -1535,8 +1553,12 @@ def get_events_filtered(
 
 
 def get_devices_paginated(
-    db_path: str, *, page: int = 1, per_page: int = 50,
-    nvr_filter: str = "", status_filter: str = "",
+    db_path: str,
+    *,
+    page: int = 1,
+    per_page: int = 50,
+    nvr_filter: str = "",
+    status_filter: str = "",
 ) -> tuple[list[dict], int]:
     """Phase 2.8（Arisan）Phase #5：跨 NVR 設備總覽表（分頁）。
 
@@ -1556,7 +1578,9 @@ def get_devices_paginated(
     if status_filter:
         if status_filter == "online":
             # online = 沒事件 OR 事件不在訊號/無訊號清單
-            placeholders = ",".join("?" for _ in range(len(_SIGNAL_LOST_TOPICS | _NO_SIGNAL_TOPICS)))
+            placeholders = ",".join(
+                "?" for _ in range(len(_SIGNAL_LOST_TOPICS | _NO_SIGNAL_TOPICS))
+            )
             where.append(
                 f"(latest.event_topic IS NULL OR latest.event_topic NOT IN ({placeholders}))"
             )
@@ -1628,15 +1652,19 @@ def get_devices_paginated(
             cat = "no_signal"
         else:
             cat = "online"
-        out.append({
-            "nvr_id": r["nvr_id"],
-            "nvr_name": r["nvr_name"],
-            "device_id": r["device_id"],
-            "camera_name": r["camera_name"],
-            "latest_topic": topic,
-            "latest_topic_zh": get_event_label_zh(db_path, topic) if topic else None,
-            "category": cat,
-        })
+        out.append(
+            {
+                "nvr_id": r["nvr_id"],
+                "nvr_name": r["nvr_name"],
+                "device_id": r["device_id"],
+                "camera_name": r["camera_name"],
+                "latest_topic": topic,
+                "latest_topic_zh": get_event_label_zh(db_path, topic)
+                if topic
+                else None,
+                "category": cat,
+            }
+        )
     return out, total
 
 
@@ -1652,9 +1680,12 @@ def get_device_detail(db_path: str, device_id: str) -> dict | None:
     try:
         # Phase 2.8 image_health_checks 表可能不存在（DB 是舊版、還沒跑 worker）
         try:
-            has_health_table = conn.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='image_health_checks'"
-            ).fetchone() is not None
+            has_health_table = (
+                conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='image_health_checks'"
+                ).fetchone()
+                is not None
+            )
         except sqlite3.OperationalError:
             has_health_table = False
         row = conn.execute(
@@ -1678,17 +1709,20 @@ def get_device_detail(db_path: str, device_id: str) -> dict | None:
                 health_metrics=(
                     "(SELECT h.metrics_json FROM image_health_checks h "
                     "WHERE h.camera_id = c.device_id ORDER BY h.id DESC LIMIT 1)"
-                    if has_health_table else "NULL"
+                    if has_health_table
+                    else "NULL"
                 ),
                 health_flags=(
                     "(SELECT h.flags_json FROM image_health_checks h "
                     "WHERE h.camera_id = c.device_id ORDER BY h.id DESC LIMIT 1)"
-                    if has_health_table else "NULL"
+                    if has_health_table
+                    else "NULL"
                 ),
                 health_checked_at=(
                     "(SELECT h.checked_at_utc FROM image_health_checks h "
                     "WHERE h.camera_id = c.device_id ORDER BY h.id DESC LIMIT 1)"
-                    if has_health_table else "NULL"
+                    if has_health_table
+                    else "NULL"
                 ),
             ),
             (device_id,),
@@ -1697,11 +1731,15 @@ def get_device_detail(db_path: str, device_id: str) -> dict | None:
             return None
         info = dict(row)
         info["latest_topic_zh"] = (
-            get_event_label_zh(db_path, info["latest_topic"]) if info["latest_topic"] else None
+            get_event_label_zh(db_path, info["latest_topic"])
+            if info["latest_topic"]
+            else None
         )
         info["category"] = (
-            "signal_lost" if info["latest_topic"] in _SIGNAL_LOST_TOPICS
-            else "no_signal" if info["latest_topic"] in _NO_SIGNAL_TOPICS
+            "signal_lost"
+            if info["latest_topic"] in _SIGNAL_LOST_TOPICS
+            else "no_signal"
+            if info["latest_topic"] in _NO_SIGNAL_TOPICS
             else "online"
         )
         info["recording_status"] = get_recording_status_for_camera(
@@ -1713,15 +1751,20 @@ def get_device_detail(db_path: str, device_id: str) -> dict | None:
 
 
 def get_camera_health_history(
-    db_path: str, device_id: str, limit: int = 50,
+    db_path: str,
+    device_id: str,
+    limit: int = 50,
 ) -> list[dict]:
     """Phase 2.8（Arisan）Phase #5：單台 cam 健康歷史（image_health_checks）。"""
     conn = _connect(db_path)
     try:
         # Phase 2.8 表格可能在舊 DB 不存在 → 回空 list
-        if conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='image_health_checks'"
-        ).fetchone() is None:
+        if (
+            conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='image_health_checks'"
+            ).fetchone()
+            is None
+        ):
             return []
         rows = conn.execute(
             """
@@ -1737,6 +1780,7 @@ def get_camera_health_history(
         out = []
         for r in rows:
             import json as _json
+
             try:
                 metrics = _json.loads(r["metrics_json"]) if r["metrics_json"] else {}
             except Exception:
@@ -1745,12 +1789,14 @@ def get_camera_health_history(
                 flags = _json.loads(r["flags_json"]) if r["flags_json"] else []
             except Exception:
                 flags = []
-            out.append({
-                "id": r["id"],
-                "checked_at_utc": r["checked_at_utc"],
-                "metrics": metrics,
-                "flags": flags,
-            })
+            out.append(
+                {
+                    "id": r["id"],
+                    "checked_at_utc": r["checked_at_utc"],
+                    "metrics": metrics,
+                    "flags": flags,
+                }
+            )
         return out
     finally:
         conn.close()
@@ -1762,6 +1808,7 @@ def create_discover_session(db_path: str, *, cidr: str, port: int) -> int:
     Returns: 新 session id。
     """
     import json as _json
+
     conn = _connect_writable(db_path)
     try:
         cur = conn.execute(
@@ -1787,6 +1834,7 @@ def update_discover_session(
 ) -> None:
     """Phase 2.8（Arisan）Phase #6：寫回 discover_sessions 結果 + status + finished_at_utc。"""
     import json as _json
+
     conn = _connect_writable(db_path)
     try:
         # 若 finished_at_utc 為 NULL 才寫（保留 started→running→completed 的時間序）
@@ -1832,6 +1880,7 @@ def get_session_port(db_path: str, session_id: int) -> int:
 def get_discover_session(db_path: str, session_id: int) -> dict | None:
     """Phase 2.8（Arisan）Phase #5：讀 discover session（含 results_json 解析）。"""
     import json as _json
+
     conn = _connect(db_path)
     try:
         row = conn.execute(
@@ -1895,16 +1944,34 @@ def get_all_topics(db_path: str) -> list[str]:
 # === Phase 1 Step 3b：Ad-hoc 唯讀 SELECT（給 /query 頁） ===
 
 # 黑名單 keyword（大小寫不敏感）
-_FORBIDDEN_KEYWORDS = frozenset({
-    "INSERT", "UPDATE", "DELETE", "REPLACE", "DROP", "ALTER", "CREATE",
-    "ATTACH", "DETACH", "PRAGMA", "VACUUM", "REINDEX", "LOAD",
-    "SAVEPOINT", "BEGIN", "COMMIT", "ROLLBACK", "ANALYZE",
-})
+_FORBIDDEN_KEYWORDS = frozenset(
+    {
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "REPLACE",
+        "DROP",
+        "ALTER",
+        "CREATE",
+        "ATTACH",
+        "DETACH",
+        "PRAGMA",
+        "VACUUM",
+        "REINDEX",
+        "LOAD",
+        "SAVEPOINT",
+        "BEGIN",
+        "COMMIT",
+        "ROLLBACK",
+        "ANALYZE",
+    }
+)
 
 
 def _strip_sql_comments(sql: str) -> str:
     """把 `--` 單行註解與 `/* */` 區塊註解移除（保留字串常值內的）。"""
     import re
+
     # 區塊註解
     sql = re.sub(r"/\*.*?\*/", " ", sql, flags=re.DOTALL)
     # 單行註解（簡化：不處理字串內的「--」；查詢裡通常不會有字串常值）
@@ -1949,6 +2016,7 @@ def _validate_readonly_sql(sql: str) -> str:
 
     # 3. 黑名單 keyword（用 word boundary 比對）
     import re
+
     for kw in _FORBIDDEN_KEYWORDS:
         if re.search(rf"\b{kw}\b", upper):
             raise ValueError(f"禁止使用 {kw}（僅允許唯讀 SELECT）")
@@ -2016,7 +2084,6 @@ def run_readonly_query(
         raise ValueError(f"SQLite 錯誤：{exc}") from exc
     finally:
         conn.close()
-
 
 
 def mark_scan_interrupted(run_id: int, db_path: str = "nvr_scan.db") -> bool:

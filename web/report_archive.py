@@ -11,6 +11,7 @@
     - 報表內容（groups / topic_zh / last_run）來自 web.db
     - PDF bytes 由 web.app._build_abnormal_pdf 生成（共用同一份版面）
 """
+
 from __future__ import annotations
 
 import logging
@@ -117,14 +118,16 @@ def list_reports(db_path: str) -> list[dict[str, Any]]:
         if not parsed:
             continue  # 跳過格式不符的（可能是手動放的）
         st = f.stat()
-        items.append({
-            "filename": f.name,
-            "run_id": parsed["run_id"],
-            "started_at": parsed["started_at"],
-            "epoch": parsed["epoch"],
-            "size_bytes": st.st_size,
-            "mtime": st.st_mtime,
-        })
+        items.append(
+            {
+                "filename": f.name,
+                "run_id": parsed["run_id"],
+                "started_at": parsed["started_at"],
+                "epoch": parsed["epoch"],
+                "size_bytes": st.st_size,
+                "mtime": st.st_mtime,
+            }
+        )
 
     # 從 DB 補上 status / abnormal_cameras
     if items:

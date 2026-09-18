@@ -1,10 +1,16 @@
 """驗證 brutal-dark.css 內容齊全。"""
+
 import re
 from pathlib import Path
 
-import pytest
 
-DARK_CSS = Path(__file__).resolve().parent.parent / "web" / "static" / "themes" / "brutal-dark.css"
+DARK_CSS = (
+    Path(__file__).resolve().parent.parent
+    / "web"
+    / "static"
+    / "themes"
+    / "brutal-dark.css"
+)
 
 
 def test_dark_file_exists():
@@ -14,8 +20,9 @@ def test_dark_file_exists():
 def test_dark_has_data_theme_block():
     """必須用 [data-theme="dark"] 觸發。"""
     content = DARK_CSS.read_text(encoding="utf-8")
-    assert re.search(r'\[data-theme=["\']dark["\']\]\s*\{', content), \
-        '應有 [data-theme="dark"] { ... } 區塊'
+    assert re.search(
+        r'\[data-theme=["\']dark["\']\]\s*\{', content
+    ), '應有 [data-theme="dark"] { ... } 區塊'
 
 
 def test_dark_overrides_accent_tokens():

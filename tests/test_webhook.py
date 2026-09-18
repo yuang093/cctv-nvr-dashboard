@@ -11,15 +11,15 @@ Webhook 推播模組單元測試。
 - send_webhooks：多個 webhook 並行
 - batch_scan 整合：webhook 觸發條件
 """
+
 from __future__ import annotations
 
-import json
 import os
 from unittest.mock import MagicMock
 
 import pytest
 
-from batch_scan import _parse_webhook_configs, batch_scan
+from batch_scan import _parse_webhook_configs
 from webhook import (
     WebhookConfig,
     WebhookPayload,
@@ -36,8 +36,11 @@ from webhook import (
 def sample_payload():
     return WebhookPayload(
         run_status="partial",
-        total_nvrs=3, ok_nvrs=2, failed_nvrs=1,
-        total_cameras=8, abnormal_cameras=3,
+        total_nvrs=3,
+        ok_nvrs=2,
+        failed_nvrs=1,
+        total_cameras=8,
+        abnormal_cameras=3,
         started_at="2026-06-30T10:00:00Z",
         finished_at="2026-06-30T10:00:05Z",
         per_nvr_results=[
@@ -45,13 +48,16 @@ def sample_payload():
                 "result": {
                     "nvr_name": "MockNVR-1",
                     "events": [
-                        {"deviceId": "cam-001",
-                         "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"]},
-                        {"deviceId": "cam-002",
-                         "eventTopics": ["DEVICE_TAMPERING"]},
-                        {"deviceId": "cam-003",
-                         "eventTopics": ["STATE_DISCONNECTED"],
-                         "source": "camera_state"},
+                        {
+                            "deviceId": "cam-001",
+                            "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                        },
+                        {"deviceId": "cam-002", "eventTopics": ["DEVICE_TAMPERING"]},
+                        {
+                            "deviceId": "cam-003",
+                            "eventTopics": ["STATE_DISCONNECTED"],
+                            "source": "camera_state",
+                        },
                     ],
                 }
             },
@@ -67,7 +73,6 @@ def sample_payload():
 
 # === substitute_env_vars ===
 class TestSubstituteEnvVars:
-
     def test_replace_dollar_brace(self, monkeypatch):
         monkeypatch.setenv("MY_TEST_VAR", "https://example.com")
         url = substitute_env_vars("prefix-${MY_TEST_VAR}-suffix")
@@ -94,7 +99,6 @@ class TestSubstituteEnvVars:
 
 # === Slack payload ===
 class TestSlackPayload:
-
     def test_includes_status_and_counts(self, sample_payload):
         body = _build_slack_payload(sample_payload)
         text = body["blocks"][0]["text"]["text"]
@@ -124,7 +128,6 @@ class TestSlackPayload:
 
 # === Teams payload ===
 class TestTeamsPayload:
-
     def test_messagecard_format(self, sample_payload):
         body = _build_teams_payload(sample_payload)
         assert body["@type"] == "MessageCard"
@@ -153,7 +156,6 @@ class TestTeamsPayload:
 
 # === send_webhook ===
 class TestSendWebhook:
-
     def test_disabled_skips_send(self, sample_payload):
         """enabled=False 時不應送任何 HTTP。"""
         session = MagicMock()
@@ -166,7 +168,9 @@ class TestSendWebhook:
         """200 OK → 回 success。"""
         session = MagicMock()
         session.post.return_value = MagicMock(
-            ok=True, status_code=200, text="ok",
+            ok=True,
+            status_code=200,
+            text="ok",
         )
         cfg = WebhookConfig(provider="slack", url="https://hooks.slack.com/x")
         ok, err = send_webhook(cfg, sample_payload, session=session, verbose=False)
@@ -177,7 +181,9 @@ class TestSendWebhook:
         """5xx → 回 failure（不丟例外）。"""
         session = MagicMock()
         session.post.return_value = MagicMock(
-            ok=False, status_code=500, text="oops",
+            ok=False,
+            status_code=500,
+            text="oops",
         )
         cfg = WebhookConfig(provider="slack", url="https://hooks.slack.com/x")
         ok, err = send_webhook(cfg, sample_payload, session=session, verbose=False)
@@ -221,7 +227,9 @@ class TestSendWebhook:
         session = MagicMock()
         session.post.return_value = MagicMock(ok=True)
         cfg = WebhookConfig(
-            provider="slack", url="https://x.com", channel="#test-channel",
+            provider="slack",
+            url="https://x.com",
+            channel="#test-channel",
         )
         send_webhook(cfg, sample_payload, session=session, verbose=False)
         # 檢查傳送的 body 含 channel
@@ -232,7 +240,6 @@ class TestSendWebhook:
 
 # === send_webhooks ===
 class TestSendWebhooks:
-
     def test_sends_to_all(self, sample_payload):
         """多個 webhook 都會送。"""
         session = MagicMock()
@@ -272,7 +279,6 @@ class TestSendWebhooks:
 
 # === _parse_webhook_configs ===
 class TestParseWebhookConfigs:
-
     def test_valid_configs(self):
         raw = [
             {"provider": "slack", "url": "https://x.com", "channel": "#test"},

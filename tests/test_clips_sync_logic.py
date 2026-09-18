@@ -16,6 +16,7 @@ test_clips_sync_logic.py
 - closeAllSyncSlots 時停止 sync loop
 - status bar 顯示「已校正 N 次」讓 user 看得到 sync 在運作
 """
+
 from __future__ import annotations
 
 import re
@@ -24,7 +25,9 @@ from pathlib import Path
 import pytest
 
 # clips.html 完整路徑（給靜態 grep 用）
-TEMPLATE = Path(__file__).resolve().parent.parent / "web" / "clips_templates" / "clips.html"
+TEMPLATE = (
+    Path(__file__).resolve().parent.parent / "web" / "clips_templates" / "clips.html"
+)
 
 
 @pytest.fixture(scope="module")
@@ -71,7 +74,7 @@ def _slice_function(template: str, name: str) -> str:
     start = template.index(f"function {name}(")
     # 找下一個**頂層** function 宣告（縮排 ≤4 空格）
     # 避免被內部 `.then(function(r) {})` callback 誤抓
-    rest = template[start + len(f"function {name}("):]
+    rest = template[start + len(f"function {name}(") :]
     end_m = re.search(r"\n {0,4}function\s+\w+\s*\(", rest)
     end = end_m.start() if end_m else len(rest)
     return rest[:end] if not end_m else rest[: end_m.start()] + ""
@@ -129,9 +132,9 @@ class TestSyncLoopMechanics:
         assert m
         body = m.group(1)
         # 0.3 必須寫死在差距判斷裡
-        assert "Math.abs(v.currentTime - mt) > 0.3" in body, (
-            "校正閾值必須是 0.3s（防止過度校正）"
-        )
+        assert (
+            "Math.abs(v.currentTime - mt) > 0.3" in body
+        ), "校正閾值必須是 0.3s（防止過度校正）"
 
     def test_corrects_slave_currentTime_to_master(self, template_text):
         """slave.currentTime 必須被設成 mt（master.currentTime）。"""
@@ -152,9 +155,7 @@ class TestSyncLoopMechanics:
         )
         body = m.group(1)
         # slave 處理區段要跳過 ended
-        assert "v.paused || v.ended" in body, (
-            "slave 校正前必須跳過 paused/ended video"
-        )
+        assert "v.paused || v.ended" in body, "slave 校正前必須跳過 paused/ended video"
 
     def test_near_end_not_corrected_beyond_duration(self, template_text):
         """接近結尾的 video 不被校正（避免 currentTime 超過實際 duration）。"""
@@ -165,9 +166,9 @@ class TestSyncLoopMechanics:
         )
         body = m.group(1)
         # 必須有「currentTime >= duration - 某個 buffer」的 guard
-        assert "dur - 0.15" in body or "duration - 0.15" in body, (
-            "接近結尾必須有 guard（dur - 0.15 或類似）"
-        )
+        assert (
+            "dur - 0.15" in body or "duration - 0.15" in body
+        ), "接近結尾必須有 guard（dur - 0.15 或類似）"
 
     def test_actual_dur_used_not_video_duration(self, template_text):
         """sync loop 用 data-actual-dur（X-Actual-Duration header 帶回的 NVR 真實長度），
@@ -178,9 +179,9 @@ class TestSyncLoopMechanics:
             re.DOTALL,
         )
         body = m.group(1)
-        assert "dataset.actualDur" in body, (
-            "必須讀 data-actual-dur（X-Actual-Duration header），這才是 NVR 真實長度"
-        )
+        assert (
+            "dataset.actualDur" in body
+        ), "必須讀 data-actual-dur（X-Actual-Duration header），這才是 NVR 真實長度"
 
     def test_throttle_loop_to_150ms(self, template_text):
         """loop 必須 throttle 到約 150ms（不要每 16ms 都校正一次）。"""
@@ -191,9 +192,9 @@ class TestSyncLoopMechanics:
         )
         body = m.group(1)
         # 找 throttle 邏輯
-        assert "now - _lastTickMs < 150" in body or "_lastTickMs < 150" in body, (
-            "必須 throttle 到 150ms 以下頻率"
-        )
+        assert (
+            "now - _lastTickMs < 150" in body or "_lastTickMs < 150" in body
+        ), "必須 throttle 到 150ms 以下頻率"
 
 
 class TestSyncUI:
@@ -233,21 +234,22 @@ class TestVideoAspectRatio:
         block = m.group(0)
         # 拿掉整行註解再檢查
         no_comments = "\n".join(
-            line for line in block.split("\n")
+            line
+            for line in block.split("\n")
             if not line.strip().startswith("/*") and "*/" not in line
         )
-        assert "aspect-ratio" not in no_comments, (
-            f".sync-slot 不應該硬寫 aspect-ratio（會切到邊邊）：\n{block}"
-        )
+        assert (
+            "aspect-ratio" not in no_comments
+        ), f".sync-slot 不應該硬寫 aspect-ratio（會切到邊邊）：\n{block}"
 
     def test_video_css_uses_height_auto_not_100(self, template_text):
         """video CSS 不該用 height: 100%（會強制撐滿破壞比例）。"""
         m = re.search(r"\.sync-slot\s+\.sync-video\s*\{[^}]+\}", template_text)
         assert m, "找不到 .sync-video CSS"
         block = m.group(0)
-        assert "height: 100%" not in block, (
-            f"video 不應該用 height:100%，會破壞比例切到邊邊：\n{block}"
-        )
+        assert (
+            "height: 100%" not in block
+        ), f"video 不應該用 height:100%，會破壞比例切到邊邊：\n{block}"
         assert "height: auto" in block, "video 必須用 height: auto 維持比例"
 
     def test_video_uses_object_fit_contain(self, template_text):
@@ -307,9 +309,9 @@ class TestNoRecordingVsNvrError:
         body = _slice_function(template_text, "fetchClipForCamera")
         # 必須有「var err = new Error(j.error) ... err.code = j.error」
         # （Server JSON 的 error 欄位當作 code 給 UI 用）
-        assert "err.code" in body, (
-            "fetchClipForCamera 必須把 server JSON 的 error 欄位存成 err.code"
-        )
+        assert (
+            "err.code" in body
+        ), "fetchClipForCamera 必須把 server JSON 的 error 欄位存成 err.code"
         assert "j.error" in body
 
     def test_no_recording_class_defined(self, template_text):
@@ -325,30 +327,26 @@ class TestNoRecordingVsNvrError:
     def test_no_recording_slot_text(self, template_text):
         """NO_RECORDING slot 必須顯示「此時段無錄影資料」字串。"""
         body = _slice_function(template_text, "renderSyncSlots")
-        assert "此時段無錄影資料" in body, (
-            "無錄影訊息應顯示「此時段無錄影資料」字串"
-        )
+        assert "此時段無錄影資料" in body, "無錄影訊息應顯示「此時段無錄影資料」字串"
 
     def test_no_recording_branch_uses_errorCode(self, template_text):
         """renderSyncSlots 必須依 errorCode 判斷 NO_RECORDING / EMPTY_CLIP。"""
         body = _slice_function(template_text, "renderSyncSlots")
         # 必須有 's.errorCode === "NO_RECORDING"' 之類的判斷
-        assert 'NO_RECORDING' in body, "必須判斷 errorCode === 'NO_RECORDING'"
-        assert 'EMPTY_CLIP' in body, "必須判斷 errorCode === 'EMPTY_CLIP'"
+        assert "NO_RECORDING" in body, "必須判斷 errorCode === 'NO_RECORDING'"
+        assert "EMPTY_CLIP" in body, "必須判斷 errorCode === 'EMPTY_CLIP'"
 
     def test_sync_slot_error_code_stored(self, template_text):
         """catch 區塊必須把 e.code 存到 syncSlots[i].errorCode。"""
         body = _slice_function(template_text, "startSyncPlay")
-        assert "errorCode" in body, (
-            "startSyncPlay 的 catch 必須存 errorCode 給 render 用"
-        )
+        assert (
+            "errorCode" in body
+        ), "startSyncPlay 的 catch 必須存 errorCode 給 render 用"
 
     def test_nvr_connection_failed_label(self, template_text):
         """NVR 故障 slot 必須顯示「NVR 連線失敗」字串區分無錄影。"""
         body = _slice_function(template_text, "renderSyncSlots")
-        assert "NVR 連線失敗" in body, (
-            "NVR 故障 slot 應顯示「NVR 連線失敗」標籤"
-        )
+        assert "NVR 連線失敗" in body, "NVR 故障 slot 應顯示「NVR 連線失敗」標籤"
 
 
 class TestFetchSyncIntersection:
@@ -363,16 +361,12 @@ class TestFetchSyncIntersection:
 
     def test_fetch_sync_endpoint_call(self, template_text):
         """全文必須有 /clips/fetch_sync 端點呼叫。"""
-        assert "/clips/fetch_sync" in template_text, (
-            "必須使用 /clips/fetch_sync 端點"
-        )
+        assert "/clips/fetch_sync" in template_text, "必須使用 /clips/fetch_sync 端點"
 
     def test_target_seconds_240(self, template_text):
         """±2 分鐘 = 240s 視窗（user 2026-07-14 決定，從 60s 拉長到 240s）。"""
         assert "target_seconds" in template_text
-        assert "240" in template_text, (
-            "必須用 240 秒視窗（±2 分鐘）"
-        )
+        assert "240" in template_text, "必須用 240 秒視窗（±2 分鐘）"
 
     def test_parse_multipart_bytes_function_exists(self, template_text):
         """必須有 parseMultipartBytes 函式處理 server 的 multipart response。"""
@@ -389,41 +383,40 @@ class TestFetchSyncIntersection:
     def test_no_common_recording_branch_in_sync(self, template_text):
         """當 fetch_sync 回 NO_COMMON_RECORDING 時，前端要有專屬分支。"""
         # 在某個 .catch 裡面 e.code === "NO_COMMON_RECORDING" 的判斷
-        assert "NO_COMMON_RECORDING" in template_text, (
-            "必須判斷 NO_COMMON_RECORDING 顯示友善訊息"
-        )
+        assert (
+            "NO_COMMON_RECORDING" in template_text
+        ), "必須判斷 NO_COMMON_RECORDING 顯示友善訊息"
 
     def test_single_cam_uses_fetch_clip(self, template_text):
         """1 台 cam 時仍走舊 fetchClipForCamera（不用交集）。"""
-        assert "selectedCams.length === 1" in template_text, (
-            "1 台時不需交集計算，直接 fetchClipForCamera"
-        )
+        assert (
+            "selectedCams.length === 1" in template_text
+        ), "1 台時不需交集計算，直接 fetchClipForCamera"
 
     def test_one_cam_2_minute_window(self, template_text):
         """1 台時也用 ±2 分鐘視窗（2026-07-14 user 從 ±30s 拉長到 ±2m）。"""
         assert (
             "fetchClipForCamera(selectedCams[0], syncCenterIso, 120)" in template_text
-            or "fetchClipForCamera(selectedCams[0], syncCenterIso, 120," in template_text
+            or "fetchClipForCamera(selectedCams[0], syncCenterIso, 120,"
+            in template_text
         ), "1 台 cam 必須用 ±2 分鐘視窗（halfWindowSec=120）"
 
     def test_multipart_parser_handles_crlfcrlf(self, template_text):
         """parseMultipartBytes 必須找 \\r\\n\\r\\n 分隔 headers 跟 body。"""
-        assert "\\r\\n\\r\\n" in template_text or "CRLFCRLF" in template_text, (
-            "parser 必須用 \\r\\n\\r\\n 作為 headers/body separator"
-        )
+        assert (
+            "\\r\\n\\r\\n" in template_text or "CRLFCRLF" in template_text
+        ), "parser 必須用 \\r\\n\\r\\n 作為 headers/body separator"
 
     def test_multipart_parser_skips_end_boundary(self, template_text):
         """parseMultipartBytes 必須跳過最後一段（end boundary）。"""
         assert (
             "end" in template_text.lower() and "skip" in template_text.lower()
-        ) or "end marker" in template_text.lower(), (
-            "parser 必須跳過最後 end boundary"
-        )
+        ) or "end marker" in template_text.lower(), "parser 必須跳過最後 end boundary"
 
     def test_status_shows_overlap_for_success(self, template_text):
         """成功後 status 應顯示交集長度（讓 user 知道實際播多長）。"""
         # 全文要有「交集」字串 + intersectionLength 變數
         assert "交集" in template_text, "成功後 status 必須提到「交集」字串"
-        assert "intersectionLength" in template_text, (
-            "必須用 intersectionLength 變數顯示長度"
-        )
+        assert (
+            "intersectionLength" in template_text
+        ), "必須用 intersectionLength 變數顯示長度"

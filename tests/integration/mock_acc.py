@@ -27,10 +27,10 @@ MockAvigilonServer：模擬 Avigilon ACC 8.7+ Web Endpoint API 的 HTTPS server�
 SSL 憑證：每次啟動自動生成 self-signed cert（透過 openssl CLI），
           scanner 端設 verify_ssl=False 對齊真實 NVR 場景。
 """
+
 from __future__ import annotations
 
 import json
-import os
 import socket
 import ssl
 import subprocess
@@ -145,15 +145,29 @@ def _generate_self_signed_cert(cert_path: Path, key_path: Path) -> None:
 
     # 2. Fallback：動態生成（需要 openssl CLI）
     cmd = [
-        "openssl", "req", "-new", "-x509", "-days", "365", "-nodes",
-        "-out", str(cert_path),
-        "-keyout", str(key_path),
-        "-subj", "/CN=127.0.0.1",
-        "-addext", "subjectAltName=IP:127.0.0.1",
+        "openssl",
+        "req",
+        "-new",
+        "-x509",
+        "-days",
+        "365",
+        "-nodes",
+        "-out",
+        str(cert_path),
+        "-keyout",
+        str(key_path),
+        "-subj",
+        "/CN=127.0.0.1",
+        "-addext",
+        "subjectAltName=IP:127.0.0.1",
     ]
     try:
         subprocess.run(
-            cmd, check=True, capture_output=True, text=True, timeout=10,
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
     except FileNotFoundError as exc:
         raise RuntimeError(
@@ -164,9 +178,7 @@ def _generate_self_signed_cert(cert_path: Path, key_path: Path) -> None:
             "產生後再跑測試"
         ) from exc
     except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            f"openssl 失敗：{exc.stderr}"
-        ) from exc
+        raise RuntimeError(f"openssl 失敗：{exc.stderr}") from exc
 
 
 # === HTTPS request handler ===
@@ -199,10 +211,13 @@ class _MockAvigilonHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             if length:
                 self.rfile.read(length)
-            self._respond_json(200, {
-                "status": "success",
-                "result": {"session": f"sess-{cfg.server_id}"},
-            })
+            self._respond_json(
+                200,
+                {
+                    "status": "success",
+                    "result": {"session": f"sess-{cfg.server_id}"},
+                },
+            )
             return
 
         self._respond_json(404, {"error": "not found"})
@@ -219,16 +234,12 @@ class _MockAvigilonHandler(BaseHTTPRequestHandler):
             return
 
         if self.path.startswith("/mt/api/rest/v1/server/ids"):
-            cfg.request_count["server_ids"] = (
-                cfg.request_count.get("server_ids", 0) + 1
-            )
+            cfg.request_count["server_ids"] = cfg.request_count.get("server_ids", 0) + 1
             self._respond_json(200, [{"serverId": cfg.server_id}])
             return
 
         if self.path.startswith("/mt/api/rest/v1/cameras"):
-            cfg.request_count["cameras"] = (
-                cfg.request_count.get("cameras", 0) + 1
-            )
+            cfg.request_count["cameras"] = cfg.request_count.get("cameras", 0) + 1
             self._respond_json(200, {"cameras": cfg.cameras})
             return
 
@@ -293,18 +304,22 @@ class MockAvigilonServer:
         httpd = HTTPServer((self.host, 0), _MockAvigilonHandler)
         # 讓 stop() 之後新 server 可立刻重用 port（避免 TIME_WAIT 卡住新測試）
         httpd.socket.setsockopt(
-            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1,
+            socket.SOL_SOCKET,
+            socket.SO_REUSEADDR,
+            1,
         )
         httpd.mock_config = self.config  # type: ignore[attr-defined]
         httpd.socket = ctx.wrap_socket(
-            httpd.socket, server_side=True,
+            httpd.socket,
+            server_side=True,
         )
         self._httpd = httpd
         self.port = httpd.server_address[1]
 
         # 4. 在子 thread 跑 serve_forever()
         self._thread = threading.Thread(
-            target=httpd.serve_forever, daemon=True,
+            target=httpd.serve_forever,
+            daemon=True,
         )
         self._thread.start()
 
@@ -320,7 +335,8 @@ class MockAvigilonServer:
                 ctx.verify_mode = ssl.CERT_NONE
                 # 嘗試完整 TLS handshake（繞過 verify 才能測自簽）
                 with socket.create_connection(
-                    (self.host, self.port), timeout=0.5,
+                    (self.host, self.port),
+                    timeout=0.5,
                 ) as raw_sock:
                     with ctx.wrap_socket(raw_sock, server_hostname=self.host) as ssock:
                         ssock.send(b"GET / HTTP/1.0\r\n\r\n")
@@ -357,6 +373,7 @@ class MockAvigilonServer:
 
 
 # === 工廠函式：常見 mock NVR 場景 ===
+
 
 def make_normal_nvr(camera_count: int = 3) -> MockAvigilonConfig:
     """N 台相機、零事件 → 預期 0 異常。"""
@@ -445,12 +462,14 @@ class MockWebhookReceiver:
                     decoded = json.loads(body_bytes.decode("utf-8"))
                 except Exception:
                     decoded = None
-                receiver.received.append({
-                    "path": self.path,
-                    "headers": dict(self.headers),
-                    "body_bytes": body_bytes,
-                    "decoded": decoded,
-                })
+                receiver.received.append(
+                    {
+                        "path": self.path,
+                        "headers": dict(self.headers),
+                        "body_bytes": body_bytes,
+                        "decoded": decoded,
+                    }
+                )
                 body = receiver.response_body.encode("utf-8")
                 self.send_response(receiver.response_status)
                 self.send_header("Content-Type", "text/plain")
@@ -463,7 +482,8 @@ class MockWebhookReceiver:
         self.port = httpd.server_address[1]
 
         self._thread = threading.Thread(
-            target=httpd.serve_forever, daemon=True,
+            target=httpd.serve_forever,
+            daemon=True,
         )
         self._thread.start()
 

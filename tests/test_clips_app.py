@@ -6,11 +6,11 @@ Phase 2.7 — `web/clips_app.py` Flask 路由 + 並行 + session cache 測試。
 策略：灌 SqliteWriter → 用 Flask test_client 跑各路由 → 檢查 status + payload。
 NVR_CLIPS_CLIENT=mock 環境變數讓 client factory 回 MockMediaClient（不打真 NVR）。
 """
+
 from __future__ import annotations
 
 import gc
 import os
-import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,7 +25,10 @@ from db.sqlite_writer import SqliteWriter  # noqa: E402
 
 # import clips_app — 模組載入時會 load .env（無害）
 from web.clips_app import (  # noqa: E402
-    _SessionStore, _compress_to_thumbnail, app, fetch_snapshots_parallel,
+    _SessionStore,
+    _compress_to_thumbnail,
+    app,
+    fetch_snapshots_parallel,
 )
 
 
@@ -37,19 +40,50 @@ def seeded_clips_app(monkeypatch, tmp_path):
     monkeypatch.setenv("NVR_DB_PATH", db_path)
 
     w = SqliteWriter(db_path)
-    w.upsert_nvr({
-        "id": "NVR-CLIP-A", "name": "Clip 測試 NVR", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p", "tags": [],
-    })
+    w.upsert_nvr(
+        {
+            "id": "NVR-CLIP-A",
+            "name": "Clip 測試 NVR",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "tags": [],
+        }
+    )
     w.begin_scan_run("2026-07-06T00:00:00Z")
-    w.upsert_cameras(1, {
-        "cam-001": {"name": "大門", "connection_state": "CONNECTED", "available": True},
-        "cam-002": {"name": "後門", "connection_state": "CONNECTED", "available": True},
-        "cam-003": {"name": "停車場", "connection_state": "LONG_FAILED", "available": False},
-    })
-    w.finish_scan_run(1, finished_at="2026-07-06T00:00:30Z", status="success",
-                      stats={"total_cameras": 3, "abnormal_cameras": 0,
-                             "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+    w.upsert_cameras(
+        1,
+        {
+            "cam-001": {
+                "name": "大門",
+                "connection_state": "CONNECTED",
+                "available": True,
+            },
+            "cam-002": {
+                "name": "後門",
+                "connection_state": "CONNECTED",
+                "available": True,
+            },
+            "cam-003": {
+                "name": "停車場",
+                "connection_state": "LONG_FAILED",
+                "available": False,
+            },
+        },
+    )
+    w.finish_scan_run(
+        1,
+        finished_at="2026-07-06T00:00:30Z",
+        status="success",
+        stats={
+            "total_cameras": 3,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
+    )
     del w
     gc.collect()
 
@@ -67,6 +101,7 @@ def seeded_clips_app(monkeypatch, tmp_path):
 
 # === 路由：GET /clips ===
 
+
 def test_clips_page_renders(seeded_clips_app):
     app, _ = seeded_clips_app
     with app.test_client() as c:
@@ -75,10 +110,10 @@ def test_clips_page_renders(seeded_clips_app):
         body = r.data.decode("utf-8")
         # 8555 clips 對外顯示為「機票回放調閱」（另一部門用語）
         assert "機票回放調閱" in body
-        assert "id=\"nvrSel\"" in body
-        assert "id=\"tIn\"" in body
-        assert "id=\"syncPlayBtn\"" in body
-        assert "id=\"syncPlaySection\"" in body
+        assert 'id="nvrSel"' in body
+        assert 'id="tIn"' in body
+        assert 'id="syncPlayBtn"' in body
+        assert 'id="syncPlaySection"' in body
 
 
 def test_root_redirects_or_renders(seeded_clips_app):
@@ -91,6 +126,7 @@ def test_root_redirects_or_renders(seeded_clips_app):
 
 
 # === 路由：GET /clips/nvrs ===
+
 
 def test_clips_nvrs_returns_seeded_nvr(seeded_clips_app):
     app, _ = seeded_clips_app
@@ -105,6 +141,7 @@ def test_clips_nvrs_returns_seeded_nvr(seeded_clips_app):
 
 
 # === 路由：GET /clips/cameras ===
+
 
 def test_clips_cameras_returns_camera_list(seeded_clips_app):
     app, _ = seeded_clips_app
@@ -133,6 +170,7 @@ def test_clips_cameras_bad_nvr_id(seeded_clips_app):
 
 # === 路由：GET /clips/snapshots（並行抓取）===
 
+
 def test_clips_snapshots_returns_3_thumbnails(seeded_clips_app):
     """MockMediaClient 會回固定 bytes，3 台相機並行抓完應回 3 個 thumbnail。"""
     app, _ = seeded_clips_app
@@ -149,7 +187,9 @@ def test_clips_snapshots_returns_3_thumbnails(seeded_clips_app):
             assert s["thumb_size"] > 0
             # 回歸測試：每個 snapshot 必須附 camera_name（給 UI 顯示用）
             # 2026-07-07 user 回報：UI 顯示 device_id 太長又看不懂，要求顯示相機名稱
-            assert "camera_name" in s, "snapshot 沒帶 camera_name（UI 會被迫顯示 device_id）"
+            assert (
+                "camera_name" in s
+            ), "snapshot 沒帶 camera_name（UI 會被迫顯示 device_id）"
             assert isinstance(s["camera_name"], str) and len(s["camera_name"]) > 0
 
 
@@ -163,9 +203,9 @@ def test_clips_snapshots_camera_name_fallback_to_device_id(seeded_clips_app):
         assert r.status_code == 200
         data = r.get_json()
         for s in data["snapshots"]:
-            assert s.get("camera_name"), (
-                f"snapshot camera_name 是空字串：device_id={s.get('camera_id')}"
-            )
+            assert s.get(
+                "camera_name"
+            ), f"snapshot camera_name 是空字串：device_id={s.get('camera_id')}"
 
 
 def test_clips_snapshots_missing_params(seeded_clips_app):
@@ -190,6 +230,7 @@ def test_clips_snapshots_unknown_nvr(seeded_clips_app):
 
 
 # === 路由：POST /clips/fetch ===
+
 
 def test_clips_fetch_streams_mp4_bytes(seeded_clips_app):
     """MockMediaClient.fetch_clip yield 4 chunks × 4KB = 16KB。"""
@@ -231,6 +272,7 @@ def test_clips_fetch_unknown_nvr(seeded_clips_app):
 
 # === SessionStore TTL 行為 ===
 
+
 def test_session_store_set_get_ttl():
     s = _SessionStore(ttl_seconds=1)
     s.set(1, "TOK-A")
@@ -252,9 +294,11 @@ def test_session_store_clear():
 
 # === 並行效能 ===
 
+
 def test_parallel_fetch_8_cameras_under_3_seconds():
     """8 台相機並行抓 mock 應 < 3 秒。"""
     from web.clip_retrieval import MockMediaClient
+
     client = MockMediaClient(snapshot_bytes=10_000)
     cam_ids = [f"cam-{i:03d}" for i in range(8)]
     at = datetime(2026, 7, 6, tzinfo=timezone.utc)
@@ -269,6 +313,7 @@ def test_parallel_fetch_8_cameras_under_3_seconds():
 def test_parallel_fetch_preserves_order():
     """並行抓取後應保持原始 camera_ids 順序。"""
     from web.clip_retrieval import MockMediaClient
+
     client = MockMediaClient()
     cam_ids = [f"cam-{i:03d}" for i in range(5)]
     at = datetime(2026, 7, 6, tzinfo=timezone.utc)
@@ -279,10 +324,12 @@ def test_parallel_fetch_preserves_order():
 
 # === Pillow 縮圖 ===
 
+
 def test_compress_to_thumbnail_shrinks_real_jpeg():
     """真實 JPEG 應該被縮到 60x80 thumbnail。"""
     import io
     from PIL import Image
+
     im = Image.new("RGB", (640, 480), "red")
     buf = io.BytesIO()
     im.save(buf, "JPEG", quality=85)
@@ -305,6 +352,7 @@ def test_compress_to_thumbnail_handles_invalid_bytes():
 
 # === Mock 模式不需要真 login ===
 
+
 def test_clips_snapshots_skips_login_in_mock_mode(seeded_clips_app, monkeypatch):
     """NVR_CLIPS_CLIENT=mock 時，route 不應觸發 _login_nvr。"""
     from web import clips_app
@@ -325,6 +373,7 @@ def test_clips_snapshots_skips_login_in_mock_mode(seeded_clips_app, monkeypatch)
 
 # === 真實模式 _login_nvr 介面正確性（回歸測試）===
 
+
 def test_login_nvr_uses_avigilon_scanner_correct_signature(monkeypatch):
     """回歸測試：_login_nvr 必須用 AvigilonScanner 真實介面（nvr_config dict +
     user_nonce / user_key kwarg），不能傳 host=... / port=... / username=... /
@@ -340,7 +389,9 @@ def test_login_nvr_uses_avigilon_scanner_correct_signature(monkeypatch):
     captured = {}
 
     class FakeScanner:
-        def __init__(self, nvr_config, *, user_nonce, user_key, verify_ssl=False, **kwargs):
+        def __init__(
+            self, nvr_config, *, user_nonce, user_key, verify_ssl=False, **kwargs
+        ):
             captured["nvr_config"] = nvr_config
             captured["user_nonce"] = user_nonce
             captured["user_key"] = user_key
@@ -352,8 +403,9 @@ def test_login_nvr_uses_avigilon_scanner_correct_signature(monkeypatch):
 
     # patch 在 nvr_scanner 模組（_login_nvr 內 `from nvr_scanner import AvigilonScanner` 會拿到）
     monkeypatch.setattr(nvr_mod, "AvigilonScanner", FakeScanner)
-    monkeypatch.setattr(nvr_mod, "get_credential",
-                        lambda env_var, prompt, *, hide=False: f"<{env_var}>")
+    monkeypatch.setattr(
+        nvr_mod, "get_credential", lambda env_var, prompt, *, hide=False: f"<{env_var}>"
+    )
 
     nvr_row = {
         "nvr_id": "TEST-NVR",
@@ -386,16 +438,17 @@ def test_login_nvr_source_uses_avigilon_scanner_correctly():
     src = inspect.getsource(clips_app._login_nvr)
     # 不能再出現這些錯誤的 kwarg 呼叫
     for bad_kw in ("host=nvr_row", "username=nvr_row", "password=nvr_row"):
-        assert bad_kw not in src, (
-            f"_login_nvr 還在傳 {bad_kw}！AvigilonScanner 真實介面不收這些 kwarg"
-        )
+        assert (
+            bad_kw not in src
+        ), f"_login_nvr 還在傳 {bad_kw}！AvigilonScanner 真實介面不收這些 kwarg"
     # 必須用新介面
-    assert "user_nonce=" in src and "user_key=" in src, (
-        "_login_nvr 沒傳 user_nonce / user_key；AvigilonScanner 必填"
-    )
+    assert (
+        "user_nonce=" in src and "user_key=" in src
+    ), "_login_nvr 沒傳 user_nonce / user_key；AvigilonScanner 必填"
 
 
 # === /clips/snapshots 支援 ?camera_ids=A,B,C 多選過濾（2026-07-07） ===
+
 
 def test_clips_snapshots_filter_by_camera_ids(seeded_clips_app):
     """?camera_ids=A,B → 只回 A、B 兩台（不抓其他相機，節省頻寬 + login）。"""
@@ -420,7 +473,9 @@ def test_clips_snapshots_filter_camera_ids_invalid_falls_back_to_all(seeded_clip
     """?camera_ids=不存在的id → 過濾後是空集合，後端應回空 snapshots（不 500）。"""
     app, _ = seeded_clips_app
     with app.test_client() as c:
-        r = c.get("/clips/snapshots?nvr_id=1&t=2026-07-06T12:00:00Z&camera_ids=DOES_NOT_EXIST")
+        r = c.get(
+            "/clips/snapshots?nvr_id=1&t=2026-07-06T12:00:00Z&camera_ids=DOES_NOT_EXIST"
+        )
         assert r.status_code == 200
         data = r.get_json()
         assert data["camera_count"] == 0
@@ -439,6 +494,7 @@ def test_clips_snapshots_no_filter_returns_all(seeded_clips_app):
 
 # === UI 微調按鈕 ±5 分鐘回歸測試（2026-07-08 v3） ===
 
+
 def test_clips_template_has_fine_tune_buttons():
     """回歸：事件時間欄位必須有「前 5 分」「後 5 分」微調按鈕。
 
@@ -447,24 +503,21 @@ def test_clips_template_has_fine_tune_buttons():
     2026-07-08 v2：移除「▶ 載入此時間」（同步撥放按鈕已取代）。
     """
     from pathlib import Path
+
     template = Path("web/templates/clips.html").read_text(encoding="utf-8")
 
-    import re
     # data-fine 屬性兩個值（go 已移除）
     for val in ("-5", "+5"):
-        assert f'data-fine="{val}"' in template, (
-            f"找不到 data-fine=\"{val}\" 微調按鈕"
-        )
+        assert f'data-fine="{val}"' in template, f'找不到 data-fine="{val}" 微調按鈕'
     # 按鈕文字必須能看出功能
     assert "前 5 分" in template, "微調按鈕缺「前 5 分」文字"
     assert "後 5 分" in template, "微調按鈕缺「後 5 分」文字"
     # handler 必須存在
-    assert "button[data-fine]" in template, (
-        "找不到 button[data-fine] event handler"
-    )
+    assert "button[data-fine]" in template, "找不到 button[data-fine] event handler"
 
 
 # === UI 2×2 同步撥放視窗回歸測試（2026-07-08 v4） ===
+
 
 def test_clips_template_has_2x2_sync_play_section():
     """回歸：必須有「同步撥放視窗」section（2×2 grid + ⏮/⏭ 切段 + 全部關閉）。
@@ -473,6 +526,7 @@ def test_clips_template_has_2x2_sync_play_section():
     修法：grid + 4 slot state + 切段按鈕同步。
     """
     from pathlib import Path
+
     template = Path("web/templates/clips.html").read_text(encoding="utf-8")
 
     # 1. HTML 必須有 #syncPlaySection / #syncGrid / #syncCenterLabel
@@ -497,13 +551,10 @@ def test_clips_template_has_2x2_sync_play_section():
 def test_clips_template_caps_4_cameras():
     """回歸：相機勾選上限 4 台（全選按鈕也要遵守）。"""
     from pathlib import Path
+
     template = Path("web/templates/clips.html").read_text(encoding="utf-8")
 
     # 全選 handler 必須 slice(0, 4)
-    assert "boxes.slice(0, 4)" in template, (
-        "全選按鈕沒限縮到 4 台"
-    )
+    assert "boxes.slice(0, 4)" in template, "全選按鈕沒限縮到 4 台"
     # change handler 必須有 checkedCount > 4 → 取消最早
-    assert "checkedCount > 4" in template, (
-        "change handler 沒檢查上限"
-    )
+    assert "checkedCount > 4" in template, "change handler 沒檢查上限"

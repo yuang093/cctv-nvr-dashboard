@@ -5,6 +5,7 @@ tests/test_fleet_view.py
 
 對應 spec：docs/superpowers/specs/2026-07-29-fleet-view-design.md
 """
+
 from __future__ import annotations
 
 import gc
@@ -25,44 +26,85 @@ def fleet_db():
         db_path = f.name
 
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A 辦公室", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
-    nvrb = w.upsert_nvr({
-        "id": "NVR-B", "name": "B 倉庫", "host": "10.0.0.2",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A 辦公室",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
+    nvrb = w.upsert_nvr(
+        {
+            "id": "NVR-B",
+            "name": "B 倉庫",
+            "host": "10.0.0.2",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-29T00:00:00Z")
     # A：5 cam（3 健康 + 1 訊號中斷 + 1 無訊號）
-    w.upsert_cameras(nvra, {
-        "a1": {"name": "A1", "connection_state": "CONNECTED"},
-        "a2": {"name": "A2", "connection_state": "CONNECTED"},
-        "a3": {"name": "A3", "connection_state": "CONNECTED"},
-        "a4": {"name": "A4", "connection_state": "CONNECTED"},
-        "a5": {"name": "A5", "connection_state": "CONNECTED"},
-    })
-    w.insert_events(rid, nvra, [{
-        "eventId": "e1", "deviceId": "a4",
-        "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
-        "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-        "occurred_at": "2026-07-29T00:00:00Z",
-    }])
-    w.insert_events(rid, nvra, [{
-        "eventId": "e2", "deviceId": "a5",
-        "eventTopics": ["STATE_LONG_FAILED"],
-        "eventTopic": "STATE_LONG_FAILED",
-        "occurred_at": "2026-07-29T00:00:00Z",
-    }])
+    w.upsert_cameras(
+        nvra,
+        {
+            "a1": {"name": "A1", "connection_state": "CONNECTED"},
+            "a2": {"name": "A2", "connection_state": "CONNECTED"},
+            "a3": {"name": "A3", "connection_state": "CONNECTED"},
+            "a4": {"name": "A4", "connection_state": "CONNECTED"},
+            "a5": {"name": "A5", "connection_state": "CONNECTED"},
+        },
+    )
+    w.insert_events(
+        rid,
+        nvra,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "a4",
+                "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                "occurred_at": "2026-07-29T00:00:00Z",
+            }
+        ],
+    )
+    w.insert_events(
+        rid,
+        nvra,
+        [
+            {
+                "eventId": "e2",
+                "deviceId": "a5",
+                "eventTopics": ["STATE_LONG_FAILED"],
+                "eventTopic": "STATE_LONG_FAILED",
+                "occurred_at": "2026-07-29T00:00:00Z",
+            }
+        ],
+    )
     # B：3 cam 全健康
-    w.upsert_cameras(nvrb, {
-        "b1": {"name": "B1", "connection_state": "CONNECTED"},
-        "b2": {"name": "B2", "connection_state": "CONNECTED"},
-        "b3": {"name": "B3", "connection_state": "CONNECTED"},
-    })
-    w.finish_scan_run(rid, finished_at="2026-07-29T00:01:00Z", status="success",
-                      stats={"total_cameras": 8, "abnormal_cameras": 2,
-                             "total_nvrs": 2, "ok_nvrs": 2, "failed_nvrs": 0})
+    w.upsert_cameras(
+        nvrb,
+        {
+            "b1": {"name": "B1", "connection_state": "CONNECTED"},
+            "b2": {"name": "B2", "connection_state": "CONNECTED"},
+            "b3": {"name": "B3", "connection_state": "CONNECTED"},
+        },
+    )
+    w.finish_scan_run(
+        rid,
+        finished_at="2026-07-29T00:01:00Z",
+        status="success",
+        stats={
+            "total_cameras": 8,
+            "abnormal_cameras": 2,
+            "total_nvrs": 2,
+            "ok_nvrs": 2,
+            "failed_nvrs": 0,
+        },
+    )
     del w
     gc.collect()
     yield db_path
@@ -181,8 +223,9 @@ def test_get_fleet_view_partial_failure_isolated(monkeypatch, fleet_db, caplog):
     assert by_id[target_id]["total"] == 0
     assert by_id[other_id]["status"] == "ok"
     assert by_id[other_id]["total"] == 3
-    assert any("fleet view failed" in r.message for r in caplog.records), \
-        "應記 warning log"
+    assert any(
+        "fleet view failed" in r.message for r in caplog.records
+    ), "應記 warning log"
 
 
 # === 8. cache 與 db_path 綁定 — 不同 db 不會回錯資料 ===
@@ -216,8 +259,16 @@ def test_get_fleet_view_force_refresh_bypasses_cache(monkeypatch):
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     w = SqliteWriter(db_path)
-    w.upsert_nvr({"id": "X", "name": "X", "host": "10.0.0.99",
-                  "port": 8443, "username": "u", "password": "p"})
+    w.upsert_nvr(
+        {
+            "id": "X",
+            "name": "X",
+            "host": "10.0.0.99",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     del w
     gc.collect()
 
@@ -255,24 +306,49 @@ def test_get_fleet_view_status_degraded_only_signal_lost():
         db_path = f.name
 
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-D", "name": "D 站", "host": "10.0.0.9",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-D",
+            "name": "D 站",
+            "host": "10.0.0.9",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-29T00:00:00Z")
-    w.upsert_cameras(nvra, {
-        "d1": {"name": "D1", "connection_state": "CONNECTED"},
-        "d2": {"name": "D2", "connection_state": "CONNECTED"},
-    })
-    w.insert_events(rid, nvra, [{
-        "eventId": "e1", "deviceId": "d2",
-        "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
-        "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-        "occurred_at": "2026-07-29T00:00:00Z",
-    }])
-    w.finish_scan_run(rid, finished_at="2026-07-29T00:01:00Z", status="success",
-                      stats={"total_cameras": 2, "abnormal_cameras": 1,
-                             "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+    w.upsert_cameras(
+        nvra,
+        {
+            "d1": {"name": "D1", "connection_state": "CONNECTED"},
+            "d2": {"name": "D2", "connection_state": "CONNECTED"},
+        },
+    )
+    w.insert_events(
+        rid,
+        nvra,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "d2",
+                "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                "occurred_at": "2026-07-29T00:00:00Z",
+            }
+        ],
+    )
+    w.finish_scan_run(
+        rid,
+        finished_at="2026-07-29T00:01:00Z",
+        status="success",
+        stats={
+            "total_cameras": 2,
+            "abnormal_cameras": 1,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
+    )
     del w
     gc.collect()
 
@@ -293,16 +369,29 @@ def test_get_fleet_view_excludes_disabled_nvrs():
         db_path = f.name
 
     w = SqliteWriter(db_path)
-    w.upsert_nvr({
-        "id": "ENABLED", "name": "啟用中", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
-    disabled_id = w.upsert_nvr({
-        "id": "DISABLED", "name": "已停用", "host": "10.0.0.2",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    w.upsert_nvr(
+        {
+            "id": "ENABLED",
+            "name": "啟用中",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
+    disabled_id = w.upsert_nvr(
+        {
+            "id": "DISABLED",
+            "name": "已停用",
+            "host": "10.0.0.2",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     # SqliteWriter 沒有 set_nvr_enabled：直接用 SQL 改 nvr_servers.enabled
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     conn.execute("UPDATE nvr_servers SET enabled = 0 WHERE id = ?", (disabled_id,))
     conn.commit()

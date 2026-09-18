@@ -3,6 +3,7 @@ tests/test_recording_status_in_device_detail.py
 ================================================
 驗證 `get_recording_status_for_camera(db_path, nvr_id, camera_id)`。
 """
+
 from __future__ import annotations
 
 import gc
@@ -20,10 +21,16 @@ def db_env():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-29T00:00:00Z")
     w.upsert_cameras(nvra, {"c1": {"name": "cam1", "connection_state": "CONNECTED"}})
     yield w, db_path, nvra
@@ -45,7 +52,8 @@ def test_get_recording_status_returns_none_when_no_data(db_env):
 def test_get_recording_status_returns_full_dict(db_env):
     w, db_path, nvra = db_env
     w.upsert_recording_status(
-        nvra, "c1",
+        nvra,
+        "c1",
         window_start="2026-07-28T00:00:00Z",
         window_end="2026-07-29T00:00:00Z",
         completeness=0.7,

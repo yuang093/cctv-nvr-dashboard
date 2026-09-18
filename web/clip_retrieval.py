@@ -15,6 +15,7 @@ Phase 2.7 機票回放調閱：對應 NVR Media API 的 Protocol 與實作。
 Port：8443（與 REST API 同一個 port，PDF 規格已驗證）
 Auth：`?session=<token>`（沿用 `/login` 拿到的 token）
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -25,17 +26,17 @@ import requests
 
 # 固定 fixture 大小（給單元測試用 — 不用真 JPEG header 也沒關係，
 # 只要回傳 byte 長度可被呼叫端驗證；Pillow 端測試在 test_clip_retrieval.py 補）
-_MOCK_SNAPSHOT_BYTES = 1024   # 1 KB
+_MOCK_SNAPSHOT_BYTES = 1024  # 1 KB
 _MOCK_MPD_XML = (
     '<?xml version="1.0" encoding="UTF-8"?>'
     '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT1.5S">'
     '<Period><AdaptationSet><Representation id="1" bandwidth="1000000" '
     'width="640" height="480" mimeType="video/mp4" codecs="avc1.4D4016">'
-    '<BaseURL>/mt/api/rest/v1/media?ctx=MOCK&session=MOCK&cameraId=MOCK</BaseURL>'
-    '</Representation></AdaptationSet></Period></MPD>'
+    "<BaseURL>/mt/api/rest/v1/media?ctx=MOCK&session=MOCK&cameraId=MOCK</BaseURL>"
+    "</Representation></AdaptationSet></Period></MPD>"
 )
-_MOCK_CLIP_CHUNK = 4096   # 4 KB
-_MOCK_CLIP_CHUNKS = 4     # 共 16 KB 假 mp4 stream
+_MOCK_CLIP_CHUNK = 4096  # 4 KB
+_MOCK_CLIP_CHUNKS = 4  # 共 16 KB 假 mp4 stream
 
 
 def _parse_iso8601_duration_to_seconds(dur: str) -> float:
@@ -45,6 +46,7 @@ def _parse_iso8601_duration_to_seconds(dur: str) -> float:
     無法 parse → 回 0.0。
     """
     import re
+
     m = re.match(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$", dur)
     if not m:
         return 0.0
@@ -61,7 +63,7 @@ class MediaApiClient(Protocol):
     def get_snapshot(
         self,
         camera_id: str,
-        at_time: datetime,    # UTC；NVR 用 ISO 8601 compact 格式
+        at_time: datetime,  # UTC；NVR 用 ISO 8601 compact 格式
     ) -> bytes:
         """GET ?format=jpeg&t=<time> → 一張 JPEG bytes。"""
 
@@ -186,6 +188,7 @@ class MpdMediaClient:
         self._http = requests.Session()
         # 不驗 SSL（自簽），跟 worker 一致
         import urllib3
+
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def _format_t(self, at_time: datetime | str) -> str:
@@ -204,9 +207,13 @@ class MpdMediaClient:
             return at_time
         # datetime → 強制 UTC + 毫秒
         from datetime import timezone
+
         if at_time.tzinfo is None:
             at_time = at_time.replace(tzinfo=timezone.utc)
-        return at_time.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.") + f"{at_time.microsecond // 1000:03d}Z"
+        return (
+            at_time.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.")
+            + f"{at_time.microsecond // 1000:03d}Z"
+        )
 
     def _get(self, fmt: str, camera_id: str, t: str) -> requests.Response:
         """單次 GET，回 requests.Response（caller 自己決定 read body / stream）。"""
@@ -217,8 +224,11 @@ class MpdMediaClient:
             "t": t,
         }
         return self._http.get(
-            self._base_url, params=params, timeout=self._timeout,
-            verify=self._verify_ssl, stream=True,
+            self._base_url,
+            params=params,
+            timeout=self._timeout,
+            verify=self._verify_ssl,
+            stream=True,
         )
 
     def get_snapshot(self, camera_id: str, at_time: datetime) -> bytes:
@@ -239,9 +249,7 @@ class MpdMediaClient:
         if r.status_code != 200:
             body_preview = (r.text or "")[:200]
             if r.status_code in (401, 403):
-                raise NvrAuthError(
-                    f"NVR 認證失敗（{r.status_code}）：{body_preview}"
-                )
+                raise NvrAuthError(f"NVR 認證失敗（{r.status_code}）：{body_preview}")
             raise RuntimeError(
                 f"NVR get_mpd_manifest 失敗 HTTP {r.status_code}：{body_preview}"
             )
@@ -257,6 +265,7 @@ class MpdMediaClient:
             float 秒數（例 PT9.390S → 9.39）
         """
         import re
+
         mpd = self.get_mpd_manifest(camera_id, at_time)
         m = re.search(r'mediaPresentationDuration="([^"]+)"', mpd)
         if not m:
@@ -314,9 +323,7 @@ class MpdMediaClient:
                     f"NVR 找不到此時段錄影（404）：{body_preview}"
                 )
             elif r.status_code in (401, 403):
-                raise NvrAuthError(
-                    f"NVR 認證失敗（{r.status_code}）：{body_preview}"
-                )
+                raise NvrAuthError(f"NVR 認證失敗（{r.status_code}）：{body_preview}")
             else:
                 raise NvrInternalError(
                     f"NVR fetch_clip 失敗 HTTP {r.status_code}：{body_preview}"
@@ -325,6 +332,7 @@ class MpdMediaClient:
         # 2026-08-06 fix11.txt：max_wall_seconds 是 server-side 最後一道防線，
         # 防 NVR fmp4 stream 卡死不吐 bytes（user 040/041：CamA 5 分鐘不回應）
         import time as _t_fc
+
         _t_wall0 = _t_fc.monotonic()
         _wall_timeout_hit = [False]  # mutable closure for early-exit signal
 
@@ -380,19 +388,21 @@ def _parse_box_header(buf: bytes, off: int) -> Optional[tuple]:
     """
     if off + 8 > len(buf):
         return None
-    size = struct.unpack(">I", buf[off:off+4])[0]
-    btype = bytes(buf[off+4:off+8])
+    size = struct.unpack(">I", buf[off : off + 4])[0]
+    btype = bytes(buf[off + 4 : off + 8])
     if size == 1:
         if off + 16 > len(buf):
             return None
-        size = struct.unpack(">Q", bytes(buf[off+8:off+16]))[0]
+        size = struct.unpack(">Q", bytes(buf[off + 8 : off + 16]))[0]
         return (size, btype, 16)
     if size < 8:
         return None  # malformed
     return (size, btype, 8)
 
 
-def _find_subbox(buf: bytes, start: int, end: int, target_type: bytes) -> Optional[tuple]:
+def _find_subbox(
+    buf: bytes, start: int, end: int, target_type: bytes
+) -> Optional[tuple]:
     """Find first direct child box of target_type inside buf[start:end]. Returns
     (off, header_len, total_size) or None. Not recursive.
     """
@@ -437,7 +447,7 @@ def _extract_moov_timescale(buf: bytes, moov_off: int, moov_size: int) -> Option
     timescale_off = payload_start + ts_size * 2
     if timescale_off + 4 > mdhd_off + mdhd_size:
         return None
-    return struct.unpack(">I", bytes(buf[timescale_off:timescale_off+4]))[0]
+    return struct.unpack(">I", bytes(buf[timescale_off : timescale_off + 4]))[0]
 
 
 def _extract_moof_tfdt(buf: bytes, moof_off: int, moof_size: int) -> Optional[int]:
@@ -460,10 +470,10 @@ def _extract_moof_tfdt(buf: bytes, moof_off: int, moof_size: int) -> Optional[in
     if version == 1:
         if value_off + 8 > tfdt_off + tfdt_size:
             return None
-        return struct.unpack(">Q", bytes(buf[value_off:value_off+8]))[0]
+        return struct.unpack(">Q", bytes(buf[value_off : value_off + 8]))[0]
     if value_off + 4 > tfdt_off + tfdt_size:
         return None
-    return struct.unpack(">I", bytes(buf[value_off:value_off+4]))[0]
+    return struct.unpack(">I", bytes(buf[value_off : value_off + 4]))[0]
 
 
 def _find_fmp4_cut_point(buf: bytes, target_seconds: float) -> Optional[int]:

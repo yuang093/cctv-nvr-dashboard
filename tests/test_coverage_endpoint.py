@@ -1,4 +1,5 @@
 """Tests for /clips/coverage/data JSON API endpoint (Spec F Task 2)."""
+
 from __future__ import annotations
 
 import os
@@ -44,21 +45,26 @@ def clips_app(monkeypatch, tmp_path):
 def test_coverage_data_endpoint_404_when_nvr_missing(clips_app):
     """無此 internal_id → 404。"""
     client = clips_app.test_client()
-    rv = client.get("/clips/coverage/data?nvr_id=99999&start=2026-08-04T00:00:00Z&end=2026-08-04T01:00:00Z")
+    rv = client.get(
+        "/clips/coverage/data?nvr_id=99999&start=2026-08-04T00:00:00Z&end=2026-08-04T01:00:00Z"
+    )
     assert rv.status_code == 404
 
 
 def test_coverage_data_endpoint_400_on_bad_window(clips_app):
     """end < start → 400。"""
-    webdb.create_nvr(clips_app.config["DB_PATH"], {
-        "nvr_id": "ACC8-T",
-        "name": "NVR-T2",
-        "host": "10.0.0.1",
-        "port": 8443,
-        "username": "u",
-        "password": "p",
-        "verify_ssl": False,
-    })
+    webdb.create_nvr(
+        clips_app.config["DB_PATH"],
+        {
+            "nvr_id": "ACC8-T",
+            "name": "NVR-T2",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "verify_ssl": False,
+        },
+    )
     db_path = clips_app.config["DB_PATH"]
     nvr_row = next(n for n in webdb.get_nvrs(db_path) if n["name"] == "NVR-T2")
     client = clips_app.test_client()
@@ -71,26 +77,45 @@ def test_coverage_data_endpoint_400_on_bad_window(clips_app):
 
 def test_coverage_data_endpoint_502_when_nvr_unreachable(clips_app):
     """NVR 連線失敗 → 502（包裝為 JSON 錯誤）。"""
-    webdb.create_nvr(clips_app.config["DB_PATH"], {
-        "nvr_id": "ACC8-UNREACH",
-        "name": "NVR-UNREACH",
-        "host": "10.0.0.1",
-        "port": 8443,
-        "username": "u",
-        "password": "p",
-        "verify_ssl": False,
-    })
+    webdb.create_nvr(
+        clips_app.config["DB_PATH"],
+        {
+            "nvr_id": "ACC8-UNREACH",
+            "name": "NVR-UNREACH",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "verify_ssl": False,
+        },
+    )
     db_path = clips_app.config["DB_PATH"]
     nvr_row = next(n for n in webdb.get_nvrs(db_path) if n["name"] == "NVR-UNREACH")
     # 至少給 1 台 cam，否則 endpoint 會先回 404「沒有 cam」
     writer = SqliteWriter(db_path)
     writer.begin_scan_run("2026-08-04T00:00:00Z")
-    writer.upsert_cameras(nvr_row["id"], {
-        "cam-001": {"name": "Cam 1", "available": True, "connection_state": "CONNECTED"},
-    })
-    writer.finish_scan_run(nvr_row["id"], finished_at="2026-08-04T00:00:30Z", status="success",
-                           stats={"total_cameras": 1, "abnormal_cameras": 0,
-                                  "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+    writer.upsert_cameras(
+        nvr_row["id"],
+        {
+            "cam-001": {
+                "name": "Cam 1",
+                "available": True,
+                "connection_state": "CONNECTED",
+            },
+        },
+    )
+    writer.finish_scan_run(
+        nvr_row["id"],
+        finished_at="2026-08-04T00:00:30Z",
+        status="success",
+        stats={
+            "total_cameras": 1,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
+    )
     # 給 env vars 避免 _login_nvr 跑去 console prompt
     os.environ["AVIGILON_USER_NONCE"] = "test-nonce"
     os.environ["AVIGILON_USER_KEY"] = "test-key"
@@ -110,26 +135,45 @@ def test_coverage_data_endpoint_500_when_env_missing(monkeypatch, clips_app):
     # 清掉 env（fixture 已經 monkeypatch setenv 過；強制再清）
     monkeypatch.delenv("AVIGILON_USER_NONCE", raising=False)
     monkeypatch.delenv("AVIGILON_USER_KEY", raising=False)
-    webdb.create_nvr(clips_app.config["DB_PATH"], {
-        "nvr_id": "ACC8-NOENV",
-        "name": "NVR-NOENV",
-        "host": "10.0.0.1",
-        "port": 8443,
-        "username": "u",
-        "password": "p",
-        "verify_ssl": False,
-    })
+    webdb.create_nvr(
+        clips_app.config["DB_PATH"],
+        {
+            "nvr_id": "ACC8-NOENV",
+            "name": "NVR-NOENV",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "verify_ssl": False,
+        },
+    )
     db_path = clips_app.config["DB_PATH"]
     nvr_row = next(n for n in webdb.get_nvrs(db_path) if n["name"] == "NVR-NOENV")
     # 至少給 1 台 cam，否則 endpoint 會先回 404「沒有 cam」
     writer = SqliteWriter(db_path)
     writer.begin_scan_run("2026-08-04T00:00:00Z")
-    writer.upsert_cameras(nvr_row["id"], {
-        "cam-001": {"name": "Cam 1", "available": True, "connection_state": "CONNECTED"},
-    })
-    writer.finish_scan_run(nvr_row["id"], finished_at="2026-08-04T00:00:30Z", status="success",
-                           stats={"total_cameras": 1, "abnormal_cameras": 0,
-                                  "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+    writer.upsert_cameras(
+        nvr_row["id"],
+        {
+            "cam-001": {
+                "name": "Cam 1",
+                "available": True,
+                "connection_state": "CONNECTED",
+            },
+        },
+    )
+    writer.finish_scan_run(
+        nvr_row["id"],
+        finished_at="2026-08-04T00:00:30Z",
+        status="success",
+        stats={
+            "total_cameras": 1,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
+    )
     client = clips_app.test_client()
     rv = client.get(
         f"/clips/coverage/data?nvr_id={nvr_row['id']}"
@@ -144,15 +188,18 @@ def test_coverage_data_endpoint_500_when_env_missing(monkeypatch, clips_app):
 
 def test_coverage_data_endpoint_400_on_invalid_iso(clips_app):
     """start 非 ISO 格式 → 400（不是 502）。"""
-    webdb.create_nvr(clips_app.config["DB_PATH"], {
-        "nvr_id": "ACC8-BADISO",
-        "name": "NVR-BADISO",
-        "host": "10.0.0.1",
-        "port": 8443,
-        "username": "u",
-        "password": "p",
-        "verify_ssl": False,
-    })
+    webdb.create_nvr(
+        clips_app.config["DB_PATH"],
+        {
+            "nvr_id": "ACC8-BADISO",
+            "name": "NVR-BADISO",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "verify_ssl": False,
+        },
+    )
     db_path = clips_app.config["DB_PATH"]
     nvr_row = next(n for n in webdb.get_nvrs(db_path) if n["name"] == "NVR-BADISO")
     client = clips_app.test_client()
@@ -204,24 +251,31 @@ class TestCoverageTrendsDeepLink:
         client = clips_app.test_client()
         rv = client.get("/clips/coverage")
         html = rv.get_data(as_text=True)
-        assert "window.NVR_DASHBOARD_URL" in html, \
-            "coverage 應注入 window.NVR_DASHBOARD_URL 給 JS 用"
+        assert (
+            "window.NVR_DASHBOARD_URL" in html
+        ), "coverage 應注入 window.NVR_DASHBOARD_URL 給 JS 用"
         # 預設 URL 是 http://127.0.0.1:8444（context_processor 預設值）
-        assert "http://127.0.0.1:8444" in html, \
-            "預設 dashboard URL 應是 http://127.0.0.1:8444"
+        assert (
+            "http://127.0.0.1:8444" in html
+        ), "預設 dashboard URL 應是 http://127.0.0.1:8444"
         # 編碼後的 JSON 字串（tojson）會帶引號
-        assert '"http://127.0.0.1:8444"' in html or "'http://127.0.0.1:8444'" in html, \
-            "dashboard_url 應用 |tojson 序列化（帶引號）"
+        assert (
+            '"http://127.0.0.1:8444"' in html or "'http://127.0.0.1:8444'" in html
+        ), "dashboard_url 應用 |tojson 序列化（帶引號）"
 
-    def test_coverage_page_uses_env_dashboard_url_override(self, clips_app, monkeypatch):
+    def test_coverage_page_uses_env_dashboard_url_override(
+        self, clips_app, monkeypatch
+    ):
         """env NVR_DASHBOARD_URL 覆寫 → 注入 HTML。"""
         monkeypatch.setenv("NVR_DASHBOARD_URL", "http://lan.example.com:9000")
         client = clips_app.test_client()
         rv = client.get("/clips/coverage")
         html = rv.get_data(as_text=True)
         # env 設的 URL 應出現在 window.NVR_DASHBOARD_URL 全域賦值
-        assert '"http://lan.example.com:9000"' in html or "'http://lan.example.com:9000'" in html, \
-            "NVR_DASHBOARD_URL env 應覆寫預設 URL（tojson 後的值）"
+        assert (
+            '"http://lan.example.com:9000"' in html
+            or "'http://lan.example.com:9000'" in html
+        ), "NVR_DASHBOARD_URL env 應覆寫預設 URL（tojson 後的值）"
 
     def test_coverage_js_uses_encodeURIComponent_for_cam_id(self, clips_app):
         """JS 內應用 encodeURIComponent(cam.cam_id) 組 deep-link（防 XSS）。
@@ -232,57 +286,81 @@ class TestCoverageTrendsDeepLink:
         rv = client.get("/clips/coverage")
         html = rv.get_data(as_text=True)
         # JS 內含 encodeURIComponent(cam.cam_id) 模式（取自 cam_iteration）
-        assert "encodeURIComponent(cam.cam_id)" in html, \
-            "coverage.html JS 應用 encodeURIComponent 包 cam_id"
+        assert (
+            "encodeURIComponent(cam.cam_id)" in html
+        ), "coverage.html JS 應用 encodeURIComponent 包 cam_id"
         # deep-link 模式：'/trends?cam_id=' + encodeURIComponent(...)
-        assert "/trends?cam_id=" in html, \
-            "JS 應組 /trends?cam_id= 路徑（用 dashboard URL 當 base）"
+        assert (
+            "/trends?cam_id=" in html
+        ), "JS 應組 /trends?cam_id= 路徑（用 dashboard URL 當 base）"
         # 不應用相對路徑直接組（peer reviewer 風險 2）— 檢查 window 全域被讀取
-        assert "window.NVR_DASHBOARD_URL" in html, \
-            "JS 應用 window.NVR_DASHBOARD_URL 當 base（不是相對路徑）"
+        assert (
+            "window.NVR_DASHBOARD_URL" in html
+        ), "JS 應用 window.NVR_DASHBOARD_URL 當 base（不是相對路徑）"
         # 確認 deep-link href 內組合：dashboard URL + /trends?cam_id=
-        assert "trendLink.href" in html, \
-            "JS 應設 trendLink.href 給 deep-link anchor"
+        assert "trendLink.href" in html, "JS 應設 trendLink.href 給 deep-link anchor"
 
     def test_coverage_js_has_cam_trend_link_class(self, clips_app):
         """JS 內應建 .cam-trend-link class 的 anchor（給 event delegation 識別）。"""
         client = clips_app.test_client()
         rv = client.get("/clips/coverage")
         html = rv.get_data(as_text=True)
-        assert "'cam-trend-link'" in html or '"cam-trend-link"' in html, \
-            "JS 應建 class='cam-trend-link' anchor 給 deep-link 用"
+        assert (
+            "'cam-trend-link'" in html or '"cam-trend-link"' in html
+        ), "JS 應建 class='cam-trend-link' anchor 給 deep-link 用"
 
 
 def test_coverage_data_endpoint_502_when_nvr_unreachable_strict(monkeypatch, clips_app):
     """嚴格 502：monkeypatch 讓 scanner 連線失敗（spec 要求 502 而非 200 fallback）。"""
-    webdb.create_nvr(clips_app.config["DB_PATH"], {
-        "nvr_id": "ACC8-STRICT",
-        "name": "NVR-STRICT",
-        "host": "10.0.0.1",
-        "port": 8443,
-        "username": "u",
-        "password": "p",
-        "verify_ssl": False,
-    })
+    webdb.create_nvr(
+        clips_app.config["DB_PATH"],
+        {
+            "nvr_id": "ACC8-STRICT",
+            "name": "NVR-STRICT",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "verify_ssl": False,
+        },
+    )
     db_path = clips_app.config["DB_PATH"]
     nvr_row = next(n for n in webdb.get_nvrs(db_path) if n["name"] == "NVR-STRICT")
     # 給 cam
     writer = SqliteWriter(db_path)
     writer.begin_scan_run("2026-08-04T00:00:00Z")
-    writer.upsert_cameras(nvr_row["id"], {
-        "cam-001": {"name": "Cam 1", "available": True, "connection_state": "CONNECTED"},
-    })
-    writer.finish_scan_run(nvr_row["id"], finished_at="2026-08-04T00:00:30Z", status="success",
-                           stats={"total_cameras": 1, "abnormal_cameras": 0,
-                                  "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+    writer.upsert_cameras(
+        nvr_row["id"],
+        {
+            "cam-001": {
+                "name": "Cam 1",
+                "available": True,
+                "connection_state": "CONNECTED",
+            },
+        },
+    )
+    writer.finish_scan_run(
+        nvr_row["id"],
+        finished_at="2026-08-04T00:00:30Z",
+        status="success",
+        stats={
+            "total_cameras": 1,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
+    )
     # env 已 set（fixture 之上 NVR_CLIPS_CLIENT=mock；但這條測試想測的是
     # "即便 env 都對、scanner 連線也失敗"→ 502；所以不走 _login_nvr 整段）
     os.environ["AVIGILON_USER_NONCE"] = "test-nonce"
     os.environ["AVIGILON_USER_KEY"] = "test-key"
     # 直接 monkeypatch _login_nvr 讓它 raise，模擬 NVR 連線失敗
     from web import clips_app as clips_app_mod
+
     def _boom(*a, **kw):
         raise RuntimeError("NVR unreachable: Connection refused")
+
     monkeypatch.setattr(clips_app_mod, "_login_nvr", _boom)
     client = clips_app.test_client()
     rv = client.get(
@@ -300,26 +378,45 @@ def test_coverage_data_endpoint_with_mock_timeline(clips_app, monkeypatch):
 
     Spec F Task 4：模擬 happy path — 1 台 NVR + 1 台 cam + 1 段完整時窗錄影。
     """
-    webdb.create_nvr(clips_app.config["DB_PATH"], {
-        "nvr_id": "ACC8-MOCK",
-        "name": "NVR-MOCK",
-        "host": "10.0.0.99",
-        "port": 8443,
-        "username": "u",
-        "password": "p",
-        "verify_ssl": False,
-    })
+    webdb.create_nvr(
+        clips_app.config["DB_PATH"],
+        {
+            "nvr_id": "ACC8-MOCK",
+            "name": "NVR-MOCK",
+            "host": "10.0.0.99",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "verify_ssl": False,
+        },
+    )
     db_path = clips_app.config["DB_PATH"]
     nvr_row = next(n for n in webdb.get_nvrs(db_path) if n["name"] == "NVR-MOCK")
     # 給 1 台 cam
     writer = SqliteWriter(db_path)
     writer.begin_scan_run("2026-08-04T00:00:00Z")
-    writer.upsert_cameras(nvr_row["id"], {
-        "cam-mock-1": {"name": "MockCam1", "available": True, "connection_state": "CONNECTED"},
-    })
-    writer.finish_scan_run(nvr_row["id"], finished_at="2026-08-04T00:00:30Z", status="success",
-                           stats={"total_cameras": 1, "abnormal_cameras": 0,
-                                  "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+    writer.upsert_cameras(
+        nvr_row["id"],
+        {
+            "cam-mock-1": {
+                "name": "MockCam1",
+                "available": True,
+                "connection_state": "CONNECTED",
+            },
+        },
+    )
+    writer.finish_scan_run(
+        nvr_row["id"],
+        finished_at="2026-08-04T00:00:30Z",
+        status="success",
+        stats={
+            "total_cameras": 1,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
+    )
 
     # env 給齊，避免 endpoint 提早 500
     monkeypatch.setenv("AVIGILON_USER_NONCE", "test-nonce")
@@ -327,6 +424,7 @@ def test_coverage_data_endpoint_with_mock_timeline(clips_app, monkeypatch):
 
     # 1. stub _login_nvr：給假 token，不打真 NVR
     from web import clips_app as clips_app_mod
+
     monkeypatch.setattr(clips_app_mod, "_login_nvr", lambda nvr_row: "FAKE-TOKEN")
 
     # 2. stub AvigilonScanner.get_timeline：回傳「覆蓋整個視窗」的錄影
@@ -339,7 +437,10 @@ def test_coverage_data_endpoint_with_mock_timeline(clips_app, monkeypatch):
                     {
                         "cameraId": cam_id,
                         "record": [
-                            {"start": "2026-08-04T00:00:00Z", "end": "2026-08-04T01:00:00Z"},
+                            {
+                                "start": "2026-08-04T00:00:00Z",
+                                "end": "2026-08-04T01:00:00Z",
+                            },
                         ],
                     }
                 ]
@@ -353,7 +454,9 @@ def test_coverage_data_endpoint_with_mock_timeline(clips_app, monkeypatch):
         f"/clips/coverage/data?nvr_id={nvr_row['id']}"
         f"&start=2026-08-04T00:00:00Z&end=2026-08-04T01:00:00Z"
     )
-    assert rv.status_code == 200, f"unexpected status: {rv.status_code} body={rv.get_data(as_text=True)[:300]}"
+    assert (
+        rv.status_code == 200
+    ), f"unexpected status: {rv.status_code} body={rv.get_data(as_text=True)[:300]}"
     data = rv.get_json()
     assert data["nvr_id"] == "ACC8-MOCK"
     assert len(data["cameras"]) == 1

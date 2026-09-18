@@ -1,10 +1,16 @@
 """驗證 eink-dark.css 內容齊全。"""
+
 import re
 from pathlib import Path
 
-import pytest
 
-DARK_CSS = Path(__file__).resolve().parent.parent / "web" / "static" / "themes" / "eink-dark.css"
+DARK_CSS = (
+    Path(__file__).resolve().parent.parent
+    / "web"
+    / "static"
+    / "themes"
+    / "eink-dark.css"
+)
 
 
 def test_dark_file_exists():

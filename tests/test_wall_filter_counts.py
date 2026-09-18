@@ -7,6 +7,7 @@ web.db.get_wall_filter_counts()：永遠回 4 類全 DB 計數（不受 ?filter=
   - 計數永遠是全 DB 統計
   - 即使 ?filter=online，計數仍顯示 all/online/signal_lost/no_signal 各 N
 """
+
 from __future__ import annotations
 
 import gc
@@ -24,32 +25,55 @@ def seeded_env():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     w.begin_scan_run("2026-07-29T00:00:00Z")
-    w.upsert_cameras(nvra, {
-        "c1": {"name": "cam1"},
-        "c2": {"name": "cam2"},
-        "c3": {"name": "cam3"},
-        "c4": {"name": "cam4"},
-        "c5": {"name": "cam5"},
-    })
+    w.upsert_cameras(
+        nvra,
+        {
+            "c1": {"name": "cam1"},
+            "c2": {"name": "cam2"},
+            "c3": {"name": "cam3"},
+            "c4": {"name": "cam4"},
+            "c5": {"name": "cam5"},
+        },
+    )
     # c1: signal_lost
-    w.insert_events(w._current_scan_run_id, nvra, [{
-        "eventId": "e1", "deviceId": "c1",
-        "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
-        "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-        "occurred_at": "2026-07-29T01:00:00Z",
-    }])
+    w.insert_events(
+        w._current_scan_run_id,
+        nvra,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "c1",
+                "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                "occurred_at": "2026-07-29T01:00:00Z",
+            }
+        ],
+    )
     # c2: no_signal
-    w.insert_events(w._current_scan_run_id, nvra, [{
-        "eventId": "e2", "deviceId": "c2",
-        "eventTopics": ["DEVICE_LONG_FAILED"],
-        "eventTopic": "DEVICE_LONG_FAILED",
-        "occurred_at": "2026-07-29T02:00:00Z",
-    }])
+    w.insert_events(
+        w._current_scan_run_id,
+        nvra,
+        [
+            {
+                "eventId": "e2",
+                "deviceId": "c2",
+                "eventTopics": ["DEVICE_LONG_FAILED"],
+                "eventTopic": "DEVICE_LONG_FAILED",
+                "occurred_at": "2026-07-29T02:00:00Z",
+            }
+        ],
+    )
     w._get_conn().commit()
     w.close()
     del w
@@ -102,6 +126,7 @@ def test_empty_db_returns_zero_counts():
 def test_resolved_events_dont_count(seeded_env):
     """已解決的事件不應讓 cam 計入 abnormal。"""
     import sqlite3
+
     conn = sqlite3.connect(seeded_env)
     try:
         # 直接 UPDATE resolved_at（不需要 scan_run）

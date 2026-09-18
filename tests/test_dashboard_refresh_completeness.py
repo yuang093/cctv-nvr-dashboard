@@ -15,6 +15,7 @@ mock 策略：fixture monkeypatch 兩個源頭：
   - `batch_scan._timeline_check_loop`：跳過真 NVR 連線，直接寫 DB
   - `nvr_scanner.AvigilonScanner`：避免真實 NVR 認證
 """
+
 from __future__ import annotations
 
 import gc
@@ -37,30 +38,57 @@ def refresh_app(monkeypatch):
         db_path = f.name
 
     w = SqliteWriter(db_path)
-    nvr_int = w.upsert_nvr({
-        "id": "NVR-A", "name": "A 分店", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvr_int = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A 分店",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-30T00:00:00Z")
-    w.upsert_cameras(nvr_int, {
-        "d1": {"name": "cam1", "connection_state": "CONNECTED", "available": True},
-        "d2": {"name": "cam2", "connection_state": "CONNECTED", "available": True},
-    })
+    w.upsert_cameras(
+        nvr_int,
+        {
+            "d1": {"name": "cam1", "connection_state": "CONNECTED", "available": True},
+            "d2": {"name": "cam2", "connection_state": "CONNECTED", "available": True},
+        },
+    )
     w.finish_scan_run(
-        rid, finished_at="2026-07-30T00:01:00Z", status="complete",
-        stats={"total_cameras": 2, "abnormal_cameras": 0, "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0},
+        rid,
+        finished_at="2026-07-30T00:01:00Z",
+        status="complete",
+        stats={
+            "total_cameras": 2,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
     )
     # 舊的 recording_status（模擬 17 小時前）— 需要新 scan_run transaction
     rid2 = w.begin_scan_run("2026-07-30T00:30:00Z")
     w.upsert_recording_status(
-        nvr_int, "d1",
+        nvr_int,
+        "d1",
         window_start="2026-07-29T00:00:00Z",
         window_end="2026-07-30T00:00:00Z",
-        completeness=0.5, missing_seconds=43200.0,
+        completeness=0.5,
+        missing_seconds=43200.0,
     )
     w.finish_scan_run(
-        rid2, finished_at="2026-07-30T00:30:30Z", status="complete",
-        stats={"total_cameras": 2, "abnormal_cameras": 0, "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0},
+        rid2,
+        finished_at="2026-07-30T00:30:30Z",
+        status="complete",
+        stats={
+            "total_cameras": 2,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
     )
     # 舊的 recording_status（模擬 17 小時前）
     # ^ 注意：upsert_recording_status 需 scan_run 內才寫；移到下面 rid2
@@ -72,21 +100,27 @@ def refresh_app(monkeypatch):
 
     # mock _timeline_check_loop（直接寫 DB，不真抓 timeline）
     from datetime import datetime, timezone, timedelta
-    def fake_timeline_loop(scanner, nvr_int_id, writer, *, window_hours=24, verbose=False):
+
+    def fake_timeline_loop(
+        scanner, nvr_int_id, writer, *, window_hours=24, verbose=False
+    ):
         now = datetime.now(timezone.utc)
         ws = (now - timedelta(hours=window_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
         we = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         for cam_id, pct, miss_s in [("d1", 0.95, 1800.0), ("d2", 0.88, 4320.0)]:
             writer.upsert_recording_status(
-                nvr_int_id, cam_id,
-                window_start=ws, window_end=we,
-                completeness=pct, missing_seconds=miss_s,
+                nvr_int_id,
+                cam_id,
+                window_start=ws,
+                window_end=we,
+                completeness=pct,
+                missing_seconds=miss_s,
             )
         return {"checked": 2, "written": 2, "errors": []}
+
     monkeypatch.setattr("batch_scan._timeline_check_loop", fake_timeline_loop)
 
     # env vars for batch_scan auth
-    import os
     monkeypatch.setenv("AVIGILON_USER_NONCE", "test-nonce")
     monkeypatch.setenv("AVIGILON_USER_KEY", "test-key")
     monkeypatch.setenv("AVIGILON_INTEGRATION_ID", "")

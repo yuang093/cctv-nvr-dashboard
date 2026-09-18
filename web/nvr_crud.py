@@ -13,22 +13,30 @@ NVR CRUD 共用 helper（給 8444 dashboard 與 8555 clips app 共用）。
 - safe_int(value, default, ...)    # 安全的 int 解析（給 page 參數用）
 - CSV_FIELDS                       # CSV 欄位順序常數
 """
+
 from __future__ import annotations
 
 import csv
 import io
 import json
-from typing import Optional
 
 
 # === CSV 欄位順序（給 export 用）===
 CSV_FIELDS = [
-    "id", "name", "host", "port", "username", "password",
-    "verify_ssl", "site_id", "tags",
+    "id",
+    "name",
+    "host",
+    "port",
+    "username",
+    "password",
+    "verify_ssl",
+    "site_id",
+    "tags",
 ]
 
 
 # === Form 解析 / 正規化 helpers ===
+
 
 def parse_nvr_form(form) -> dict:
     """從 request.form 解析 NVR 欄位，做基本驗證。
@@ -168,6 +176,7 @@ def detect_format(filename: str, content: str) -> str:
 
 
 # === Safe int helper（給 page 參數用）===
+
 
 def safe_int(value, default: int, *, min_val: int = 0, max_val: int = 2**31) -> int:
     """安全的 int 解析。失敗或超出範圍時回 default / 邊界值。"""

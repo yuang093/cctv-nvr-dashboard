@@ -12,6 +12,7 @@ Phase 2.8（Arisan）Phase #6：CIDR 探索網段工具。
   記錄 error=class_name（probe 永遠不 raise，避免整批卡住）
 - 既有 NVR IP 用 `skipped=True` 標記，不 probe
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -74,8 +75,8 @@ def probe_ip(ip: str, port: int = 8443, timeout: float = DEFAULT_PROBE_TIMEOUT) 
     url = f"https://{ip}:{port}/"
     try:
         resp = requests.get(url, timeout=timeout, verify=False)
-        server = (resp.headers.get("Server") or "")
-        powered_by = (resp.headers.get("X-Powered-By") or "")
+        server = resp.headers.get("Server") or ""
+        powered_by = resp.headers.get("X-Powered-By") or ""
         is_avigilon = _AVIGILON_MARKER in server or _AVIGILON_MARKER in powered_by
         return {
             "ip": ip,
@@ -135,25 +136,32 @@ def run_discovery(
     out: list[dict] = []
     for ip in ips:
         if ip in skip_set:
-            out.append({
-                "ip": ip,
-                "skipped": True,
-                "reason": "existing_nvr",
-                "open": False,
-                "is_avigilon": False,
-                "status_code": None,
-                "error": None,
-            })
+            out.append(
+                {
+                    "ip": ip,
+                    "skipped": True,
+                    "reason": "existing_nvr",
+                    "open": False,
+                    "is_avigilon": False,
+                    "status_code": None,
+                    "error": None,
+                }
+            )
         else:
-            out.append(probed.get(ip, {
-                "ip": ip,
-                "skipped": False,
-                "reason": None,
-                "open": False,
-                "is_avigilon": False,
-                "status_code": None,
-                "error": "no_result",
-            }))
+            out.append(
+                probed.get(
+                    ip,
+                    {
+                        "ip": ip,
+                        "skipped": False,
+                        "reason": None,
+                        "open": False,
+                        "is_avigilon": False,
+                        "status_code": None,
+                        "error": "no_result",
+                    },
+                )
+            )
     return out
 
 
@@ -180,7 +188,10 @@ def run_discovery_for_session(
 
     # 標記 running（給 UI poll 用）
     webdb.update_discover_session(
-        db_path, session_id, results=[], status="running",
+        db_path,
+        session_id,
+        results=[],
+        status="running",
     )
 
     try:
@@ -194,9 +205,15 @@ def run_discovery_for_session(
             timeout=timeout,
         )
         webdb.update_discover_session(
-            db_path, session_id, results=results, status="completed",
+            db_path,
+            session_id,
+            results=results,
+            status="completed",
         )
     except Exception:
         webdb.update_discover_session(
-            db_path, session_id, results=[], status="failed",
+            db_path,
+            session_id,
+            results=[],
+            status="failed",
         )

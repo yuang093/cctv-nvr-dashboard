@@ -12,6 +12,7 @@ web.snapshot.compress_to_thumbnail 純函式測試。
   - 接受 quality 參數（給未來調參用）
   - 同步回傳 (width, height) via inspect JPEG 頭（給 upsert_snapshot 寫入 DB）
 """
+
 from __future__ import annotations
 
 import io
@@ -21,7 +22,9 @@ from PIL import Image
 
 
 # === 測試素材 ===
-def _make_jpeg(width: int, height: int, color: tuple[int, int, int] = (100, 150, 200)) -> bytes:
+def _make_jpeg(
+    width: int, height: int, color: tuple[int, int, int] = (100, 150, 200)
+) -> bytes:
     """產生測試 JPEG bytes。"""
     im = Image.new("RGB", (width, height), color)
     buf = io.BytesIO()

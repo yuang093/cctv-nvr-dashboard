@@ -3,12 +3,12 @@
 灌 2 台 NVR + 6 台 cam + 24h 混合健康狀態的 image_health_checks，
 給 chrome-devtools 截圖用。
 """
+
 from __future__ import annotations
 import json as _json
 import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 
 def _now_iso() -> str:
@@ -16,9 +16,9 @@ def _now_iso() -> str:
 
 
 def _iso_offset(hours_ago: float) -> str:
-    return (
-        datetime.now(timezone.utc) - timedelta(hours=hours_ago)
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
 
 
 def seed(db_path: str) -> None:
@@ -104,30 +104,49 @@ def seed(db_path: str) -> None:
     # image_health_checks：分散 24h，每 bin 4 筆（部分 frozen/underexposed 模擬異常）
     cam_health_seed = [
         # (device_id, [(hours_ago, is_frozen, is_underexposed), ...])
-        ("lobby-main", [
-            # 健康：8 筆全 healthy
-            *[(h, False, False) for h in [1, 3, 5, 7, 9, 11, 13, 15]],
-            # 早期 frozen spike（18-20h ago）3 筆
-            (18.2, True, False), (19.1, True, False), (20.0, True, False),
-        ]),
-        ("lobby-side", [
-            # 健康：6 筆
-            *[(h, False, False) for h in [2, 4, 6, 8, 10, 12]],
-        ]),
-        ("parking-1", [
-            # 5-7h ago underexposed 3 筆（暗）
-            (5.2, False, True), (6.1, False, True), (7.0, False, True),
-            # 其他時間健康
-            *[(h, False, False) for h in [9, 11, 13, 15, 17]],
-        ]),
-        ("cashier-1", [
-            # 完全離線 8-12h ago（無 records）
-            *[(h, False, False) for h in [1, 3, 5, 14, 16, 18, 20]],
-        ]),
-        ("warehouse", [
-            # 全健康
-            *[(h, False, False) for h in [2, 4, 6, 8, 10, 12, 14, 16]],
-        ]),
+        (
+            "lobby-main",
+            [
+                # 健康：8 筆全 healthy
+                *[(h, False, False) for h in [1, 3, 5, 7, 9, 11, 13, 15]],
+                # 早期 frozen spike（18-20h ago）3 筆
+                (18.2, True, False),
+                (19.1, True, False),
+                (20.0, True, False),
+            ],
+        ),
+        (
+            "lobby-side",
+            [
+                # 健康：6 筆
+                *[(h, False, False) for h in [2, 4, 6, 8, 10, 12]],
+            ],
+        ),
+        (
+            "parking-1",
+            [
+                # 5-7h ago underexposed 3 筆（暗）
+                (5.2, False, True),
+                (6.1, False, True),
+                (7.0, False, True),
+                # 其他時間健康
+                *[(h, False, False) for h in [9, 11, 13, 15, 17]],
+            ],
+        ),
+        (
+            "cashier-1",
+            [
+                # 完全離線 8-12h ago（無 records）
+                *[(h, False, False) for h in [1, 3, 5, 14, 16, 18, 20]],
+            ],
+        ),
+        (
+            "warehouse",
+            [
+                # 全健康
+                *[(h, False, False) for h in [2, 4, 6, 8, 10, 12, 14, 16]],
+            ],
+        ),
     ]
 
     for dev_id, records in cam_health_seed:
@@ -150,10 +169,10 @@ def seed(db_path: str) -> None:
 
     # recording_status：dashboard top_missing 用
     recording = [
-        (nvr_a, "lobby-main", 0.92, 6912.0),    # 健康
+        (nvr_a, "lobby-main", 0.92, 6912.0),  # 健康
         (nvr_a, "lobby-side", 0.88, 10368.0),
-        (nvr_a, "parking-1", 0.45, 47520.0),    # 不良
-        (nvr_b, "cashier-1", 0.30, 60480.0),    # 嚴重不良
+        (nvr_a, "parking-1", 0.45, 47520.0),  # 不良
+        (nvr_b, "cashier-1", 0.30, 60480.0),  # 嚴重不良
         (nvr_b, "warehouse", 0.95, 4320.0),
     ]
     for nvr_id, dev_id, comp, miss_sec in recording:
@@ -162,9 +181,13 @@ def seed(db_path: str) -> None:
             "(nvr_id, camera_id, window_start, window_end, completeness, missing_seconds, checked_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
-                nvr_id, dev_id,
-                _iso_offset(24), _now_iso(),
-                comp, miss_sec, _now_iso(),
+                nvr_id,
+                dev_id,
+                _iso_offset(24),
+                _now_iso(),
+                comp,
+                miss_sec,
+                _now_iso(),
             ),
         )
 
@@ -183,7 +206,9 @@ def seed(db_path: str) -> None:
 
     conn.commit()
     conn.close()
-    print(f"Seeded {db_path}: 2 NVR + 6 cams + image_health_checks + recording_status + scan_runs")
+    print(
+        f"Seeded {db_path}: 2 NVR + 6 cams + image_health_checks + recording_status + scan_runs"
+    )
 
 
 if __name__ == "__main__":

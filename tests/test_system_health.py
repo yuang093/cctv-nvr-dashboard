@@ -20,6 +20,7 @@ tests/test_system_health.py
   - 不做 cache（即時讀取，user 想知道「現在」狀態）
   - test 用 monkeypatch 替掉 psutil 函式，避免依賴本機實際硬體
 """
+
 from __future__ import annotations
 
 import time
@@ -55,6 +56,7 @@ def fake_psutil(monkeypatch):
 
 def test_system_health_basic(fake_psutil):
     from web.fleet import get_system_health
+
     h = get_system_health()
     assert h["cpu_percent"] == 25.0
     assert h["ram_total_gb"] == 16.0
@@ -81,6 +83,7 @@ def test_system_health_psutil_oserror_returns_unavailable(monkeypatch):
     monkeypatch.setattr("web.fleet._psutil", fake)
 
     from web.fleet import get_system_health
+
     h = get_system_health()
     assert h["available"] is False
     assert h["cpu_percent"] == 0.0
@@ -95,6 +98,7 @@ def test_system_health_high_load(fake_psutil):
         total=16 * 1024**3, used=15.2 * 1024**3, percent=95.0
     )
     from web.fleet import get_system_health
+
     h = get_system_health()
     assert h["cpu_percent"] == 95.0
     assert h["ram_percent"] == 95.0

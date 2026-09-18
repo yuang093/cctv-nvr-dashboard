@@ -3,6 +3,7 @@
 補漏：Spec E 完成時發現 light theme link chain 漏 enterprise / glass / gradient /
 minimal / cyberpunk / terminal，本測試確保 12 個 theme 都有 light link。
 """
+
 import re
 from pathlib import Path
 
@@ -10,8 +11,18 @@ from pathlib import Path
 BASE_HTML = Path(__file__).resolve().parent.parent / "web" / "templates" / "base.html"
 
 LIGHT_THEMES = [
-    "brutal", "cyberpunk", "earthy", "editorial", "eink", "enterprise",
-    "fintech", "glass", "gradient", "minimal", "nordic", "terminal",
+    "brutal",
+    "cyberpunk",
+    "earthy",
+    "editorial",
+    "eink",
+    "enterprise",
+    "fintech",
+    "glass",
+    "gradient",
+    "minimal",
+    "nordic",
+    "terminal",
 ]
 
 

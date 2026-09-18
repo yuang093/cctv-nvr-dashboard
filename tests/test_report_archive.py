@@ -16,6 +16,7 @@ PDF 報告歸檔模組測試。
     - GET /reports/download/<不存在的 id> 404
     - _archive_current_report helper（直接呼叫）寫檔
 """
+
 from __future__ import annotations
 
 import gc
@@ -31,6 +32,7 @@ from web.app import create_app
 
 
 # === Fixtures ===
+
 
 @pytest.fixture
 def db_path():
@@ -72,19 +74,28 @@ def client(app):
     return app.test_client()
 
 
-def _seed_scan_run(db_path: str, run_id: int, status: str = "ok",
-                   abnormal: int = 0) -> int:
+def _seed_scan_run(
+    db_path: str, run_id: int, status: str = "ok", abnormal: int = 0
+) -> int:
     """塞一個 scan_run（直接寫 DB，不走 SqliteWriter 因為 _current_scan_run 狀態麻煩）。"""
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     try:
         conn.execute(
             "INSERT INTO scan_runs (id, started_at, finished_at, status, "
             "total_nvrs, ok_nvrs, failed_nvrs, abnormal_cameras) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (run_id, f"2026-07-07 17:30:{run_id:02d}",
-             f"2026-07-07 17:31:{run_id:02d}", status,
-             1, 1, 0, abnormal),
+            (
+                run_id,
+                f"2026-07-07 17:30:{run_id:02d}",
+                f"2026-07-07 17:31:{run_id:02d}",
+                status,
+                1,
+                1,
+                0,
+                abnormal,
+            ),
         )
         conn.commit()
     finally:
@@ -94,10 +105,12 @@ def _seed_scan_run(db_path: str, run_id: int, status: str = "ok",
 
 # === 純函式測試 ===
 
+
 def test_make_filename_includes_run_id_and_timestamp():
-    fname = report_archive.make_filename(13, when_ts=time.mktime(
-        time.strptime("2026-07-07 17:30:12", "%Y-%m-%d %H:%M:%S")
-    ))
+    fname = report_archive.make_filename(
+        13,
+        when_ts=time.mktime(time.strptime("2026-07-07 17:30:12", "%Y-%m-%d %H:%M:%S")),
+    )
     assert fname == "report_run13_20260707_173012.pdf"
 
 
@@ -112,10 +125,13 @@ def test_parse_filename_roundtrip():
 def test_parse_filename_invalid_returns_none():
     assert report_archive.parse_filename("foo.pdf") is None
     assert report_archive.parse_filename("report_runX_20260707_173012.pdf") is None
-    assert report_archive.parse_filename("report_run13_20260707_1730.pdf") is None  # 缺秒
+    assert (
+        report_archive.parse_filename("report_run13_20260707_1730.pdf") is None
+    )  # 缺秒
 
 
 # === reports_dir + save_report ===
+
 
 def test_reports_dir_auto_creates(db_path):
     rdir = report_archive.reports_dir(db_path)
@@ -140,6 +156,7 @@ def test_save_report_explicit_when_ts(db_path):
 
 
 # === list_reports ===
+
 
 def test_list_reports_empty_when_no_dir(db_path):
     # 連 reports/ 都不讓它被建立
@@ -203,6 +220,7 @@ def test_list_reports_sorted_newest_first(db_path):
 
 # === find_report ===
 
+
 def test_find_report_returns_latest_for_run_id(db_path):
     t1 = time.mktime(time.strptime("2026-07-07 10:00:00", "%Y-%m-%d %H:%M:%S"))
     t2 = time.mktime(time.strptime("2026-07-07 15:00:00", "%Y-%m-%d %H:%M:%S"))
@@ -220,6 +238,7 @@ def test_find_report_missing_returns_none(db_path):
 
 
 # === Flask routes ===
+
 
 def test_reports_list_empty(client):
     resp = client.get("/reports")
@@ -261,10 +280,12 @@ def test_reports_download_invalid_id_not_int(client):
 
 # === _archive_current_report helper ===
 
+
 def test_archive_current_report_writes_file(app, db_path):
     """直接呼叫 helper：寫檔 + JOIN 正常。"""
     _seed_scan_run(db_path, run_id=20, status="ok", abnormal=1)
     from web.app import _archive_current_report
+
     _archive_current_report(db_path, {"id": 20})
 
     fpath = report_archive.find_report(db_path, run_id=20)

@@ -1,4 +1,5 @@
 """web/trends.py 純函式測試（無 Flask、無 HTTP）。"""
+
 from __future__ import annotations
 
 import json as _json
@@ -65,11 +66,14 @@ def _now_iso() -> str:
 
 
 def _iso_offset(hours_ago: float) -> str:
-    return (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
 
 
-def _seed_record(db_path: str, cam_id: str, hours_ago: float,
-                 is_frozen: bool, is_underexposed: bool) -> None:
+def _seed_record(
+    db_path: str, cam_id: str, hours_ago: float, is_frozen: bool, is_underexposed: bool
+) -> None:
     """塞一筆 image_health_checks record。"""
     metrics = {
         "blur_var": 100.0,
@@ -118,8 +122,9 @@ class TestComputeHealthTimeseries24hWithData:
         assert len(bins) == 24
         # 第 5, 6, 7 bin (索引 4, 5, 6) 應 frozen=100%
         for idx in (4, 5, 6):
-            assert bins[idx].frozen_pct == 100.0, \
-                f"bin {idx} 應 frozen=100%, got {bins[idx].frozen_pct}"
+            assert (
+                bins[idx].frozen_pct == 100.0
+            ), f"bin {idx} 應 frozen=100%, got {bins[idx].frozen_pct}"
             assert bins[idx].underexposed_pct == 0.0
 
     def test_underexposed_spike_3_bins(self, empty_db: str):
@@ -128,8 +133,9 @@ class TestComputeHealthTimeseries24hWithData:
             _seed_record(empty_db, "cam-3", h_ago, False, True)
         bins = compute_health_timeseries(empty_db, "cam-3", range_hours=24)
         for idx in (10, 11, 12):
-            assert bins[idx].underexposed_pct == 100.0, \
-                f"bin {idx} 應 underexposed=100%, got {bins[idx].underexposed_pct}"
+            assert (
+                bins[idx].underexposed_pct == 100.0
+            ), f"bin {idx} 應 underexposed=100%, got {bins[idx].underexposed_pct}"
             assert bins[idx].frozen_pct == 0.0
 
     def test_offline_window_3_bins(self, empty_db: str):
@@ -139,8 +145,9 @@ class TestComputeHealthTimeseries24hWithData:
         # bin 10-12 (15-18h ago) 沒 record
         bins = compute_health_timeseries(empty_db, "cam-4", range_hours=24)
         for idx in (10, 11, 12):
-            assert bins[idx].online_pct == 0.0, \
-                f"bin {idx} 應離線 online=0%, got {bins[idx].online_pct}"
+            assert (
+                bins[idx].online_pct == 0.0
+            ), f"bin {idx} 應離線 online=0%, got {bins[idx].online_pct}"
             assert bins[idx].sample_count == 0
         # bin 5-8 應有 record
         for idx in (5, 6, 7, 8):
@@ -187,8 +194,9 @@ class TestComputeHealthTimeseries7d:
             compute_health_timeseries(empty_db, "cam-x", range_hours=99)
 
 
-def _seed_nvr_and_cams(db_path: str, nvr_id: str, nvr_name: str,
-                       cam_specs: list[tuple[str, str, bool]]) -> None:
+def _seed_nvr_and_cams(
+    db_path: str, nvr_id: str, nvr_name: str, cam_specs: list[tuple[str, str, bool]]
+) -> None:
     """塞 1 台 NVR + 數台 cam。cam_specs = [(device_id, name, is_ghost), ...]"""
     conn = sqlite3.connect(db_path)
     nvr_int = conn.execute(
@@ -215,11 +223,16 @@ class TestGetAllCamsHealthSummary:
 
     def test_filters_ghost_cams(self, empty_db: str):
         """is_ghost=1 的 cam 不在結果中。"""
-        _seed_nvr_and_cams(empty_db, "nvr-a", "ACC-8", [
-            ("d-1", "Cam1", False),
-            ("d-2", "Ghost", True),  # 應過濾
-            ("d-3", "Cam3", False),
-        ])
+        _seed_nvr_and_cams(
+            empty_db,
+            "nvr-a",
+            "ACC-8",
+            [
+                ("d-1", "Cam1", False),
+                ("d-2", "Ghost", True),  # 應過濾
+                ("d-3", "Cam3", False),
+            ],
+        )
         result = get_all_cams_health_summary(empty_db, range_hours=24)
         ids = [s.cam_id for s in result]
         assert "d-2" not in ids, f"Ghost cam d-2 應過濾，got {ids}"
@@ -229,17 +242,24 @@ class TestGetAllCamsHealthSummary:
         """nvr_filter='nvr-a' 只列該 NVR 的 cam。"""
         _seed_nvr_and_cams(empty_db, "nvr-a", "ACC-8", [("d-1", "Cam1", False)])
         _seed_nvr_and_cams(empty_db, "nvr-b", "ACC-9", [("d-2", "Cam2", False)])
-        result = get_all_cams_health_summary(empty_db, range_hours=24, nvr_filter="nvr-a")
+        result = get_all_cams_health_summary(
+            empty_db, range_hours=24, nvr_filter="nvr-a"
+        )
         ids = [s.cam_id for s in result]
         assert ids == ["d-1"], f"nvr_filter=nvr-a 應只剩 d-1，got {ids}"
 
     def test_abnormal_only_filter(self, empty_db: str):
         """status_filter='abnormal_only' 只列有 abnormal 的 cam。"""
-        _seed_nvr_and_cams(empty_db, "nvr-a", "ACC-8", [
-            ("healthy", "HealthyCam", False),
-            ("frozen", "FrozenCam", False),
-            ("underexposed", "DarkCam", False),
-        ])
+        _seed_nvr_and_cams(
+            empty_db,
+            "nvr-a",
+            "ACC-8",
+            [
+                ("healthy", "HealthyCam", False),
+                ("frozen", "FrozenCam", False),
+                ("underexposed", "DarkCam", False),
+            ],
+        )
         # healthy cam：8 筆 healthy record（分布 8h ago~15h ago）
         for h in range(8, 16):
             _seed_record(empty_db, "healthy", h, False, False)
@@ -255,7 +275,9 @@ class TestGetAllCamsHealthSummary:
         assert all_ids == {"healthy", "frozen", "underexposed"}
 
         result_filtered = get_all_cams_health_summary(
-            empty_db, range_hours=24, status_filter="abnormal_only",
+            empty_db,
+            range_hours=24,
+            status_filter="abnormal_only",
         )
         filtered_ids = {s.cam_id for s in result_filtered}
         # healthy 0 abnormal → 過濾掉
@@ -269,11 +291,16 @@ class TestGetAllCamsHealthSummary:
 
     def test_sorted_by_abnormal_bins_desc(self, empty_db: str):
         """排序：abnormal_bins DESC, cam_name ASC。"""
-        _seed_nvr_and_cams(empty_db, "nvr-a", "ACC-8", [
-            ("alpha", "Alpha", False),
-            ("bravo", "Bravo", False),
-            ("charlie", "Charlie", False),
-        ])
+        _seed_nvr_and_cams(
+            empty_db,
+            "nvr-a",
+            "ACC-8",
+            [
+                ("alpha", "Alpha", False),
+                ("bravo", "Bravo", False),
+                ("charlie", "Charlie", False),
+            ],
+        )
         # bravo 5 bins abnormal, alpha 2, charlie 0
         for h in range(2):
             for _ in range(2):

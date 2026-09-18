@@ -1,4 +1,5 @@
 """驗證 8444 base.html 引入 tokens.css 並設置 data-theme 屬性。"""
+
 from pathlib import Path
 
 
@@ -8,8 +9,9 @@ BASE_HTML = Path(__file__).resolve().parent.parent / "web" / "templates" / "base
 def test_base_html_has_data_theme_attribute():
     """<html> 應有 data-theme 屬性，依 dark flag 切換。"""
     content = BASE_HTML.read_text(encoding="utf-8")
-    assert 'data-theme="{% if dark %}dark{% else %}light{% endif %}"' in content, \
-        "應有 <html data-theme=\"...\" 動態屬性"
+    assert (
+        'data-theme="{% if dark %}dark{% else %}light{% endif %}"' in content
+    ), '應有 <html data-theme="..." 動態屬性'
 
 
 def test_base_html_links_tokens_css():

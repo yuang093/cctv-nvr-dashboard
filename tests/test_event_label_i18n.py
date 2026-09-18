@@ -12,6 +12,7 @@ Phase 2.8（Arisan）Phase #5 補：event_kind_catalog 表驅動 i18n。
 DB schema 已建好（event_kind_catalog 由 db/sqlite_writer.py seed 17 筆）。
 新增 helper：web.db.get_event_label_zh(topic) — 統一入口。
 """
+
 from __future__ import annotations
 
 import gc
@@ -86,7 +87,9 @@ def test_state_connecting_returns_zh_label(seeded_db):
 # === 4. trim 容錯 ===
 def test_topic_with_whitespace_trimmed(seeded_db):
     """topic 帶前後空白應被 trim 後再查。"""
-    assert get_event_label_zh(seeded_db, "  DEVICE_TAMPERING  ") == "破壞/遮蔽（場景改變）"
+    assert (
+        get_event_label_zh(seeded_db, "  DEVICE_TAMPERING  ") == "破壞/遮蔽（場景改變）"
+    )
 
 
 # === 5. 空字串 fallback ===
@@ -99,7 +102,9 @@ def test_empty_topic_falls_back(seeded_db):
 def test_missing_db_returns_topic_as_is():
     """DB 檔不存在 → fallback 回傳原文（不 raise）。"""
     # 用一個絕對不存在的路徑
-    result = get_event_label_zh("/nonexistent/path/does_not_exist.db", "DEVICE_TAMPERING")
+    result = get_event_label_zh(
+        "/nonexistent/path/does_not_exist.db", "DEVICE_TAMPERING"
+    )
     # 行為：file not found 不掛；fallback 到原 topic（或舊 get_topic_zh 規則）
     # 期望：至少不 raise，回傳非空字串
     assert isinstance(result, str)

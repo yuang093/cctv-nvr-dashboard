@@ -6,6 +6,7 @@ batch_scan 多 NVR 協調器測試。
 策略：mock AvigilonScanner（patch batch_scan.AvigilonScanner），
       讓 .scan() 回傳 canned dict 或拋 canned 例外。
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -22,17 +23,21 @@ def _ok_scan(nvr_id, total_cams=2, abnormal=1):
         "nvr_id": nvr_id,
         "nvr_name": f"NVR-{nvr_id}",
         "cameras": {
-            "d1": {"name": "cam1",
-                   "connection_state": "CONNECTED", "available": True},
-            "d2": {"name": "cam2",
-                   "connection_state": "LONG_FAILED", "available": False},
+            "d1": {"name": "cam1", "connection_state": "CONNECTED", "available": True},
+            "d2": {
+                "name": "cam2",
+                "connection_state": "LONG_FAILED",
+                "available": False,
+            },
         },
-        "events": [{
-            "deviceId": "d2",
-            "eventTopics": ["STATE_LONG_FAILED"],
-            "eventTopic": "STATE_LONG_FAILED",
-            "source": "camera_state",
-        }],
+        "events": [
+            {
+                "deviceId": "d2",
+                "eventTopics": ["STATE_LONG_FAILED"],
+                "eventTopic": "STATE_LONG_FAILED",
+                "source": "camera_state",
+            }
+        ],
         "stats": {"total_cameras": total_cams, "abnormal_cameras": abnormal},
     }
 
@@ -48,7 +53,9 @@ def _patch_scanner(side_effect_fn):
 
 
 # === 1. partial：3 台中 1 成功 + 2 失敗 ===
-def test_partial_status_with_one_success(three_nvrs_config, sample_credentials, memory_db):
+def test_partial_status_with_one_success(
+    three_nvrs_config, sample_credentials, memory_db
+):
     config = three_nvrs_config
     creds = sample_credentials
 
@@ -95,7 +102,9 @@ def test_all_failure_status(three_nvrs_config, sample_credentials, memory_db):
         raise ConnectionError_(f"全軍覆沒 {nvr_id}")
 
     with _patch_scanner(side):
-        result = batch_scan(three_nvrs_config, sample_credentials, memory_db, verbose=False)
+        result = batch_scan(
+            three_nvrs_config, sample_credentials, memory_db, verbose=False
+        )
 
     assert result["status"] == "failed"
     assert result["ok_nvrs"] == 0
@@ -112,7 +121,9 @@ def test_failures_dont_pollute_db(three_nvrs_config, sample_credentials, memory_
         raise ConnectionError_(f"boom {nvr_id}")
 
     with _patch_scanner(side):
-        result = batch_scan(three_nvrs_config, sample_credentials, memory_db, verbose=False)
+        result = batch_scan(
+            three_nvrs_config, sample_credentials, memory_db, verbose=False
+        )
 
     # 只有 A 的 events 寫入
     evs = memory_db.get_events_for_run(result["scan_run_id"])
@@ -120,15 +131,13 @@ def test_failures_dont_pollute_db(three_nvrs_config, sample_credentials, memory_
     assert evs[0]["event_topic"] == "STATE_LONG_FAILED"
 
     # 3 台 NVR 都被 upsert（失敗也保留設定）
-    nvr_count = memory_db._conn.execute(
-        "SELECT COUNT(*) FROM nvr_servers"
-    ).fetchone()[0]
+    nvr_count = memory_db._conn.execute("SELECT COUNT(*) FROM nvr_servers").fetchone()[
+        0
+    ]
     assert nvr_count == 3
 
     # 只有 A 的 cameras 寫入
-    cam_count = memory_db._conn.execute(
-        "SELECT COUNT(*) FROM cameras"
-    ).fetchone()[0]
+    cam_count = memory_db._conn.execute("SELECT COUNT(*) FROM cameras").fetchone()[0]
     assert cam_count == 2  # d1, d2
 
 
@@ -142,11 +151,13 @@ def test_env_overrides_applied(three_nvrs_config, sample_credentials, memory_db)
     captured = []
 
     def ctor(nvr_config, **kw):
-        captured.append({
-            "username": nvr_config["username"],
-            "password": nvr_config["password"],
-            **kw,
-        })
+        captured.append(
+            {
+                "username": nvr_config["username"],
+                "password": nvr_config["password"],
+                **kw,
+            }
+        )
         return MagicMock(scan=MagicMock(return_value=_ok_scan(nvr_config["id"])))
 
     with patch("batch_scan.AvigilonScanner", side_effect=ctor):
@@ -185,7 +196,9 @@ def test_failures_structure(three_nvrs_config, sample_credentials, memory_db):
         raise ConnectionError_(f"無法連線 {nvr_id}")
 
     with _patch_scanner(side):
-        result = batch_scan(three_nvrs_config, sample_credentials, memory_db, verbose=False)
+        result = batch_scan(
+            three_nvrs_config, sample_credentials, memory_db, verbose=False
+        )
 
     assert len(result["failures"]) == 3
     for f in result["failures"]:
@@ -197,10 +210,13 @@ def test_failures_structure(three_nvrs_config, sample_credentials, memory_db):
 # === 8. 空 nvr_servers → ScannerError ===
 def test_empty_nvrs_raises(sample_credentials, memory_db):
     from batch_scan import batch_scan as bs
+
     with pytest.raises(ScannerError, match="為空"):
         bs(
             {"scan_settings": {}, "nvr_servers": []},
-            sample_credentials, memory_db, verbose=False,
+            sample_credentials,
+            memory_db,
+            verbose=False,
         )
 
 
@@ -212,7 +228,9 @@ def test_db_writes_batch_stats(three_nvrs_config, sample_credentials, memory_db)
         raise ConnectionError_(f"boom {nvr_id}")
 
     with _patch_scanner(side):
-        result = batch_scan(three_nvrs_config, sample_credentials, memory_db, verbose=False)
+        result = batch_scan(
+            three_nvrs_config, sample_credentials, memory_db, verbose=False
+        )
 
     row = memory_db._conn.execute(
         "SELECT * FROM scan_runs WHERE id=?", (result["scan_run_id"],)

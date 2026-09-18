@@ -12,6 +12,7 @@ Flask 應用程式（v2 Web UI 雛形）。
     NVR_WEB_PORT    埠號（預設 5000）
     NVR_WEB_DEBUG   True/False（預設 False）
 """
+
 from __future__ import annotations
 
 import csv
@@ -20,7 +21,6 @@ import json
 import os
 import threading
 import time
-import traceback
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -35,17 +35,31 @@ logging.basicConfig(
 logger = logging.getLogger("nvr.web")
 
 from flask import (
-    Flask, abort, flash, jsonify, redirect, render_template, request,
-    Response, send_file, session as flask_session, url_for,
+    Flask,
+    abort,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    Response,
+    send_file,
+    session as flask_session,
+    url_for,
 )
 
 from web import db as webdb
-from web import nvr_crud
-from web.fleet import get_fleet_view, get_camera_health_distribution, get_thumbnail_coverage, get_system_health
+from web.fleet import (
+    get_fleet_view,
+    get_camera_health_distribution,
+    get_thumbnail_coverage,
+    get_system_health,
+)
 
 # AvigilonScanner 從環境變數讀 user_nonce / user_key（透過 nvr_scanner 模組頂層載入）
 try:
     from nvr_scanner import AvigilonScanner, load_env_file
+
     _HAS_SCANNER = True
 except ImportError:
     _HAS_SCANNER = False
@@ -72,7 +86,6 @@ _bootstrap_env()
 # 從 web.nvr_crud import（重命名為舊 _ 開頭名稱，保持向後相容）
 from web.nvr_crud import (
     parse_nvr_form as _parse_nvr_form,
-    normalize_nvr_dict as _normalize_nvr_dict,
     parse_csv as _parse_csv,
     parse_json as _parse_json,
     detect_format as _detect_format,
@@ -94,6 +107,7 @@ def _start_probe_thread(db_path: str, session_id: int) -> None:
     """
     import threading
     from web.discover import run_discovery_for_session
+
     t = threading.Thread(
         target=run_discovery_for_session,
         args=(db_path, session_id),
@@ -140,8 +154,9 @@ def _parse_nvr_form(form) -> dict:
     return data
 
 
-def _probe_one_nvr_online(nvr_cfg: dict, user_nonce: str, user_key: str,
-                          timeout: int) -> int:
+def _probe_one_nvr_online(
+    nvr_cfg: dict, user_nonce: str, user_key: str, timeout: int
+) -> int:
     """對單台 NVR 連線並回報連線中 cam 數（單獨 try/except，失敗回 0）。"""
     if not _HAS_SCANNER:
         return 0
@@ -158,8 +173,11 @@ def _probe_one_nvr_online(nvr_cfg: dict, user_nonce: str, user_key: str,
         return sum(1 for c in cams.values() if c.get("connection_state") == "CONNECTED")
     except Exception as e:
         # 單台失敗不中斷 dashboard；debug 用 logger
-        logger.warning("[dashboard online] NVR %s 探測失敗：%s",
-                       nvr_cfg.get("name", nvr_cfg.get("host", "?")), e)
+        logger.warning(
+            "[dashboard online] NVR %s 探測失敗：%s",
+            nvr_cfg.get("name", nvr_cfg.get("host", "?")),
+            e,
+        )
         return 0
 
 
@@ -200,7 +218,9 @@ def _register_routes(app: Flask) -> None:
     @app.context_processor
     def _inject_theme():
         """把 session theme 注入所有 template，讓 base.html 能讀到。"""
-        return dict(theme=flask_session.get("theme", ""), dark=flask_session.get("dark", False))
+        return dict(
+            theme=flask_session.get("theme", ""), dark=flask_session.get("dark", False)
+        )
 
     @app.route("/dark/toggle", methods=["POST"])
     def dark_toggle():
@@ -221,7 +241,10 @@ def _register_routes(app: Flask) -> None:
         # Phase 2.8 補：給 dashboard 顯示「最後更新 X 小時前」
         recording_latest_at = webdb.get_latest_recording_check_at(_get_db_path(app))
         return render_template(
-            "dashboard.html", stats=stats, recent=recent, top_missing=top_missing,
+            "dashboard.html",
+            stats=stats,
+            recent=recent,
+            top_missing=top_missing,
             recording_latest_at=recording_latest_at,
         )
 
@@ -271,8 +294,12 @@ def _register_routes(app: Flask) -> None:
         # 從這次 run 的 events 聚合故障相機（給「故障相機彙總」section 用）
         grouped = _group_run_events_by_camera(events)
         return render_template(
-            "run_detail.html", run=run, events=events, cameras=cameras,
-            grouped=grouped, topic_zh=webdb.get_topic_zh,
+            "run_detail.html",
+            run=run,
+            events=events,
+            cameras=cameras,
+            grouped=grouped,
+            topic_zh=webdb.get_topic_zh,
             nvr_failures=nvr_failures,
         )
 
@@ -281,7 +308,10 @@ def _register_routes(app: Flask) -> None:
         page = _safe_int(request.args.get("page"), 1, min_val=1)
         q = (request.args.get("q") or "").strip() or None
         data = webdb.get_nvrs_paginated(
-            _get_db_path(app), page=page, per_page=20, q=q,
+            _get_db_path(app),
+            page=page,
+            per_page=20,
+            q=q,
         )
         return render_template(
             "nvrs_list.html",
@@ -327,7 +357,9 @@ def _register_routes(app: Flask) -> None:
             except ValueError as e:
                 # 保留使用者輸入以便修正
                 return render_template(
-                    "nvr_form.html", mode="new", nvr=request.form.to_dict(),
+                    "nvr_form.html",
+                    mode="new",
+                    nvr=request.form.to_dict(),
                     error=str(e),
                 )
         return render_template("nvr_form.html", mode="new", nvr={}, error=None)
@@ -343,7 +375,9 @@ def _register_routes(app: Flask) -> None:
                 if password_changed:
                     nvr_data["password"] = password
                 webdb.update_nvr(
-                    _get_db_path(app), nvr_id, nvr_data,
+                    _get_db_path(app),
+                    nvr_id,
+                    nvr_data,
                     password_changed=password_changed,
                 )
                 flash(f"已更新 NVR「{nvr_data['nvr_id']}」", "success")
@@ -351,7 +385,10 @@ def _register_routes(app: Flask) -> None:
             except ValueError as e:
                 nvr = webdb.get_nvr(_get_db_path(app), nvr_id) or {}
                 return render_template(
-                    "nvr_form.html", mode="edit", nvr=nvr, error=str(e),
+                    "nvr_form.html",
+                    mode="edit",
+                    nvr=nvr,
+                    error=str(e),
                 )
         nvr = webdb.get_nvr(_get_db_path(app), nvr_id)
         if not nvr:
@@ -384,10 +421,12 @@ def _register_routes(app: Flask) -> None:
         （worker 也用同一組；NVR API 認證強制要求）。
         """
         if not _HAS_SCANNER:
-            return jsonify({
-                "ok": False,
-                "message": "伺服器缺少 nvr_scanner 模組（pip install -r requirements.txt）",
-            }), 500
+            return jsonify(
+                {
+                    "ok": False,
+                    "message": "伺服器缺少 nvr_scanner 模組（pip install -r requirements.txt）",
+                }
+            ), 500
 
         try:
             data = request.get_json(force=True, silent=False)
@@ -401,10 +440,12 @@ def _register_routes(app: Flask) -> None:
         user_nonce = os.environ.get("AVIGILON_USER_NONCE", "")
         user_key = os.environ.get("AVIGILON_USER_KEY", "")
         if not user_nonce or not user_key:
-            return jsonify({
-                "ok": False,
-                "message": "伺服器未設定 AVIGILON_USER_NONCE / AVIGILON_USER_KEY（檢查 .env）",
-            }), 500
+            return jsonify(
+                {
+                    "ok": False,
+                    "message": "伺服器未設定 AVIGILON_USER_NONCE / AVIGILON_USER_KEY（檢查 .env）",
+                }
+            ), 500
 
         nvr_cfg = {
             "host": data["host"],
@@ -424,18 +465,22 @@ def _register_routes(app: Flask) -> None:
         try:
             scanner.login()
             latency_ms = int((time.time() - start) * 1000)
-            return jsonify({
-                "ok": True,
-                "message": f"連線成功（latency {latency_ms}ms）",
-                "latency_ms": latency_ms,
-            })
+            return jsonify(
+                {
+                    "ok": True,
+                    "message": f"連線成功（latency {latency_ms}ms）",
+                    "latency_ms": latency_ms,
+                }
+            )
         except Exception as e:
             latency_ms = int((time.time() - start) * 1000)
-            return jsonify({
-                "ok": False,
-                "message": f"連線失敗：{type(e).__name__}: {e}",
-                "latency_ms": latency_ms,
-            })
+            return jsonify(
+                {
+                    "ok": False,
+                    "message": f"連線失敗：{type(e).__name__}: {e}",
+                    "latency_ms": latency_ms,
+                }
+            )
         finally:
             try:
                 scanner.session.close()
@@ -478,7 +523,8 @@ def _register_routes(app: Flask) -> None:
             # （支援 round-trip workflow：匯出 → 修改 → 匯入）
             try:
                 result = webdb.bulk_upsert_nvrs(
-                    _get_db_path(app), parsed,
+                    _get_db_path(app),
+                    parsed,
                 )
                 flash(
                     f"匯入完成：新增 {result['inserted']} 台、更新 {result['updated']} 台"
@@ -497,7 +543,9 @@ def _register_routes(app: Flask) -> None:
 
         return render_template(
             "nvr_import.html",
-            errors=None, preview_count=0, filename=None,
+            errors=None,
+            preview_count=0,
+            filename=None,
         )
 
     @app.route("/nvrs/import/template.csv")
@@ -597,9 +645,7 @@ def _register_routes(app: Flask) -> None:
             body.encode("utf-8"),
             mimetype="text/csv; charset=utf-8",
             headers={
-                "Content-Disposition": (
-                    f'attachment; filename="nvr_export_{ts}.csv"'
-                ),
+                "Content-Disposition": (f'attachment; filename="nvr_export_{ts}.csv"'),
             },
         )
 
@@ -616,9 +662,7 @@ def _register_routes(app: Flask) -> None:
             json.dumps(nvrs, ensure_ascii=False, indent=2),
             mimetype="application/json; charset=utf-8",
             headers={
-                "Content-Disposition": (
-                    f'attachment; filename="nvr_export_{ts}.json"'
-                ),
+                "Content-Disposition": (f'attachment; filename="nvr_export_{ts}.json"'),
             },
         )
 
@@ -633,21 +677,26 @@ def _register_routes(app: Flask) -> None:
         """
         with _scan_lock:
             if _scan_state["running"]:
-                return jsonify({
-                    "ok": False,
-                    "error": "已有掃描在進行中",
-                    "started_at": _scan_state["started_at"],
-                }), 409
+                return jsonify(
+                    {
+                        "ok": False,
+                        "error": "已有掃描在進行中",
+                        "started_at": _scan_state["started_at"],
+                    }
+                ), 409
 
             db_path = _get_db_path(app)
             # 2026-07-13 Phase 2.3：DB-level lock 檢查（避免外部 cron 同時跑）
             from db.sqlite_writer import acquire_scan_lock
+
             if not acquire_scan_lock(db_path, timeout=0):
                 logger.warning("scan_trigger: DB 內已有 status='running' 的 scan_run")
-                return jsonify({
-                    "ok": False,
-                    "error": "已有掃描在進行中（DB 內 status='running'，可能是 cron 或其他 process）",
-                }), 409
+                return jsonify(
+                    {
+                        "ok": False,
+                        "error": "已有掃描在進行中（DB 內 status='running'，可能是 cron 或其他 process）",
+                    }
+                ), 409
 
             # 2026-07-13 Phase 2.1：DB-as-source-of-truth，從 DB 撈 enabled NVR
             try:
@@ -667,11 +716,13 @@ def _register_routes(app: Flask) -> None:
             )
             thread.start()
 
-        return jsonify({
-            "ok": True,
-            "started_at": _scan_state["started_at"],
-            "total_nvrs": enabled_count,
-        }), 202
+        return jsonify(
+            {
+                "ok": True,
+                "started_at": _scan_state["started_at"],
+                "total_nvrs": enabled_count,
+            }
+        ), 202
 
     @app.route("/scan/status")
     def scan_status():
@@ -691,11 +742,13 @@ def _register_routes(app: Flask) -> None:
         """
         with _timeline_lock:
             if _timeline_state["running"]:
-                return jsonify({
-                    "ok": False,
-                    "error": "已有完整率重整在進行中",
-                    "started_at": _timeline_state["started_at"],
-                }), 409
+                return jsonify(
+                    {
+                        "ok": False,
+                        "error": "已有完整率重整在進行中",
+                        "started_at": _timeline_state["started_at"],
+                    }
+                ), 409
             _reset_timeline_state()
 
         db_path = _get_db_path(app)
@@ -707,10 +760,12 @@ def _register_routes(app: Flask) -> None:
         )
         thread.start()
 
-        return jsonify({
-            "ok": True,
-            "started_at": _timeline_state["started_at"],
-        }), 202
+        return jsonify(
+            {
+                "ok": True,
+                "started_at": _timeline_state["started_at"],
+            }
+        ), 202
 
     @app.route("/dashboard/refresh-completeness/status")
     def refresh_completeness_status():
@@ -768,6 +823,7 @@ def _register_routes(app: Flask) -> None:
     def reports_list():
         """歷史 PDF 報告列表（每次掃描自動歸檔一份）。"""
         from web import report_archive
+
         db_path = _get_db_path(app)
         items = report_archive.list_reports(db_path)
         return render_template("reports_list.html", items=items)
@@ -776,6 +832,7 @@ def _register_routes(app: Flask) -> None:
     def reports_download(run_id: int):
         """下載指定 run_id 的歷史 PDF。"""
         from web import report_archive
+
         db_path = _get_db_path(app)
         fpath = report_archive.find_report(db_path, run_id)
         if fpath is None or not fpath.exists():
@@ -799,16 +856,23 @@ def _register_routes(app: Flask) -> None:
             status = "all"
         events = webdb.get_events_filtered(
             _get_db_path(app),
-            hours=hours, nvr_id=nvr_id, topic=topic,
-            status=status, limit=200,
+            hours=hours,
+            nvr_id=nvr_id,
+            topic=topic,
+            status=status,
+            limit=200,
         )
         all_topics = webdb.get_all_topics(_get_db_path(app))
         all_nvrs = webdb.get_nvrs(_get_db_path(app))
         return render_template(
             "events_list.html",
-            events=events, hours=hours, nvr_id=nvr_id,
-            topic=topic or "", status=status,
-            all_topics=all_topics, all_nvrs=all_nvrs,
+            events=events,
+            hours=hours,
+            nvr_id=nvr_id,
+            topic=topic or "",
+            status=status,
+            all_topics=all_topics,
+            all_nvrs=all_nvrs,
             topic_zh=webdb.get_topic_zh,
         )
 
@@ -838,14 +902,18 @@ def _register_routes(app: Flask) -> None:
             else:
                 try:
                     result = webdb.run_readonly_query(
-                        _get_db_path(app), sql, max_rows=500,
+                        _get_db_path(app),
+                        sql,
+                        max_rows=500,
                     )
                 except ValueError as exc:
                     error = str(exc)
         return render_template(
             "query.html",
-            sql=sql, example_sql=example_sql,
-            result=result, error=error,
+            sql=sql,
+            example_sql=example_sql,
+            result=result,
+            error=error,
         )
 
     @app.route("/wall")
@@ -857,11 +925,15 @@ def _register_routes(app: Flask) -> None:
         filter_kind = request.args.get("filter", "all")
         if filter_kind not in ("all", "online", "signal_lost", "no_signal"):
             filter_kind = "all"
-        cams = webdb.get_wall_cameras_with_snapshots(_get_db_path(app), filter_kind=filter_kind)
+        cams = webdb.get_wall_cameras_with_snapshots(
+            _get_db_path(app), filter_kind=filter_kind
+        )
         counts = webdb.get_wall_filter_counts(_get_db_path(app))
         return render_template(
             "wall.html",
-            cams=cams, filter_kind=filter_kind, counts=counts,
+            cams=cams,
+            filter_kind=filter_kind,
+            counts=counts,
         )
 
     @app.route("/devices")
@@ -872,16 +944,24 @@ def _register_routes(app: Flask) -> None:
         page = max(1, int(request.args.get("page", "1") or "1"))
         per_page = 50
         rows, total = webdb.get_devices_paginated(
-            _get_db_path(app), page=page, per_page=per_page,
-            nvr_filter=nvr_filter, status_filter=status_filter,
+            _get_db_path(app),
+            page=page,
+            per_page=per_page,
+            nvr_filter=nvr_filter,
+            status_filter=status_filter,
         )
         total_pages = max(1, (total + per_page - 1) // per_page)
         nvrs = webdb.get_nvrs(_get_db_path(app))
         return render_template(
             "devices_list.html",
-            rows=rows, total=total, page=page, per_page=per_page,
+            rows=rows,
+            total=total,
+            page=page,
+            per_page=per_page,
             total_pages=total_pages,
-            nvr_filter=nvr_filter, status_filter=status_filter, nvrs=nvrs,
+            nvr_filter=nvr_filter,
+            status_filter=status_filter,
+            nvrs=nvrs,
         )
 
     @app.route("/devices/discover", methods=["GET", "POST"])
@@ -894,26 +974,34 @@ def _register_routes(app: Flask) -> None:
                 return render_template(
                     "discover.html",
                     error="請輸入 CIDR（例如 192.168.0.0/24）",
-                    cidr=cidr, port=port,
+                    cidr=cidr,
+                    port=port,
                 ), 400
             # 先 validate CIDR 格式（fail fast）
             from web.discover import expand_cidr
+
             try:
                 expand_cidr(cidr)
             except ValueError as e:
                 return render_template(
                     "discover.html",
-                    error=str(e), cidr=cidr, port=port,
+                    error=str(e),
+                    cidr=cidr,
+                    port=port,
                 ), 400
             # 建 session（status='pending'）
             try:
                 session_id = webdb.create_discover_session(
-                    _get_db_path(app), cidr=cidr, port=port,
+                    _get_db_path(app),
+                    cidr=cidr,
+                    port=port,
                 )
             except Exception as e:
                 return render_template(
                     "discover.html",
-                    error=str(e), cidr=cidr, port=port,
+                    error=str(e),
+                    cidr=cidr,
+                    port=port,
                 ), 400
             # Phase #6：背景執行 CIDR probe（避免 /24 等 96s 阻塞 HTTP）
             # 抽成 _start_probe_thread helper，方便測試 monkeypatch 掉背景 thread
@@ -943,10 +1031,13 @@ def _register_routes(app: Flask) -> None:
         info = webdb.get_device_detail(_get_db_path(app), device_id)
         if not info:
             abort(404)
-        history = webdb.get_camera_health_history(_get_db_path(app), device_id, limit=50)
+        history = webdb.get_camera_health_history(
+            _get_db_path(app), device_id, limit=50
+        )
         return render_template(
             "camera_health.html",
-            cam=info, history=history,
+            cam=info,
+            history=history,
         )
 
     @app.route("/trends")
@@ -1017,6 +1108,7 @@ def _make_flask_app() -> Flask:
     需要從 `sys._MEIPASS`（runtime root）絕對路徑重新指。
     """
     import sys
+
     if getattr(sys, "frozen", False):
         # 打包狀態（onedir）：sys._MEIPASS = dist/web/_internal（templates在 _internal/web/templates）
         meipass = Path(sys._MEIPASS)
@@ -1042,23 +1134,18 @@ def create_app(db_path: str | None = None, secret_key: str | None = None) -> Fla
         secret_key: 測試用注入；正式呼叫不傳，強制走 env var 檢查（Day-0 修補 #1）。
     """
     app = _make_flask_app()
-    app.config["DB_PATH"] = db_path or os.environ.get(
-        "NVR_DB_PATH", "./nvr_scan.db"
-    )
+    app.config["DB_PATH"] = db_path or os.environ.get("NVR_DB_PATH", "./nvr_scan.db")
     # flash() 需要 SECRET_KEY；強制要求從 env var 注入，無 fallback（Day-0 修補 #1）
     # 沒設 NVR_WEB_SECRET_KEY 就 raise，避免 session forgery
     if secret_key is None:
         secret_key = os.environ.get("NVR_WEB_SECRET_KEY")
     if not secret_key:
         raise RuntimeError(
-            "NVR_WEB_SECRET_KEY 環境變數未設定。"
-            "請參考 .env.example 並設定後重啟。"
+            "NVR_WEB_SECRET_KEY 環境變數未設定。" "請參考 .env.example 並設定後重啟。"
         )
     app.config["SECRET_KEY"] = secret_key
     # 確認 DB 存在（避免啟動後第一個 request 才 500）
-    if app.config["DB_PATH"] != ":memory:" and not Path(
-        app.config["DB_PATH"]
-    ).exists():
+    if app.config["DB_PATH"] != ":memory:" and not Path(app.config["DB_PATH"]).exists():
         print(
             f"[WARN] DB 檔不存在：{app.config['DB_PATH']}"
             "（網頁將顯示空資料；先跑 python nvr_scanner.py 建立）"
@@ -1068,6 +1155,7 @@ def create_app(db_path: str | None = None, secret_key: str | None = None) -> Fla
     if app.config["DB_PATH"] != ":memory:":
         try:
             from db.sqlite_writer import SqliteWriter
+
             SqliteWriter(app.config["DB_PATH"]).close()
         except Exception as e:
             print(f"[WARN] schema init 失敗：{e}")
@@ -1091,7 +1179,7 @@ def _group_run_events_by_camera(events: list[dict]) -> list[dict]:
                 "camera_name": e.get("camera_name") or f"(unknown #{e['device_id']})",
                 "topics": [],
                 "first_detected": e.get("occurred_at") or e.get("detected_at"),
-                "last_detected":  e.get("occurred_at") or e.get("detected_at"),
+                "last_detected": e.get("occurred_at") or e.get("detected_at"),
                 "open_count": 0,
             }
         g = groups[key]
@@ -1113,7 +1201,9 @@ def _group_run_events_by_camera(events: list[dict]) -> list[dict]:
 
 
 # === Query string 安全轉 int ===
-def _safe_int(value: str | None, default: int, *, min_val: int = 0, max_val: int = 2**31) -> int:
+def _safe_int(
+    value: str | None, default: int, *, min_val: int = 0, max_val: int = 2**31
+) -> int:
     """把 query string 轉 int，無效時退回 default。
 
     防止 `?page=abc` 噴 ValueError → 500。
@@ -1172,7 +1262,11 @@ def _build_abnormal_pdf(
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.platypus import (
-        Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
     )
 
     # 1. 註冊中文字型（Windows 內建微軟正黑體）
@@ -1198,35 +1292,49 @@ def _build_abnormal_pdf(
     # 2. 樣式
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
-        "Title", parent=styles["Title"],
-        fontName=font_bold, fontSize=20,
+        "Title",
+        parent=styles["Title"],
+        fontName=font_bold,
+        fontSize=20,
         textColor=colors.HexColor("#1a365d"),
-        spaceAfter=8, alignment=0,  # left
+        spaceAfter=8,
+        alignment=0,  # left
     )
     meta_style = ParagraphStyle(
-        "Meta", parent=styles["Normal"],
-        fontName=font_name, fontSize=9,
+        "Meta",
+        parent=styles["Normal"],
+        fontName=font_name,
+        fontSize=9,
         textColor=colors.HexColor("#666666"),
         spaceAfter=4,
     )
     section_style = ParagraphStyle(
-        "Section", parent=styles["Heading2"],
-        fontName=font_bold, fontSize=13,
+        "Section",
+        parent=styles["Heading2"],
+        fontName=font_bold,
+        fontSize=13,
         textColor=colors.HexColor("#2c5282"),
-        spaceBefore=10, spaceAfter=4,
+        spaceBefore=10,
+        spaceAfter=4,
         borderPadding=4,
     )
     body_style = ParagraphStyle(
-        "Body", parent=styles["Normal"],
-        fontName=font_name, fontSize=9, leading=12,
+        "Body",
+        parent=styles["Normal"],
+        fontName=font_name,
+        fontSize=9,
+        leading=12,
     )
 
     # 3. 文件
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
-        buf, pagesize=A4,
-        leftMargin=18 * mm, rightMargin=18 * mm,
-        topMargin=18 * mm, bottomMargin=18 * mm,
+        buf,
+        pagesize=A4,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
         title="NVR 異常攝影機報告",
     )
     story = []
@@ -1254,23 +1362,28 @@ def _build_abnormal_pdf(
         ["未解決事件總數", f"{total_open} 筆"],
     ]
     overview_table = Table(
-        overview_data, colWidths=[60 * mm, 80 * mm],
+        overview_data,
+        colWidths=[60 * mm, 80 * mm],
     )
-    overview_table.setStyle(TableStyle([
-        ("FONTNAME", (0, 0), (-1, -1), font_name),
-        ("FONTSIZE", (0, 0), (-1, -1), 10),
-        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#2c5282")),
-        ("FONTNAME", (0, 0), (0, -1), font_bold),
-        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#edf2f7")),
-        ("BACKGROUND", (1, 0), (1, -1), colors.HexColor("#f7fafc")),
-        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e0")),
-        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e2e8f0")),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-    ]))
+    overview_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#2c5282")),
+                ("FONTNAME", (0, 0), (0, -1), font_bold),
+                ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#edf2f7")),
+                ("BACKGROUND", (1, 0), (1, -1), colors.HexColor("#f7fafc")),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e0")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e2e8f0")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
     story.append(overview_table)
     story.append(Spacer(1, 6 * mm))
     story.append(Paragraph(run_info, meta_style))
@@ -1278,10 +1391,12 @@ def _build_abnormal_pdf(
     # 依 NVR 分組
     if not groups:
         story.append(Spacer(1, 5 * mm))
-        story.append(Paragraph(
-            "✓ 目前沒有任何未解決的異常事件。",
-            body_style,
-        ))
+        story.append(
+            Paragraph(
+                "✓ 目前沒有任何未解決的異常事件。",
+                body_style,
+            )
+        )
     else:
         # 依 NVR 聚合
         nvr_buckets: dict[int, list[dict]] = {}
@@ -1292,49 +1407,66 @@ def _build_abnormal_pdf(
             cams = nvr_buckets[nvr_id]
             nvr_name = cams[0]["nvr_name"]
             nvr_total = sum(c["open_count"] for c in cams)
-            story.append(Paragraph(
-                f"📡 {nvr_name}（{nvr_total} 筆未解決）",
-                section_style,
-            ))
+            story.append(
+                Paragraph(
+                    f"📡 {nvr_name}（{nvr_total} 筆未解決）",
+                    section_style,
+                )
+            )
             # Table：相機名稱 / 故障類型 / 首次 / 最新
             data = [["攝影機", "故障類型", "首次發現", "最新一次"]]
             for c in cams:
-                topics_zh = "、".join(
-                    topic_zh(t) for t in c["topics"]
+                topics_zh = "、".join(topic_zh(t) for t in c["topics"])
+                data.append(
+                    [
+                        c["camera_name"],
+                        Paragraph(topics_zh, body_style),
+                        _to_taipei_str(c["first_detected"]),
+                        _to_taipei_str(c["last_detected"]),
+                    ]
                 )
-                data.append([
-                    c["camera_name"],
-                    Paragraph(topics_zh, body_style),
-                    _to_taipei_str(c["first_detected"]),
-                    _to_taipei_str(c["last_detected"]),
-                ])
             tbl = Table(
-                data, colWidths=[50 * mm, 60 * mm, 30 * mm, 30 * mm],
+                data,
+                colWidths=[50 * mm, 60 * mm, 30 * mm, 30 * mm],
                 repeatRows=1,
             )
-            tbl.setStyle(TableStyle([
-                # header
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c5282")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), font_bold),
-                ("FONTSIZE", (0, 0), (-1, 0), 9),
-                ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-                # body
-                ("FONTNAME", (0, 1), (-1, -1), font_name),
-                ("FONTSIZE", (0, 1), (-1, -1), 8),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                # grid
-                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#a0aec0")),
-                ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e2e8f0")),
-                # padding
-                ("LEFTPADDING", (0, 0), (-1, -1), 5),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                # alternating row bg
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1),
-                 [colors.white, colors.HexColor("#f7fafc")]),
-            ]))
+            tbl.setStyle(
+                TableStyle(
+                    [
+                        # header
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c5282")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("FONTNAME", (0, 0), (-1, 0), font_bold),
+                        ("FONTSIZE", (0, 0), (-1, 0), 9),
+                        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                        # body
+                        ("FONTNAME", (0, 1), (-1, -1), font_name),
+                        ("FONTSIZE", (0, 1), (-1, -1), 8),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        # grid
+                        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#a0aec0")),
+                        (
+                            "INNERGRID",
+                            (0, 0),
+                            (-1, -1),
+                            0.25,
+                            colors.HexColor("#e2e8f0"),
+                        ),
+                        # padding
+                        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                        ("TOPPADDING", (0, 0), (-1, -1), 4),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                        # alternating row bg
+                        (
+                            "ROWBACKGROUNDS",
+                            (0, 1),
+                            (-1, -1),
+                            [colors.white, colors.HexColor("#f7fafc")],
+                        ),
+                    ]
+                )
+            )
             story.append(tbl)
             story.append(Spacer(1, 4 * mm))
 
@@ -1344,11 +1476,13 @@ def _build_abnormal_pdf(
         canv.setFont(font_name, 8)
         canv.setFillColor(colors.HexColor("#999999"))
         canv.drawString(
-            18 * mm, 10 * mm,
+            18 * mm,
+            10 * mm,
             f"NVR Scanner · {gen_at}",
         )
         canv.drawRightString(
-            A4[0] - 18 * mm, 10 * mm,
+            A4[0] - 18 * mm,
+            10 * mm,
             f"第 {doc_.page} 頁",
         )
         canv.restoreState()
@@ -1358,6 +1492,7 @@ def _build_abnormal_pdf(
 
 
 # === PDF 報告自動歸檔（batch_scan 完成後觸發） ===
+
 
 def _archive_current_report(db_path: str, last_run: dict) -> None:
     """產生 PDF 並存到 ./reports/。
@@ -1384,7 +1519,9 @@ _scan_state: dict = {
     "abnormal_cameras": 0,
     "error": None,
 }
-_scan_lock = threading.RLock()   # RLock 才能在 scan_trigger「握著鎖呼叫 _reset_scan_state」時不死鎖（2026-07-07）
+_scan_lock = (
+    threading.RLock()
+)  # RLock 才能在 scan_trigger「握著鎖呼叫 _reset_scan_state」時不死鎖（2026-07-07）
 
 
 # Phase 2.8 補：timeline refresh 獨立 state（跟 scan 不互相 block）
@@ -1403,15 +1540,17 @@ _timeline_lock = threading.RLock()
 def _reset_timeline_state() -> None:
     """重置 timeline refresh 狀態。"""
     with _timeline_lock:
-        _timeline_state.update({
-            "running": True,
-            "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "finished_at": None,
-            "checked": 0,
-            "written": 0,
-            "errors_count": 0,
-            "error": None,
-        })
+        _timeline_state.update(
+            {
+                "running": True,
+                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "finished_at": None,
+                "checked": 0,
+                "written": 0,
+                "errors_count": 0,
+                "error": None,
+            }
+        )
 
 
 def _finish_timeline_state(success: bool, **kwargs) -> None:
@@ -1419,7 +1558,8 @@ def _finish_timeline_state(success: bool, **kwargs) -> None:
     with _timeline_lock:
         _timeline_state["running"] = False
         _timeline_state["finished_at"] = time.strftime(
-            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(),
+            "%Y-%m-%dT%H:%M:%SZ",
+            time.gmtime(),
         )
         _timeline_state.update(kwargs)
         if not success and "error" not in kwargs:
@@ -1429,16 +1569,18 @@ def _finish_timeline_state(success: bool, **kwargs) -> None:
 def _reset_scan_state(total_nvrs: int | None = None) -> None:
     """重置 scan 狀態。total_nvrs=None 時保留現值（2026-07-13 Phase 2.2）。"""
     with _scan_lock:
-        _scan_state.update({
-            "running": True,
-            "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "finished_at": None,
-            "run_id": None,
-            "ok_nvrs": 0,
-            "failed_nvrs": 0,
-            "abnormal_cameras": 0,
-            "error": None,
-        })
+        _scan_state.update(
+            {
+                "running": True,
+                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "finished_at": None,
+                "run_id": None,
+                "ok_nvrs": 0,
+                "failed_nvrs": 0,
+                "abnormal_cameras": 0,
+                "error": None,
+            }
+        )
         if total_nvrs is not None:
             _scan_state["total_nvrs"] = total_nvrs
 
@@ -1447,7 +1589,8 @@ def _finish_scan_state(success: bool, **kwargs) -> None:
     with _scan_lock:
         _scan_state["running"] = False
         _scan_state["finished_at"] = time.strftime(
-            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(),
+            "%Y-%m-%dT%H:%M:%SZ",
+            time.gmtime(),
         )
         _scan_state.update(kwargs)
         if not success and "error" not in kwargs:
@@ -1461,14 +1604,14 @@ def _run_scan_in_background(app: Flask, db_path: str) -> None:
     """
     try:
         from batch_scan import batch_scan
-        from nvr_scanner import get_credential
         from db.sqlite_writer import SqliteWriter
 
         # 1. 從 DB 讀啟用的 NVR（單一 source of truth）
         enabled = webdb.list_enabled_nvrs(db_path)
         if not enabled:
             _finish_scan_state(
-                success=False, error="DB 沒有啟用的 NVR（請到 /nvrs 新增並啟用）",
+                success=False,
+                error="DB 沒有啟用的 NVR（請到 /nvrs 新增並啟用）",
             )
             return
         cfg = {"nvr_servers": enabled, "scan_settings": {"timeout_seconds": 10}}
@@ -1499,7 +1642,9 @@ def _run_scan_in_background(app: Flask, db_path: str) -> None:
         #    用 with 確保 connection 一定關閉（避免 Windows file handle 殘留）
         with SqliteWriter(db_path) as writer:
             result = batch_scan(
-                cfg, credentials, writer,
+                cfg,
+                credentials,
+                writer,
                 timeout=cfg["scan_settings"].get("timeout_seconds", 10),
                 verbose=False,
             )
@@ -1522,7 +1667,8 @@ def _run_scan_in_background(app: Flask, db_path: str) -> None:
     except Exception as exc:
         logger.exception("background scan failed: %s", exc)
         _finish_scan_state(
-            success=False, error=f"{type(exc).__name__}: {exc}",
+            success=False,
+            error=f"{type(exc).__name__}: {exc}",
         )
 
 
@@ -1546,7 +1692,8 @@ def _run_timeline_refresh(app: Flask, db_path: str) -> None:
         enabled = webdb.list_enabled_nvrs(db_path)
         if not enabled:
             _finish_timeline_state(
-                success=False, error="DB 沒有啟用的 NVR（請到 /nvrs 新增並啟用）",
+                success=False,
+                error="DB 沒有啟用的 NVR（請到 /nvrs 新增並啟用）",
             )
             return
 
@@ -1590,7 +1737,10 @@ def _run_timeline_refresh(app: Flask, db_path: str) -> None:
                     )
                     scanner.login()  # _timeline_check_loop 直接呼叫 get_timeline，不經過 scan() → 不會自動登入
                     summary = _timeline_check_loop(
-                        scanner, nvr_int_id, writer, verbose=True,
+                        scanner,
+                        nvr_int_id,
+                        writer,
+                        verbose=True,
                     )
                     total_checked += summary["checked"]
                     total_written += summary["written"]
@@ -1599,7 +1749,9 @@ def _run_timeline_refresh(app: Flask, db_path: str) -> None:
                     total_errors += 1
                     logger.warning(
                         "timeline refresh %s 失敗：%s: %s",
-                        nvr.get("id"), type(exc).__name__, exc,
+                        nvr.get("id"),
+                        type(exc).__name__,
+                        exc,
                     )
 
             writer.finish_scan_run(
@@ -1624,7 +1776,8 @@ def _run_timeline_refresh(app: Flask, db_path: str) -> None:
     except Exception as exc:
         logger.exception("timeline refresh failed: %s", exc)
         _finish_timeline_state(
-            success=False, error=f"{type(exc).__name__}: {exc}",
+            success=False,
+            error=f"{type(exc).__name__}: {exc}",
         )
 
 
@@ -1652,7 +1805,7 @@ def _print_banner(host: str, port: int) -> None:
     0.0.0.0 對員工沒意義，要列 127.0.0.1 + 實際 NIC IP。
     """
     print("=" * 64)
-    print(f"[INFO] NVR Web UI 已啟動")
+    print("[INFO] NVR Web UI 已啟動")
     print(f"[INFO] 綁定：{host}:{port}")
     print(f"[INFO] 資料庫：{app.config['DB_PATH']}")
     print()
@@ -1661,7 +1814,6 @@ def _print_banner(host: str, port: int) -> None:
     print()
     print("  LAN 內其他電腦存取（任一皆可）：")
     if host in ("0.0.0.0", ""):
-        import socket as _s
         for ip in _collect_lan_ips():
             print(f"    http://{ip}:{port}/")
     elif host == "127.0.0.1":
@@ -1676,6 +1828,7 @@ def _print_banner(host: str, port: int) -> None:
 def _collect_lan_ips() -> list[str]:
     """列出本機所有非 loopback 的 IPv4（給 0.0.0.0 bind 時參考用）。"""
     import socket
+
     ips: list[str] = []
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
@@ -1705,6 +1858,7 @@ def _maybe_open_browser(host: str, port: int, auto_open: bool) -> None:
     import threading
     import time
     import webbrowser
+
     def _open():
         time.sleep(1.2)  # 等 server ready
         # 連到 127.0.0.1 是最可靠的（即使綁 0.0.0.0，瀏覽器也吃 127.0.0.1）
@@ -1713,11 +1867,12 @@ def _maybe_open_browser(host: str, port: int, auto_open: bool) -> None:
             webbrowser.open(url)
         except Exception:
             pass
+
     threading.Thread(target=_open, daemon=True).start()
 
 
 def main() -> None:
-    host = os.environ.get("NVR_WEB_HOST", "127.0.0.1")   # Day-0: 預設只綁本機
+    host = os.environ.get("NVR_WEB_HOST", "127.0.0.1")  # Day-0: 預設只綁本機
     port = int(os.environ.get("NVR_WEB_PORT", "8444"))
     debug = os.environ.get("NVR_WEB_DEBUG", "").lower() in ("1", "true")
     # 預設不自動開瀏覽器（避免開發 / 重啟時一直跳分頁干擾）。
@@ -1737,15 +1892,19 @@ def main() -> None:
         """
         try:
             import web.db as _webdb
+
             db_path = _get_db_path(app)
             count = _webdb.mark_all_running_as_interrupted(db_path)
             if count:
-                logger.info("SIGTERM/SIGINT: mark %d running scan(s) as interrupted", count)
+                logger.info(
+                    "SIGTERM/SIGINT: mark %d running scan(s) as interrupted", count
+                )
         except Exception as e:
             logger.warning("shutdown cleanup 失敗: %s", e)
         raise SystemExit(0)
 
     import signal
+
     signal.signal(signal.SIGTERM, _shutdown_handler)
     signal.signal(signal.SIGINT, _shutdown_handler)
 
@@ -1754,7 +1913,8 @@ def main() -> None:
     #   連 accept queue 都會卡死；2026-07-06 親身踩到 — /scan 永不回應）
     # Flask 3.x 用 **options 收集剩餘 kwargs 直傳 run_simple，所以直接列舉
     app.run(
-        host=host, port=port,
+        host=host,
+        port=port,
         debug=debug,
         use_reloader=False,
         threaded=True,

@@ -30,7 +30,6 @@ import os
 import sys
 import urllib3
 from pathlib import Path
-from typing import Any
 
 import requests
 
@@ -48,9 +47,9 @@ class ProbeError(Exception):
 
 # === 設定 ===
 CONFIG_FILENAME = "nvr_config.json"
-LOGIN_TIMEOUT = 10     # 8443 登入逾時
-PROBE_TIMEOUT = 5      # 8555 探測逾時
-PROBE_BODY_PEEK = 80   # 每條 response 看前幾 bytes
+LOGIN_TIMEOUT = 10  # 8443 登入逾時
+PROBE_TIMEOUT = 5  # 8555 探測逾時
+PROBE_BODY_PEEK = 80  # 每條 response 看前幾 bytes
 
 # 可能路徑（按經驗 + 常見 NVR 命名）
 CANDIDATE_PATHS = [
@@ -139,11 +138,29 @@ def probe_path(
             "peek": safe_peek(resp.content),
         }
     except requests.exceptions.Timeout:
-        return {"path": path, "status": "TIMEOUT", "content_type": "-", "content_length": "-", "peek": "-"}
+        return {
+            "path": path,
+            "status": "TIMEOUT",
+            "content_type": "-",
+            "content_length": "-",
+            "peek": "-",
+        }
     except requests.exceptions.ConnectionError as exc:
-        return {"path": path, "status": "CONN_ERR", "content_type": "-", "content_length": "-", "peek": str(exc)[:60]}
+        return {
+            "path": path,
+            "status": "CONN_ERR",
+            "content_type": "-",
+            "content_length": "-",
+            "peek": str(exc)[:60],
+        }
     except Exception as exc:
-        return {"path": path, "status": "ERR", "content_type": type(exc).__name__, "content_length": "-", "peek": str(exc)[:60]}
+        return {
+            "path": path,
+            "status": "ERR",
+            "content_type": type(exc).__name__,
+            "content_length": "-",
+            "peek": str(exc)[:60],
+        }
 
 
 def print_table(nvr: dict, results: list[dict]) -> None:
@@ -168,7 +185,7 @@ def save_markdown(nvr: dict, results: list[dict], out_path: Path) -> None:
         f"# NVR Media API 探勘報告：{nvr.get('name', '?')}",
         "",
         f"- 主機：`{nvr['host']}`",
-        f"- Port：8443（REST）/ **8555**（Media）",
+        "- Port：8443（REST）/ **8555**（Media）",
         f"- 探測時間：{Path(__file__).stat().st_mtime}",  # placeholder
         "",
         "| Path | Status | Content-Type | Peek |",
@@ -226,7 +243,7 @@ def main() -> int:
 
     # === 2. 對 port 8555 列常見路徑 ===
     media_base = f"https://{nvr['host']}:8555"
-    print(f"[INFO] 探勘 port 8555 ...")
+    print("[INFO] 探勘 port 8555 ...")
 
     # 注入真實 session token
     PROBE_QUERY_TEMPLATE["session"] = session_token
@@ -241,14 +258,20 @@ def main() -> int:
 
     # === 4. 簡要判讀 ===
     print("[判讀]")
-    interesting = [r for r in results if isinstance(r["status"], int) and 200 <= r["status"] < 400]
+    interesting = [
+        r for r in results if isinstance(r["status"], int) and 200 <= r["status"] < 400
+    ]
     auth_401 = [r for r in results if r["status"] == 401]
     not_found = [r for r in results if r["status"] == 404]
     binary_stream = [
-        r for r in results
+        r
+        for r in results
         if isinstance(r["status"], int)
         and r["status"] == 200
-        and any(s in r["content_type"].lower() for s in ("mp4", "mpeg", "video", "octet-stream", "mjpeg", "h264", "hls"))
+        and any(
+            s in r["content_type"].lower()
+            for s in ("mp4", "mpeg", "video", "octet-stream", "mjpeg", "h264", "hls")
+        )
     ]
     if interesting:
         print(f"  ✓ {len(interesting)} 條路徑回 2xx/3xx：")

@@ -5,6 +5,7 @@ user #565 follow-up：theme_preview.html 已有 12 卡片（commit 35c5f45），
 POST /theme/apply 仍會接受任意字串、寫進 session、但 base.html 不會載入對應 CSS
 → 使用者以為切了 theme、實際 dashboard 還是 fintech。
 """
+
 from pathlib import Path
 
 import pytest
@@ -13,8 +14,18 @@ from web.app import app
 
 
 ALL_THEMES = [
-    "brutal", "cyberpunk", "earthy", "editorial", "eink", "enterprise",
-    "fintech", "glass", "gradient", "minimal", "nordic", "terminal",
+    "brutal",
+    "cyberpunk",
+    "earthy",
+    "editorial",
+    "eink",
+    "enterprise",
+    "fintech",
+    "glass",
+    "gradient",
+    "minimal",
+    "nordic",
+    "terminal",
 ]
 
 WEB_STATIC_THEMES = Path(__file__).resolve().parent.parent / "web" / "static" / "themes"
@@ -34,12 +45,14 @@ def client():
 def test_theme_apply_accepts_all_12_themes(client, theme):
     """POST /theme/apply theme=<theme> 應 302 redirect + session 寫入正確值。"""
     r = client.post("/theme/apply", data={"theme": theme}, follow_redirects=False)
-    assert r.status_code == 302, \
-        f"POST /theme/apply theme={theme!r} 應 redirect 302，got {r.status_code}"
+    assert (
+        r.status_code == 302
+    ), f"POST /theme/apply theme={theme!r} 應 redirect 302，got {r.status_code}"
     # 確認 session 寫入了 theme
     with client.session_transaction() as sess:
-        assert sess.get("theme") == theme, \
-            f"session['theme'] 應為 {theme!r}，got {sess.get('theme')!r}"
+        assert (
+            sess.get("theme") == theme
+        ), f"session['theme'] 應為 {theme!r}，got {sess.get('theme')!r}"
 
 
 @pytest.mark.parametrize("theme", ALL_THEMES)
@@ -50,7 +63,7 @@ def test_theme_apply_flash_message_contains_theme_name(client, theme):
     with client.session_transaction() as sess:
         flashes = sess.get("_flashes", [])
     assert any(
-        cat == "success" and f"主題已套用" in msg and theme in msg
+        cat == "success" and "主題已套用" in msg and theme in msg
         for cat, msg in flashes
     ), f"session._flashes 應含 ('success', '主題已套用：{theme}')，got {flashes}"
 
@@ -61,7 +74,9 @@ def test_theme_apply_rejects_unknown_theme(client):
     這是現有行為：路由沒做白名單校驗，所以未知 theme 不會報錯。
     本測試確保行為一致——若日後有人改嚴格化校驗，這個測試會提醒。
     """
-    r = client.post("/theme/apply", data={"theme": "not-a-real-theme"}, follow_redirects=False)
+    r = client.post(
+        "/theme/apply", data={"theme": "not-a-real-theme"}, follow_redirects=False
+    )
     assert r.status_code == 302, "未知 theme 仍應 redirect（路由不校驗）"
     with client.session_transaction() as sess:
         assert sess.get("theme") == "not-a-real-theme"
@@ -80,10 +95,10 @@ def test_all_12_themes_have_css_file():
             missing_light.append(theme)
         if not (WEB_STATIC_THEMES / f"{theme}-dark.css").exists():
             missing_dark.append(theme)
-    assert not missing_light, \
-        f"以下 theme 缺 light CSS：{missing_light}（防 theme_preview 加卡片但忘了實作）"
-    assert not missing_dark, \
-        f"以下 theme 缺 dark CSS：{missing_dark}（Spec E 應為 12 個 theme 各補 *-dark.css）"
+    assert (
+        not missing_light
+    ), f"以下 theme 缺 light CSS：{missing_light}（防 theme_preview 加卡片但忘了實作）"
+    assert not missing_dark, f"以下 theme 缺 dark CSS：{missing_dark}（Spec E 應為 12 個 theme 各補 *-dark.css）"
 
 
 def test_theme_apply_route_methods():

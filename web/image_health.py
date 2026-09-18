@@ -16,9 +16,10 @@ Phase 2.8（Arisan 影像健康巡檢）：純函式影像分析。
   - 遮擋/位移 → NVR ACC 內建 analytics 自動偵測 → DEVICE_TAMPERING event
   - 模糊/過曝/欠曝/凍結 → 自製影像分析 → image_health_checks 表
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from io import BytesIO
 from typing import Any
 
@@ -28,20 +29,20 @@ from PIL import Image
 # === Threshold 常數（可後續從 config 讀，先用常數啟動） ===
 # 注：gradient-var 演算法對水平相鄰像素敏感（不計垂直），故實測正常影像 >= 100，
 # blur 影像接近 0；100 是保守門檻避免誤報。
-BLUR_VAR_THRESHOLD = 100.0      # gradient var < 100 → 模糊
-LUMA_OVEREXPOSED = 0.85         # mean luma > 0.85 → 過曝
-LUMA_UNDEREXPOSED = 0.15        # mean luma < 0.15 → 欠曝
+BLUR_VAR_THRESHOLD = 100.0  # gradient var < 100 → 模糊
+LUMA_OVEREXPOSED = 0.85  # mean luma > 0.85 → 過曝
+LUMA_UNDEREXPOSED = 0.15  # mean luma < 0.15 → 欠曝
 # 2026-07-30：5.0 太寬鬆（正常 cam 變化 1~4 也會被判 frozen）。
 # 改 1.0：只有「真的幾乎沒變」才算 frozen。
-FROZEN_DIFF_THRESHOLD = 1.0     # 兩張 mean abs pixel diff < 1.0 → 凍結
-                                # 2026-07-30：曾嘗試拉高到 5.0 救 cam B 明亮靜態場景，
-                                # 但實測驗證 5.0 反而更寬鬆（diff 0.24 < 5.0 仍 frozen），
-                                # 對誤報無解。保留 1.0，搭配 dark_scene_skip 與
-                                # 「healthy cam 不觸發 event」shadow 模式另議。
+FROZEN_DIFF_THRESHOLD = 1.0  # 兩張 mean abs pixel diff < 1.0 → 凍結
+# 2026-07-30：曾嘗試拉高到 5.0 救 cam B 明亮靜態場景，
+# 但實測驗證 5.0 反而更寬鬆（diff 0.24 < 5.0 仍 frozen），
+# 對誤報無解。保留 1.0，搭配 dark_scene_skip 與
+# 「healthy cam 不觸發 event」shadow 模式另議。
 # 2026-07-30：過暗場景跳過 frozen 判定。
 # 夜視模式拍空曠場景，5 秒內完全沒變化是常態，不該誤報 frozen。
 # cam2 (物料暫存區-2) mean_luma 0.29 + frozen_diff 0.2 就是這個情境。
-LUMA_DARK_SKIP_FROZEN = 0.30    # mean_luma < 0.30 → 跳過 frozen 判定
+LUMA_DARK_SKIP_FROZEN = 0.30  # mean_luma < 0.30 → 跳過 frozen 判定
 
 # 為效能，分析時縮成這個尺寸（足夠判斷模糊/曝光/凍結）
 _ANALYZE_SIZE = (64, 64)
@@ -50,8 +51,9 @@ _ANALYZE_SIZE = (64, 64)
 @dataclass
 class ImageHealthResult:
     """單張影像分析結果（單張 metric）。"""
-    blur_var: float          # Laplacian variance，越高越銳利
-    mean_luma: float         # 0~1 灰度均值
+
+    blur_var: float  # Laplacian variance，越高越銳利
+    mean_luma: float  # 0~1 灰度均值
     is_blurry: bool
     is_overexposed: bool
     is_underexposed: bool
@@ -81,12 +83,15 @@ class ImageHealthResult:
 @dataclass
 class FrozenResult:
     """兩張影像凍結比對結果。"""
-    mean_abs_diff: float     # mean abs pixel diff（0~255）
+
+    mean_abs_diff: float  # mean abs pixel diff（0~255）
     is_frozen: bool
 
 
 # === Pillow / input 處理 ===
-def _load_grayscale(jpeg_bytes: bytes, size: tuple[int, int] = _ANALYZE_SIZE) -> Image.Image:
+def _load_grayscale(
+    jpeg_bytes: bytes, size: tuple[int, int] = _ANALYZE_SIZE
+) -> Image.Image:
     """解碼 jpeg bytes 並縮成灰度影像。
 
     Raises:
@@ -101,7 +106,12 @@ def _load_grayscale(jpeg_bytes: bytes, size: tuple[int, int] = _ANALYZE_SIZE) ->
         raise ValueError(f"無法解碼 JPEG：{e}") from e
     img = img.convert("L")  # 灰度
     if size is not None:
-        img = img.resize(size, Image.Resampling.BILINEAR if hasattr(Image, "Resampling") else Image.BILINEAR)
+        img = img.resize(
+            size,
+            Image.Resampling.BILINEAR
+            if hasattr(Image, "Resampling")
+            else Image.BILINEAR,
+        )
     return img
 
 

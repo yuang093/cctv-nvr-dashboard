@@ -1,4 +1,5 @@
 """web/app.py /trends route 整合測試（Flask test_client + 真 SQLite）。"""
+
 from __future__ import annotations
 
 import json
@@ -128,7 +129,11 @@ class TestTrendsTemplateRendering:
             "INSERT INTO image_health_checks "
             "(camera_id, nvr_server_id, checked_at_utc, metrics_json, flags_json) "
             "VALUES (?, ?, '2026-08-05T12:00:00Z', ?, '[]')",
-            (cam_id, nvr_int, json.dumps({"is_frozen": False, "is_underexposed": False})),
+            (
+                cam_id,
+                nvr_int,
+                json.dumps({"is_frozen": False, "is_underexposed": False}),
+            ),
         )
         conn.commit()
         conn.close()
@@ -151,7 +156,9 @@ class TestTrendsTemplateRendering:
         self._seed_one_cam_with_health(db_path, "d-bad")
         # seed 3 筆 frozen → 3 bin abnormal
         for h in (4.0, 5.0, 6.0):
-            checked = (datetime.now(timezone.utc) - timedelta(hours=h)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            checked = (datetime.now(timezone.utc) - timedelta(hours=h)).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
             conn = sqlite3.connect(db_path)
             conn.execute(
                 "INSERT INTO image_health_checks "
@@ -166,8 +173,7 @@ class TestTrendsTemplateRendering:
         body = r.data.decode("utf-8")
         # 紅色框線 badge（class 標記）—— 用 regex 找 class 包含 abnormal 的元素
         pattern = re.compile(r'class\s*=\s*["\'][^"\']*\babnormal\b', re.IGNORECASE)
-        assert pattern.search(body), \
-            "異常 cam 應有 cam-card.abnormal CSS class"
+        assert pattern.search(body), "異常 cam 應有 cam-card.abnormal CSS class"
 
     def test_empty_db_shows_empty_state(self, flask_client):
         """空 DB → 顯示「目前沒有 cam 紀錄」相關字串。"""
@@ -175,8 +181,9 @@ class TestTrendsTemplateRendering:
         r = client.get("/trends")
         body = r.data.decode("utf-8")
         # 強化：明確找 "目前沒有" 中文字串
-        assert "目前沒有" in body, \
-            f"空 DB 應顯示「目前沒有」字串，got body length {len(body)}"
+        assert (
+            "目前沒有" in body
+        ), f"空 DB 應顯示「目前沒有」字串，got body length {len(body)}"
 
 
 class TestTrendsRouteFilters:
@@ -211,15 +218,15 @@ class TestTrendsRouteFilters:
         assert r.status_code == 200
         # 沒 abnormal → 看不到 HealthyCam（abnormal_only 過濾）
         body = r.data.decode("utf-8")
-        assert "HealthyCam" not in body, \
-            "abnormal_only 應過濾掉 0 異常的 cam"
+        assert "HealthyCam" not in body, "abnormal_only 應過濾掉 0 異常的 cam"
 
     def test_invalid_status_filter_falls_back_to_any(self, flask_client):
         """無效 status_filter 不應 500 — peer reviewer 2026-08-05 修法：route 寬鬆 normalization。"""
         client, _ = flask_client
         r = client.get("/trends?status=garbage")
-        assert r.status_code == 200, \
-            "?status=garbage 應 fallback 200（route normalization），不 500"
+        assert (
+            r.status_code == 200
+        ), "?status=garbage 應 fallback 200（route normalization），不 500"
 
 
 class TestDevicesListTrendsLink:
@@ -250,10 +257,12 @@ class TestDevicesListTrendsLink:
         assert r.status_code == 200
         body = r.data.decode("utf-8")
         # 兩台 cam 都應有 /trends?cam_id=cam-X 連結（含 range=24h）
-        assert re.search(r'href="/trends\?cam_id=cam-A[^"]*range=24h', body), \
-            "cam-A 應有 /trends?cam_id=...&range=24h deep link"
-        assert re.search(r'href="/trends\?cam_id=cam-B[^"]*range=24h', body), \
-            "cam-B 應有 /trends?cam_id=...&range=24h deep link"
+        assert re.search(
+            r'href="/trends\?cam_id=cam-A[^"]*range=24h', body
+        ), "cam-A 應有 /trends?cam_id=...&range=24h deep link"
+        assert re.search(
+            r'href="/trends\?cam_id=cam-B[^"]*range=24h', body
+        ), "cam-B 應有 /trends?cam_id=...&range=24h deep link"
         # 📈 emoji 應出現
         assert "📈" in body, "deep-link 應用 📈 icon"
 
@@ -276,10 +285,14 @@ class TestDevicesListTrendsLink:
         r = client.get("/devices")
         body = r.data.decode("utf-8")
         # 原始 raw payload 不應出現在 href attribute 內
-        assert 'href="/trends?cam_id=evil\'id\"' not in body, \
-            "Critical: device_id 未 URL-encoded 直接拼接 href → XSS"
+        assert (
+            'href="/trends?cam_id=evil\'id"' not in body
+        ), "Critical: device_id 未 URL-encoded 直接拼接 href → XSS"
         # 編碼後的版本應在 href 內
-        assert "cam_id=evil" in body, "deep-link 應被 render（即使 device_id 含特殊字元）"
+        assert (
+            "cam_id=evil" in body
+        ), "deep-link 應被 render（即使 device_id 含特殊字元）"
+
     """Spec G Batch C Task 8：base.html navbar 應含 '📈 健康趨勢' 連結到 /trends。
 
     /trends extends base.html，所以 navbar 必渲染。
@@ -295,6 +308,7 @@ class TestDevicesListTrendsLink:
         assert 'href="/trends"' in body, "navbar 應有指向 /trends 的 anchor"
         # 顯示文字含「健康趨勢」
         assert "健康趨勢" in body, "navbar 應顯示「健康趨勢」文字"
+
     """Spec G Batch C Task 12：route 接受 ?cam_id= query param，template JS auto-expand + scrollIntoView。
 
     修法：deep link 從 devices/dashboard/coverage 點進來時，要直接 focus 到該 cam。
@@ -365,8 +379,9 @@ class TestDevicesListTrendsLink:
         assert r.status_code == 200
         body = r.data.decode("utf-8")
         # 未編碼的 raw 字元不應出現在 attribute 內
-        assert "'\"<script>" not in body, \
-            "Critical: ?cam_id= payload 未 URL 編碼 → inline attribute XSS"
+        assert (
+            "'\"<script>" not in body
+        ), "Critical: ?cam_id= payload 未 URL 編碼 → inline attribute XSS"
         # 編碼後的版本應出現
         assert "data-focus-cam-id=" in body
 
@@ -419,8 +434,9 @@ class TestDashboardTopMissingTrendsLink:
         assert r.status_code == 200
         body = r.data.decode("utf-8")
         # top_missing row 應有 /trends?cam_id=missing-cam&range=24h 連結
-        assert re.search(r'href="/trends\?cam_id=missing-cam[^"]*range=24h', body), \
-            "top_missing row 應有 /trends?cam_id=...&range=24h deep link"
+        assert re.search(
+            r'href="/trends\?cam_id=missing-cam[^"]*range=24h', body
+        ), "top_missing row 應有 /trends?cam_id=...&range=24h deep link"
         # 📈 emoji 應出現
         assert "📈" in body
 
@@ -450,8 +466,9 @@ class TestDashboardTopMissingTrendsLink:
         r = client.get("/")
         body = r.data.decode("utf-8")
         # 原始 raw payload 不應出現在 href attribute 內
-        assert 'href="/trends?cam_id=evil\'id\"' not in body, \
-            "Critical: camera_id 未 URL-encoded 直接拼接 href → XSS"
+        assert (
+            'href="/trends?cam_id=evil\'id"' not in body
+        ), "Critical: camera_id 未 URL-encoded 直接拼接 href → XSS"
         # 編碼後的版本應在 href 內
         assert "cam_id=evil" in body, "deep-link 應被 render（即使含特殊字元）"
 
@@ -478,13 +495,15 @@ class TestTrendsTemplateSecurity:
         body = r.data.decode("utf-8")
 
         # 不可在 inline onchange 內看到未編碼的 nvr_id payload
-        assert "';alert(1)" not in body, \
-            "Critical: inline JS 字串拼接 XSS regression — payload 未 URL 編碼"
+        assert (
+            "';alert(1)" not in body
+        ), "Critical: inline JS 字串拼接 XSS regression — payload 未 URL 編碼"
         # Select 元素的 data-current-nvr 應 URL 編碼（safe）
         assert "data-current-nvr=" in body, "select 應用 data-current-* 屬性模式"
         # %27 是 ' 的 URL 編碼；應在 data attribute 內出現
-        assert "%27" in body or "&#x27;" in body or "&apos;" in body, \
-            "data attribute 內 nvr_id 應 URL 編碼"
+        assert (
+            "%27" in body or "&#x27;" in body or "&apos;" in body
+        ), "data attribute 內 nvr_id 應 URL 編碼"
 
     def test_canvas_id_uses_composite_nvr_cam(self, flask_client):
         """Canvas id 應是 chart-{nvr_id}-{cam_id}（DB UNIQUE 是 (nvr_id, device_id)）。
@@ -524,8 +543,9 @@ class TestTrendsTemplateSecurity:
         assert 'id="chart-detail-0"' in body
         assert 'id="chart-detail-1"' in body
         # 不應再用 device_id 當 canvas id 的一部分
-        assert 'id="chart-shared"' not in body, \
-            "不應再用 device_id 當 canvas id 的一部分（peer reviewer 修法）"
+        assert (
+            'id="chart-shared"' not in body
+        ), "不應再用 device_id 當 canvas id 的一部分（peer reviewer 修法）"
 
     def test_data_attributes_carry_filter_state_for_js(self, flask_client):
         """select / checkbox 應用 data-* 屬性把當前 filter 狀態交給 JS（避免 inline JS）。"""
@@ -561,8 +581,9 @@ class TestTrendsTemplateSecurity:
         body = r.data.decode("utf-8")
         # 不能有 inline JS 屬性（除了安全範例如 onclick="#" 等；本 template 全不該有）
         assert 'onchange="' not in body, "filter UI 不應用 inline onchange 字串拼接"
-        assert 'onclick=' not in body, \
-            "cam card 不應用 inline onclick；改用 addEventListener"
+        assert (
+            "onclick=" not in body
+        ), "cam card 不應用 inline onclick；改用 addEventListener"
 
     def test_css_var_references_for_theme_awareness(self, flask_client):
         """inline style block 應用 design tokens（var(--bg-card) 等），不寫死 hex。"""
@@ -571,8 +592,9 @@ class TestTrendsTemplateSecurity:
         body = r.data.decode("utf-8")
         # 至少 5 個 var() 引用
         css_block_count = body.count("var(--")
-        assert css_block_count >= 5, \
-            f"應用 CSS var 做 theme 自動套色，got {css_block_count} refs（peer reviewer 修法）"
+        assert (
+            css_block_count >= 5
+        ), f"應用 CSS var 做 theme 自動套色，got {css_block_count} refs（peer reviewer 修法）"
 
 
 class TestTrendsTemplateLazyDetail:
@@ -618,14 +640,15 @@ class TestTrendsTemplateLazyDetail:
         assert 'id="chart-1"' in body
         assert 'id="chart-detail-1"' in body
         # 不應有 raw device_id 在 canvas id 內
-        assert 'id="chart-shared/id"' not in body, \
-            "cam-card canvas id 不應含 raw device_id 特殊字元"
+        assert (
+            'id="chart-shared/id"' not in body
+        ), "cam-card canvas id 不應含 raw device_id 特殊字元"
         # data-cam-id 應用 raw form（因為 Jinja urlencode 不編碼 /），
         # JS 端用 CSS.escape 安全處理 selector
-        assert 'data-cam-id="shared/id"' in body, \
-            "data-cam-id 維持 raw form（urlencode 不編碼 /）+ CSS.escape 安全選擇"
-        assert 'data-cam-id="normal"' in body, \
-            "data-cam-id 含 normal cam"
+        assert (
+            'data-cam-id="shared/id"' in body
+        ), "data-cam-id 維持 raw form（urlencode 不編碼 /）+ CSS.escape 安全選擇"
+        assert 'data-cam-id="normal"' in body, "data-cam-id 含 normal cam"
 
     def test_bin_label_uses_taipei_timezone(self, flask_client):
         """binLabel JS 應轉台北 UTC+8（不是 UTC）。
@@ -639,14 +662,15 @@ class TestTrendsTemplateLazyDetail:
         r = client.get("/trends")
         body = r.data.decode("utf-8")
         # 檢查 JS 含時區轉換邏輯（避免退回 UTC）
-        assert "Date.parse" in body, \
-            "binLabel 應用 Date.parse 處理 ISO 8601 + UTC offset"
-        assert "8 * 3600" in body, \
-            "binLabel 應加 8 小時偏移（UTC→台北 UTC+8）"
+        assert (
+            "Date.parse" in body
+        ), "binLabel 應用 Date.parse 處理 ISO 8601 + UTC offset"
+        assert "8 * 3600" in body, "binLabel 應加 8 小時偏移（UTC→台北 UTC+8）"
         # 確認舊的純 UTC 切片邏輯被取代（否則時區不會生效）
         # startUtc.slice 仍可能在別處用，但 binLabel 不應只用 slice
-        assert "getUTCMonth" in body or "getUTCDate" in body, \
-            "binLabel 應明確從台北時區對應的 Date 物件取 month/date/hour/minute"
+        assert (
+            "getUTCMonth" in body or "getUTCDate" in body
+        ), "binLabel 應明確從台北時區對應的 Date 物件取 month/date/hour/minute"
 
     def test_detail_canvas_lazy_init_in_js(self, flask_client):
         """JS 內 detail canvas 應 lazy init（不在 DOMContentLoaded 預建）。
@@ -659,14 +683,21 @@ class TestTrendsTemplateLazyDetail:
         r = client.get("/trends")
         body = r.data.decode("utf-8")
         # JS 內找 lazy init pattern
-        assert "__chart" in body, \
-            "JS 端應用 __chart marker 做 lazy init（避免 hidden 0×0）"
-        assert "willExpand" in body, \
-            "JS 端 toggle 應區分 willExpand（只在 expand 時建 chart）"
+        assert (
+            "__chart" in body
+        ), "JS 端應用 __chart marker 做 lazy init（避免 hidden 0×0）"
+        assert (
+            "willExpand" in body
+        ), "JS 端 toggle 應區分 willExpand（只在 expand 時建 chart）"
         # 不應該在 DOMContentLoaded 內 new Chart for detail canvas（會 0×0）
         # 粗略檢查：DOMContentLoaded 內不該對 chart-detail- 做 populateChart
-        dom_content_loaded_section = body.split("DOMContentLoaded")[1].split("});")[0] if "DOMContentLoaded" in body else ""
+        dom_content_loaded_section = (
+            body.split("DOMContentLoaded")[1].split("});")[0]
+            if "DOMContentLoaded" in body
+            else ""
+        )
         # detail canvas 預建 marker 不應出現（canvas.__chart 早就 set 了）
         # 反向檢查：DOMContentLoaded 區段內不該有 chart-detail
-        assert "populateChart(makeChart(canvasDetail" not in dom_content_loaded_section, \
-            "DOMContentLoaded 不應預建 detail Chart（會 0×0）；應改為 lazy 在 click handler 建"
+        assert (
+            "populateChart(makeChart(canvasDetail" not in dom_content_loaded_section
+        ), "DOMContentLoaded 不應預建 detail Chart（會 0×0）；應改為 lazy 在 click handler 建"

@@ -10,9 +10,9 @@ Webhook 端到端測試：batch_scan 真實執行後 → webhook 真實 POST 到
 - 接收器回 500 不影響 batch_scan 完成
 - 多 webhook URL 都收到
 """
+
 from __future__ import annotations
 
-import os
 
 import pytest
 
@@ -21,7 +21,6 @@ from tests.integration.mock_acc import (
     MockAvigilonServer,
     MockWebhookReceiver,
     make_abnormal_nvr,
-    make_login_fail_nvr,
     make_normal_nvr,
 )
 
@@ -89,17 +88,22 @@ class TestWebhookEndToEnd:
         _, writer = integration_db
         config = _make_config_with_webhooks(
             [_make_nvr_config("nvr-1", mock_nvr_abnormal_only)],
-            [{
-                "provider": "slack",
-                "url": webhook_receiver.base_url + "/slack/hook",
-                "channel": "#test",
-                "enabled": True,
-            }],
+            [
+                {
+                    "provider": "slack",
+                    "url": webhook_receiver.base_url + "/slack/hook",
+                    "channel": "#test",
+                    "enabled": True,
+                }
+            ],
         )
 
         result = batch_scan(
-            config, integration_credentials, writer,
-            timeout=5, verbose=False,
+            config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
 
         assert result["status"] == "success"  # 1 台就過
@@ -130,15 +134,21 @@ class TestWebhookEndToEnd:
         _, writer = integration_db
         config = _make_config_with_webhooks(
             [_make_nvr_config("nvr-1", mock_nvr_abnormal_only)],
-            [{
-                "provider": "teams",
-                "url": webhook_receiver.base_url + "/teams/hook",
-                "enabled": True,
-            }],
+            [
+                {
+                    "provider": "teams",
+                    "url": webhook_receiver.base_url + "/teams/hook",
+                    "enabled": True,
+                }
+            ],
         )
 
         batch_scan(
-            config, integration_credentials, writer, timeout=5, verbose=False,
+            config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
 
         assert len(webhook_receiver.received) == 1
@@ -160,15 +170,21 @@ class TestWebhookEndToEnd:
         _, writer = integration_db
         config = _make_config_with_webhooks(
             [_make_nvr_config("nvr-1", mock_nvr_normal_only)],
-            [{
-                "provider": "slack",
-                "url": webhook_receiver.base_url + "/should-not-fire",
-                "enabled": True,
-            }],
+            [
+                {
+                    "provider": "slack",
+                    "url": webhook_receiver.base_url + "/should-not-fire",
+                    "enabled": True,
+                }
+            ],
         )
 
         result = batch_scan(
-            config, integration_credentials, writer, timeout=5, verbose=False,
+            config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
 
         assert result["abnormal_cameras"] == 0
@@ -190,15 +206,21 @@ class TestWebhookEndToEnd:
             _, writer = integration_db
             config = _make_config_with_webhooks(
                 [_make_nvr_config("nvr-1", mock_nvr_abnormal_only)],
-                [{
-                    "provider": "slack",
-                    "url": receiver.base_url + "/fail",
-                    "enabled": True,
-                }],
+                [
+                    {
+                        "provider": "slack",
+                        "url": receiver.base_url + "/fail",
+                        "enabled": True,
+                    }
+                ],
             )
 
             result = batch_scan(
-                config, integration_credentials, writer, timeout=5, verbose=False,
+                config,
+                integration_credentials,
+                writer,
+                timeout=5,
+                verbose=False,
             )
 
             # batch_scan 本身仍應 success（webhook 失敗不影響）
@@ -232,7 +254,11 @@ class TestWebhookEndToEnd:
                 ],
             )
             result = batch_scan(
-                config, integration_credentials, writer, timeout=5, verbose=False,
+                config,
+                integration_credentials,
+                writer,
+                timeout=5,
+                verbose=False,
             )
             assert len(recv_slack.received) == 1
             assert len(recv_teams.received) == 1
@@ -253,15 +279,21 @@ class TestWebhookEndToEnd:
         _, writer = integration_db
         config = _make_config_with_webhooks(
             [_make_nvr_config("nvr-1", mock_nvr_abnormal_only)],
-            [{
-                "provider": "slack",
-                "url": webhook_receiver.base_url + "/disabled",
-                "enabled": False,
-            }],
+            [
+                {
+                    "provider": "slack",
+                    "url": webhook_receiver.base_url + "/disabled",
+                    "enabled": False,
+                }
+            ],
         )
 
         batch_scan(
-            config, integration_credentials, writer, timeout=5, verbose=False,
+            config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
 
         assert len(webhook_receiver.received) == 0
@@ -279,15 +311,21 @@ class TestWebhookEndToEnd:
         _, writer = integration_db
         config = _make_config_with_webhooks(
             [_make_nvr_config("nvr-1", mock_nvr_abnormal_only)],
-            [{
-                "provider": "slack",
-                "url": "${TEST_WEBHOOK_URL}",
-                "enabled": True,
-            }],
+            [
+                {
+                    "provider": "slack",
+                    "url": "${TEST_WEBHOOK_URL}",
+                    "enabled": True,
+                }
+            ],
         )
 
         batch_scan(
-            config, integration_credentials, writer, timeout=5, verbose=False,
+            config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
 
         assert len(webhook_receiver.received) == 1
@@ -305,15 +343,21 @@ class TestWebhookEndToEnd:
         _, writer = integration_db
         config = _make_config_with_webhooks(
             [_make_nvr_config("nvr-1", mock_nvr_abnormal_only)],
-            [{
-                "provider": "slack",
-                "url": "${UNSET_WEBHOOK_URL_XYZ}",
-                "enabled": True,
-            }],
+            [
+                {
+                    "provider": "slack",
+                    "url": "${UNSET_WEBHOOK_URL_XYZ}",
+                    "enabled": True,
+                }
+            ],
         )
 
         result = batch_scan(
-            config, integration_credentials, writer, timeout=5, verbose=False,
+            config,
+            integration_credentials,
+            writer,
+            timeout=5,
+            verbose=False,
         )
 
         # batch_scan 正常結束

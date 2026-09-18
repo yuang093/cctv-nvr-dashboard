@@ -5,6 +5,7 @@ Phase 2.8（Arisan）Phase #6：CIDR 探索網段實作測試。
 - 1 unit test：CIDR /16 拒絕
 - 2 integration tests：probe 寫入結果 + 跳過既有 NVR IP
 """
+
 from __future__ import annotations
 
 import gc
@@ -26,12 +27,14 @@ def discover_app(monkeypatch):
     注意：不能 monkeypatch threading.Thread.start（會破壞 ThreadPoolExecutor）。
     """
     import web.app as _app
+
     monkeypatch.setattr(_app, "_start_probe_thread", lambda *a, **kw: None)
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     w = SqliteWriter(db_path)
     from web.app import create_app
+
     app = create_app(db_path=db_path)
     app.config["TESTING"] = True
     yield app, db_path
@@ -59,6 +62,7 @@ def _extract_session_id(resp) -> int:
 def test_expand_cidr_rejects_too_large_prefix():
     """CIDR prefix < /16 必須 raise ValueError（防 DoS）。"""
     from web.discover import expand_cidr
+
     # /8 太大（16M IPs）必須拒
     with pytest.raises(ValueError, match="/16|過大"):
         expand_cidr("10.0.0.0/8")
@@ -71,6 +75,7 @@ def test_expand_cidr_rejects_too_large_prefix():
 def test_expand_cidr_expands_correctly():
     """/30 應展開為 2 個 host IP（排除 network/broadcast）。"""
     from web.discover import expand_cidr
+
     ips = expand_cidr("192.168.1.0/30")
     assert ips == ["192.168.1.1", "192.168.1.2"]
 
@@ -103,14 +108,20 @@ def test_discover_post_runs_probe_and_writes_results(discover_app, client, monke
 
     # 2. 同步觸發 probe（測試環境不靠 thread 等，避免 race）
     from web.discover import run_discovery_for_session
+
     run_discovery_for_session(db_path, session_id)
 
     # 3. 檢查 DB
     from web import db as webdb
-    sess = webdb._connect(db_path).execute(
-        "SELECT results_json, status FROM discover_sessions WHERE id = ?",
-        (session_id,),
-    ).fetchone()
+
+    sess = (
+        webdb._connect(db_path)
+        .execute(
+            "SELECT results_json, status FROM discover_sessions WHERE id = ?",
+            (session_id,),
+        )
+        .fetchone()
+    )
     assert sess is not None
     assert sess["status"] == "completed"
     results = _json.loads(sess["results_json"])
@@ -129,18 +140,29 @@ def test_discover_post_skips_existing_nvr_ips(discover_app, client, monkeypatch)
     app, db_path = discover_app
     # Seed 一台 NVR 在 192.168.1.100
     w = SqliteWriter(db_path)
-    w.upsert_nvr({
-        "id": "NVR-X", "name": "X 分店", "host": "192.168.1.100",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    w.upsert_nvr(
+        {
+            "id": "NVR-X",
+            "name": "X 分店",
+            "host": "192.168.1.100",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     w._conn.close()
 
     probed_ips: list[str] = []
 
     def fake_get(url, timeout, verify):
         # 抓出 IP 記下來
-        for ip in ("192.168.1.97", "192.168.1.98", "192.168.1.99",
-                   "192.168.1.101", "192.168.1.102"):
+        for ip in (
+            "192.168.1.97",
+            "192.168.1.98",
+            "192.168.1.99",
+            "192.168.1.101",
+            "192.168.1.102",
+        ):
             if ip in url:
                 probed_ips.append(ip)
         r = MagicMock()
@@ -152,12 +174,15 @@ def test_discover_post_skips_existing_nvr_ips(discover_app, client, monkeypatch)
 
     # /29 from 192.168.1.96：network=.96, broadcast=.103, hosts=.97-.102
     # seed NVR=.100 在 hosts 內 → 應 skip
-    resp = client.post("/devices/discover", data={"cidr": "192.168.1.96/29", "port": "8443"})
+    resp = client.post(
+        "/devices/discover", data={"cidr": "192.168.1.96/29", "port": "8443"}
+    )
     assert resp.status_code == 302
     session_id = _extract_session_id(resp)
 
     # 同步觸發 probe
     from web.discover import run_discovery_for_session
+
     run_discovery_for_session(db_path, session_id)
 
     # 192.168.1.100 沒被 probe
@@ -166,10 +191,15 @@ def test_discover_post_skips_existing_nvr_ips(discover_app, client, monkeypatch)
     assert len(probed_ips) == 5
 
     from web import db as webdb
-    sess = webdb._connect(db_path).execute(
-        "SELECT results_json FROM discover_sessions WHERE id = ?",
-        (session_id,),
-    ).fetchone()
+
+    sess = (
+        webdb._connect(db_path)
+        .execute(
+            "SELECT results_json FROM discover_sessions WHERE id = ?",
+            (session_id,),
+        )
+        .fetchone()
+    )
     results = _json.loads(sess["results_json"])
     skip_100 = [r for r in results if r["ip"] == "192.168.1.100"]
     assert len(skip_100) == 1

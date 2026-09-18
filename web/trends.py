@@ -8,6 +8,7 @@ Spec G: Cam 健康趨勢圖的純 DB 查詢層。
     - db_path 顯式傳入（與 web.db 一致風格）
     - 回傳 dataclass，方便 template 用 attribute access
 """
+
 from __future__ import annotations
 
 import json
@@ -20,22 +21,28 @@ from pathlib import Path
 @dataclass(frozen=True)
 class HealthBin:
     """單一時段 bin 的健康統計。"""
-    start_utc: str           # ISO 8601 e.g. "2026-08-05T14:00:00Z"
-    online_pct: float        # 0.0-100.0
-    frozen_pct: float        # 0.0-100.0
-    underexposed_pct: float  # 0.0-100.0（spec 原名 dark；改用程式碼既有的 underexposed）
-    sample_count: int        # 該 bin 內 image_health 記錄數
+
+    start_utc: str  # ISO 8601 e.g. "2026-08-05T14:00:00Z"
+    online_pct: float  # 0.0-100.0
+    frozen_pct: float  # 0.0-100.0
+    underexposed_pct: (
+        float  # 0.0-100.0（spec 原名 dark；改用程式碼既有的 underexposed）
+    )
+    sample_count: int  # 該 bin 內 image_health 記錄數
 
 
 @dataclass(frozen=True)
 class CamHealthSummary:
     """一台 cam 的健康摘要。"""
+
     cam_id: str
     cam_name: str
     nvr_id: str
     nvr_name: str
     bins: list[HealthBin]
-    abnormal_bins: int       # frozen/underexposed 任一 > 0 的 bin 之 sample 總數（不含 offline）
+    abnormal_bins: (
+        int  # frozen/underexposed 任一 > 0 的 bin 之 sample 總數（不含 offline）
+    )
 
 
 def _connect(db_path: str) -> sqlite3.Connection:
@@ -130,7 +137,9 @@ def compute_health_timeseries(
     for row in rows:
         checked_at = row["checked_at_utc"]
         # parse "2026-08-05T14:23:01Z" 形式
-        ts = datetime.strptime(checked_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        ts = datetime.strptime(checked_at, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=timezone.utc
+        )
         # 對應到 bin index：以「距離 now 的整數小時數」為索引（吸收 now 落 bin 內的偏差）
         delta_h = (now_utc - ts).total_seconds() / 3600.0
         idx = int(delta_h // bin_h)
@@ -153,13 +162,17 @@ def compute_health_timeseries(
     result: list[HealthBin] = []
     for i, b in enumerate(buckets):
         total = b["total"]
-        result.append(HealthBin(
-            start_utc=_bin_start_iso(bin_starts[i]),
-            online_pct=100.0 if total > 0 else 0.0,
-            frozen_pct=(b["frozen"] / total * 100.0) if total > 0 else 0.0,
-            underexposed_pct=(b["underexposed"] / total * 100.0) if total > 0 else 0.0,
-            sample_count=total,
-        ))
+        result.append(
+            HealthBin(
+                start_utc=_bin_start_iso(bin_starts[i]),
+                online_pct=100.0 if total > 0 else 0.0,
+                frozen_pct=(b["frozen"] / total * 100.0) if total > 0 else 0.0,
+                underexposed_pct=(b["underexposed"] / total * 100.0)
+                if total > 0
+                else 0.0,
+                sample_count=total,
+            )
+        )
     return result
 
 
@@ -211,18 +224,18 @@ def get_all_cams_health_summary(
         # 算 abnormal_bins：含 frozen/underexposed 之 bin 的 sample_count 總和
         # （即 abnormal record 數；同 bin 多筆 frozen 算多次，凸顯嚴重度）
         abnormal_count = sum(
-            b.sample_count
-            for b in bins
-            if b.frozen_pct > 0 or b.underexposed_pct > 0
+            b.sample_count for b in bins if b.frozen_pct > 0 or b.underexposed_pct > 0
         )
-        summaries.append(CamHealthSummary(
-            cam_id=cam_id,
-            cam_name=row["cam_name"],
-            nvr_id=row["nvr_id"],
-            nvr_name=row["nvr_name"],
-            bins=bins,
-            abnormal_bins=abnormal_count,
-        ))
+        summaries.append(
+            CamHealthSummary(
+                cam_id=cam_id,
+                cam_name=row["cam_name"],
+                nvr_id=row["nvr_id"],
+                nvr_name=row["nvr_name"],
+                bins=bins,
+                abnormal_bins=abnormal_count,
+            )
+        )
 
     # 排序：abnormal_bins DESC, cam_name ASC
     summaries.sort(key=lambda s: (-s.abnormal_bins, s.cam_name))

@@ -5,6 +5,7 @@ tests/test_wall_sort_by_severity.py
 
 對齊 spec §5 排序規則。
 """
+
 from __future__ import annotations
 
 import gc
@@ -23,29 +24,54 @@ def seeded_env():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     w.begin_scan_run("2026-07-29T00:00:00Z")
     # 命名故意亂序，驗證排序是依嚴重度而非名稱
-    w.upsert_cameras(nvra, {
-        "c_online": {"name": "Z線上", "connection_state": "CONNECTED"},
-        "c_sl_old": {"name": "A舊訊號", "connection_state": "CONNECTED"},
-        "c_sl_new": {"name": "B新訊號", "connection_state": "CONNECTED"},
-        "c_ns":     {"name": "C無訊", "connection_state": "LONG_FAILED"},
-    })
-    w.insert_events(w._current_scan_run_id, nvra, [
-        {"eventId": "e_old", "deviceId": "c_sl_old",
-         "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"], "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-         "occurred_at": "2026-07-29T01:00:00Z"},
-        {"eventId": "e_new", "deviceId": "c_sl_new",
-         "eventTopics": ["DEVICE_TAMPERING"], "eventTopic": "DEVICE_TAMPERING",
-         "occurred_at": "2026-07-29T05:00:00Z"},
-        {"eventId": "e_ns", "deviceId": "c_ns",
-         "eventTopics": ["DEVICE_LONG_FAILED"], "eventTopic": "DEVICE_LONG_FAILED",
-         "occurred_at": "2026-07-29T03:00:00Z"},
-    ])
+    w.upsert_cameras(
+        nvra,
+        {
+            "c_online": {"name": "Z線上", "connection_state": "CONNECTED"},
+            "c_sl_old": {"name": "A舊訊號", "connection_state": "CONNECTED"},
+            "c_sl_new": {"name": "B新訊號", "connection_state": "CONNECTED"},
+            "c_ns": {"name": "C無訊", "connection_state": "LONG_FAILED"},
+        },
+    )
+    w.insert_events(
+        w._current_scan_run_id,
+        nvra,
+        [
+            {
+                "eventId": "e_old",
+                "deviceId": "c_sl_old",
+                "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                "occurred_at": "2026-07-29T01:00:00Z",
+            },
+            {
+                "eventId": "e_new",
+                "deviceId": "c_sl_new",
+                "eventTopics": ["DEVICE_TAMPERING"],
+                "eventTopic": "DEVICE_TAMPERING",
+                "occurred_at": "2026-07-29T05:00:00Z",
+            },
+            {
+                "eventId": "e_ns",
+                "deviceId": "c_ns",
+                "eventTopics": ["DEVICE_LONG_FAILED"],
+                "eventTopic": "DEVICE_LONG_FAILED",
+                "occurred_at": "2026-07-29T03:00:00Z",
+            },
+        ],
+    )
     w._get_conn().commit()
     w.close()
     del w

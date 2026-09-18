@@ -12,6 +12,7 @@ Phase 2.5c：CSV / JSON 匯出測試。
     - 空 DB 匯出 = 只剩 header / 空 array
     - 密碼以明碼回傳（給 round-trip 用）
 """
+
 from __future__ import annotations
 
 import csv
@@ -29,6 +30,7 @@ from web.app import create_app
 
 
 # === Fixture ===
+
 
 @pytest.fixture
 def export_app():
@@ -58,33 +60,38 @@ def seeded_db(export_app):
     """灌 2 台 NVR（含中文 tags）到 DB。"""
     app, db_path = export_app
     w = SqliteWriter(db_path)
-    w.upsert_nvr({
-        "id": "ACC8-P4",
-        "name": "總部主 NVR",
-        "host": "192.168.133.141",
-        "port": 8443,
-        "username": "administrator",
-        "password": "SECRET-123",
-        "verify_ssl": False,
-        "site_id": "HQ",
-        "tags": ["branch", "台北"],
-    })
-    w.upsert_nvr({
-        "id": "BRANCH-B",
-        "name": "B 分店",
-        "host": "192.168.2.100",
-        "port": 8443,
-        "username": "api_reader",
-        "password": "PW-B",
-        "verify_ssl": True,
-        "site_id": "",
-        "tags": ["branch", "taichung"],
-    })
+    w.upsert_nvr(
+        {
+            "id": "ACC8-P4",
+            "name": "總部主 NVR",
+            "host": "192.168.133.141",
+            "port": 8443,
+            "username": "administrator",
+            "password": "SECRET-123",
+            "verify_ssl": False,
+            "site_id": "HQ",
+            "tags": ["branch", "台北"],
+        }
+    )
+    w.upsert_nvr(
+        {
+            "id": "BRANCH-B",
+            "name": "B 分店",
+            "host": "192.168.2.100",
+            "port": 8443,
+            "username": "api_reader",
+            "password": "PW-B",
+            "verify_ssl": True,
+            "site_id": "",
+            "tags": ["branch", "taichung"],
+        }
+    )
     del w
     return app, db_path
 
 
 # === 1. 匯出 endpoint 基本行為 ===
+
 
 def test_export_csv_200_and_disposition(seeded_db, client):
     """CSV 匯出 200 + Content-Disposition attachment + UTF-8 BOM。"""
@@ -113,6 +120,7 @@ def test_export_json_200_and_disposition(seeded_db, client):
 
 # === 2. 匯出內容正確 ===
 
+
 def test_export_csv_content(seeded_db, client):
     """CSV 內容含正確 header + 兩筆資料（含中文 tags）。"""
     resp = client.get("/nvrs/export.csv")
@@ -120,8 +128,15 @@ def test_export_csv_content(seeded_db, client):
     body = resp.get_data(as_text=True).lstrip("﻿")
     reader = csv.DictReader(io.StringIO(body))
     assert reader.fieldnames == [
-        "id", "name", "host", "port", "username", "password",
-        "verify_ssl", "site_id", "tags",
+        "id",
+        "name",
+        "host",
+        "port",
+        "username",
+        "password",
+        "verify_ssl",
+        "site_id",
+        "tags",
     ]
     rows = list(reader)
     assert len(rows) == 2
@@ -163,6 +178,7 @@ def test_export_json_content(seeded_db, client):
 
 # === 3. 空 DB 匯出 ===
 
+
 def test_export_csv_empty_db(client):
     """空 DB：CSV 只有 header。"""
     resp = client.get("/nvrs/export.csv")
@@ -181,6 +197,7 @@ def test_export_json_empty_db(client):
 
 # === 4. Round-trip：匯出 → 匯入 → DB 一致 ===
 
+
 def test_export_csv_round_trip_to_import(seeded_db):
     """從 DB A 匯出 CSV → 灌到 DB B → DB B 內容一致。"""
     app_a, db_a = seeded_db
@@ -198,9 +215,14 @@ def test_export_csv_round_trip_to_import(seeded_db):
         client_b = app_b.test_client()
 
         # 把 CSV 匯入 DB B
-        imp = client_b.post("/nvrs/import", data={
-            "file": (io.BytesIO(csv_bytes), "from_a.csv"),
-        }, content_type="multipart/form-data", follow_redirects=False)
+        imp = client_b.post(
+            "/nvrs/import",
+            data={
+                "file": (io.BytesIO(csv_bytes), "from_a.csv"),
+            },
+            content_type="multipart/form-data",
+            follow_redirects=False,
+        )
         assert imp.status_code == 302  # success redirect
 
         # DB B 應該有 2 台 NVR，欄位一致
@@ -240,9 +262,14 @@ def test_export_json_round_trip_to_import(seeded_db):
         app_b = create_app(db_path=db_b)
         client_b = app_b.test_client()
 
-        imp = client_b.post("/nvrs/import", data={
-            "file": (io.BytesIO(json_bytes), "from_a.json"),
-        }, content_type="multipart/form-data", follow_redirects=False)
+        imp = client_b.post(
+            "/nvrs/import",
+            data={
+                "file": (io.BytesIO(json_bytes), "from_a.json"),
+            },
+            content_type="multipart/form-data",
+            follow_redirects=False,
+        )
         assert imp.status_code == 302
 
         conn = sqlite3.connect(db_b)
@@ -254,6 +281,7 @@ def test_export_json_round_trip_to_import(seeded_db):
 
 
 # === 5. 密碼以明碼回傳 ===
+
 
 def test_export_csv_password_is_plaintext(seeded_db, client):
     """CSV 密碼欄位是明碼（給 round-trip 用）。"""

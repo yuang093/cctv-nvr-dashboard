@@ -12,6 +12,7 @@ Phase 2.8（Arisan）Worker 整合測試：image_health stage 寫 DB + 觸發 ev
   5. 缺 connection_state CONNECTED 的 cam 跳過
   6. fetch_thumbnail 失敗 → 不中斷整批，記在 errors
 """
+
 from __future__ import annotations
 
 import gc
@@ -59,17 +60,27 @@ def _make_scanner_mock(cameras: dict, jpeg_bytes: bytes) -> MagicMock:
     return scanner
 
 
-def _setup_writer_with_nvr(db_path: str, nvr_id: str = "NVR-T", cam_devices: list[str] | None = None) -> tuple[SqliteWriter, int, int]:
+def _setup_writer_with_nvr(
+    db_path: str, nvr_id: str = "NVR-T", cam_devices: list[str] | None = None
+) -> tuple[SqliteWriter, int, int]:
     """建 DB + upsert NVR + 灌 cams + 開 scan_run；回傳 (writer, nvr_int_id, run_id)。"""
     if cam_devices is None:
         cam_devices = []
     w = SqliteWriter(db_path)
-    nvr_int = w.upsert_nvr({
-        "id": nvr_id, "name": nvr_id, "host": "1.1.1.1",
-        "username": "u", "password": "p",
-    })
+    nvr_int = w.upsert_nvr(
+        {
+            "id": nvr_id,
+            "name": nvr_id,
+            "host": "1.1.1.1",
+            "username": "u",
+            "password": "p",
+        }
+    )
     run_id = w.begin_scan_run("2026-07-17T00:00:00Z")
-    cams_dict = {d: {"name": f"cam-{d}", "connection_state": "CONNECTED", "available": True} for d in cam_devices}
+    cams_dict = {
+        d: {"name": f"cam-{d}", "connection_state": "CONNECTED", "available": True}
+        for d in cam_devices
+    }
     w.upsert_cameras(nvr_int, cams_dict)
     return w, nvr_int, run_id
 
@@ -78,13 +89,16 @@ def _setup_writer_with_nvr(db_path: str, nvr_id: str = "NVR-T", cam_devices: lis
 def test_normal_path_writes_image_health_check(tmp_db_path):
     """正常流程：mock 1 台 cam 兩張相同 jpeg → 1 row 寫入。"""
     w, nvr_int, run_id = _setup_writer_with_nvr(
-        tmp_db_path, cam_devices=["d1"],
+        tmp_db_path,
+        cam_devices=["d1"],
     )
     scanner = _make_scanner_mock(
         cameras={"d1": {"name": "cam1", "connection_state": "CONNECTED"}},
         jpeg_bytes=_make_jpeg(128),  # 中灰
     )
-    summary = _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    summary = _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
 
     assert summary["checked"] == 1
     # 中灰 + 凍結（兩張相同）→ 觸發 frozen + 中灰（中灰 mean_luma=0.502 不過曝/不欠曝/不模糊）
@@ -121,7 +135,9 @@ def test_non_connected_cam_is_skipped(tmp_db_path):
         },
         jpeg_bytes=_make_jpeg(128),
     )
-    summary = _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    summary = _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
     # 只 d1 跑過
     assert summary["checked"] == 1
     assert len(summary["errors"]) == 0
@@ -144,16 +160,19 @@ def test_overexposed_triggers_event(tmp_db_path):
 
     scanner.fetch_thumbnail.side_effect = fake_fetch
     # 2026-07-30：batch_scan 改用 verbose 版；mock 也要對應
-    scanner.fetch_thumbnail_with_status.side_effect = lambda cid: (fake_fetch(cid), None)
-    summary = _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    scanner.fetch_thumbnail_with_status.side_effect = lambda cid: (
+        fake_fetch(cid),
+        None,
+    )
+    summary = _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
 
     assert summary["checked"] == 1
     assert summary["triggered"] >= 1
 
     conn = w._require_active()
-    events = conn.execute(
-        "SELECT event_topic, raw_json FROM events"
-    ).fetchall()
+    events = conn.execute("SELECT event_topic, raw_json FROM events").fetchall()
     assert len(events) >= 1
     ev = events[0]
     assert ev["event_topic"].startswith("IMAGE_HEALTH_")
@@ -171,7 +190,9 @@ def test_last_health_check_id_updated(tmp_db_path):
         cameras={"d1": {"name": "cam1", "connection_state": "CONNECTED"}},
         jpeg_bytes=_make_jpeg(128),
     )
-    _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
 
     conn = w._require_active()
     last_id = conn.execute(
@@ -192,7 +213,9 @@ def test_fetch_thumbnail_failure_does_not_crash(tmp_db_path):
     scanner.fetch_thumbnail.return_value = None  # 永遠回 None
     # 2026-07-30：batch_scan 改用 verbose 版；mock 也要對應
     scanner.fetch_thumbnail_with_status.return_value = (None, "no jpeg (test)")
-    summary = _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    summary = _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
     assert summary["checked"] == 0  # 完全沒成功
     assert len(summary["errors"]) >= 1  # d1 失敗記錄
 
@@ -213,8 +236,13 @@ def test_triggered_event_ids_backfilled(tmp_db_path):
 
     scanner.fetch_thumbnail.side_effect = fake_fetch
     # 2026-07-30：batch_scan 改用 verbose 版；mock 也要對應
-    scanner.fetch_thumbnail_with_status.side_effect = lambda cid: (fake_fetch(cid), None)
-    _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    scanner.fetch_thumbnail_with_status.side_effect = lambda cid: (
+        fake_fetch(cid),
+        None,
+    )
+    _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
 
     conn = w._require_active()
     triggered_ids_json = conn.execute(
@@ -253,12 +281,21 @@ def test_clean_image_no_event(tmp_db_path):
 
     def fake_fetch(cam_id):
         call_count[0] += 1
-        return _make_jpeg_with_pattern(img_a) if call_count[0] == 1 else _make_jpeg_with_pattern(img_b)
+        return (
+            _make_jpeg_with_pattern(img_a)
+            if call_count[0] == 1
+            else _make_jpeg_with_pattern(img_b)
+        )
 
     scanner.fetch_thumbnail.side_effect = fake_fetch
     # 2026-07-30：batch_scan 改用 verbose 版；mock 也要對應
-    scanner.fetch_thumbnail_with_status.side_effect = lambda cid: (fake_fetch(cid), None)
-    summary = _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    scanner.fetch_thumbnail_with_status.side_effect = lambda cid: (
+        fake_fetch(cid),
+        None,
+    )
+    summary = _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
     assert summary["checked"] == 1
     assert summary["triggered"] == 0  # 沒觸發 → 不寫 events
 
@@ -280,7 +317,9 @@ def test_get_cameras_failure_returns_empty_summary(tmp_db_path):
     scanner = MagicMock()
     scanner.get_cameras.side_effect = RuntimeError("NVR 不給看")
 
-    summary = _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    summary = _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
     assert summary["checked"] == 0
     assert any("get_cameras" in e for e in summary["errors"])
 

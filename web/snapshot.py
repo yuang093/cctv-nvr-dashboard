@@ -14,14 +14,15 @@ web/snapshot.py
   - get_thumbnail_dimensions(jpeg_bytes) → (width, height)
     壞 bytes 會 raise PIL.UnidentifiedImageError（給 upsert_snapshot 顯式判斷）
 """
+
 from __future__ import annotations
 
 import io
-from typing import Tuple
 
 # PIL 可用性快取（測試可 monkeypatch 模擬「沒 PIL」情境）
 try:
     from PIL import Image
+
     _PIL_OK = True
 except ImportError:
     _PIL_OK = False

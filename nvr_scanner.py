@@ -136,9 +136,7 @@ def compute_authorization_token(
     if timestamp is None:
         timestamp = int(time.time())
     # 注意：timestamp 必須是純數字字串拼接，不加任何分隔符或時區
-    hex_encoded = hashlib.sha256(
-        f"{timestamp}{user_key}".encode("utf-8")
-    ).hexdigest()
+    hex_encoded = hashlib.sha256(f"{timestamp}{user_key}".encode("utf-8")).hexdigest()
     return f"{user_nonce}:{timestamp}:{hex_encoded}:{integration_id}"
 
 
@@ -172,11 +170,7 @@ def load_env_file(path: Path) -> int:
         key = key.strip()
         value = value.strip()
         # 去掉包圍的單/雙引號
-        if (
-            len(value) >= 2
-            and value[0] == value[-1]
-            and value[0] in ("'", '"')
-        ):
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
             value = value[1:-1]
         # 不覆蓋既有環境變數（保留 shell export 的優先權）
         if key and os.environ.get(key) is None:
@@ -261,9 +255,7 @@ def call_api(
             timeout=DEFAULT_TIMEOUT,
         )
     except requests.exceptions.Timeout as exc:
-        raise ConnectionError_(
-            f"連線逾時（{DEFAULT_TIMEOUT}s）：{url}"
-        ) from exc
+        raise ConnectionError_(f"連線逾時（{DEFAULT_TIMEOUT}s）：{url}") from exc
     except requests.exceptions.SSLError as exc:
         raise ConnectionError_(f"SSL 錯誤：{exc}") from exc
     except requests.exceptions.ConnectionError as exc:
@@ -273,9 +265,7 @@ def call_api(
 
     if resp.status_code in (401, 403):
         # 401/403 一律視為授權問題，由 AuthError 統一拋出
-        raise AuthError(
-            f"授權失敗（HTTP {resp.status_code}）：{resp.text[:200]}"
-        )
+        raise AuthError(f"授權失敗（HTTP {resp.status_code}）：{resp.text[:200]}")
     if not resp.ok:
         raise ApiResponseError(
             f"API 回傳非預期狀態（HTTP {resp.status_code}）：{resp.text[:200]}"
@@ -284,9 +274,7 @@ def call_api(
     try:
         return resp.json()
     except ValueError as exc:
-        raise ApiResponseError(
-            f"回應不是合法 JSON：{resp.text[:200]}"
-        ) from exc
+        raise ApiResponseError(f"回應不是合法 JSON：{resp.text[:200]}") from exc
 
 
 def unwrap_response(data: Any) -> Any:
@@ -393,9 +381,7 @@ class AvigilonScanner:
         self.timeout = timeout
         self.verify_ssl = verify_ssl
         self._page_size = page_size
-        self.base_url = (
-            f"https://{nvr_config['host']}:{nvr_config.get('port', 8443)}"
-        )
+        self.base_url = f"https://{nvr_config['host']}:{nvr_config.get('port', 8443)}"
         self.session = session or make_session(verify_ssl)
 
         # 內部狀態（登入後填入）
@@ -437,11 +423,7 @@ class AvigilonScanner:
         # 解開 {status: success, result: ...} 包裝
         payload = unwrap_response(data)
         # 相容不同版本的欄位命名（result.session / session / Session / token）
-        token = (
-            payload.get("session")
-            or payload.get("Session")
-            or payload.get("token")
-        )
+        token = payload.get("session") or payload.get("Session") or payload.get("token")
         if not token:
             raise AuthError(f"登入回應中找不到 session token：{data}")
         self._session_token = token
@@ -762,7 +744,7 @@ class AvigilonScanner:
             if not resp.ok:
                 return None, f"HTTP {resp.status_code} {resp.reason}"
             if len(resp.content) == 0:
-                return None, f"HTTP 200 但 0 bytes（cam 沒串流？）"
+                return None, "HTTP 200 但 0 bytes（cam 沒串流？）"
             if not resp.content.startswith(b"\xff\xd8\xff"):
                 return None, (
                     f"非 JPEG 回應（{len(resp.content)} bytes，magic={resp.content[:4]!r}）"
@@ -816,13 +798,15 @@ class AvigilonScanner:
                 and dev_id not in event_abnormal_ids
             ):
                 state_abnormal_ids.add(dev_id)
-                state_abnormal_events.append({
-                    "deviceId": dev_id,
-                    "eventTopics": [f"STATE_{info['connection_state']}"],
-                    "eventTopic": f"STATE_{info['connection_state']}",
-                    "source": "camera_state",
-                    "connection_state": info["connection_state"],
-                })
+                state_abnormal_events.append(
+                    {
+                        "deviceId": dev_id,
+                        "eventTopics": [f"STATE_{info['connection_state']}"],
+                        "eventTopic": f"STATE_{info['connection_state']}",
+                        "source": "camera_state",
+                        "connection_state": info["connection_state"],
+                    }
+                )
 
         all_abnormal_ids = event_abnormal_ids | state_abnormal_ids
         all_abnormal_events = abnormal_events + state_abnormal_events
@@ -887,9 +871,7 @@ def print_report(result: dict) -> None:
         print("  （無）")
     else:
         abnormal_ids = {
-            str(e.get("deviceId"))
-            for e in events
-            if e.get("deviceId") is not None
+            str(e.get("deviceId")) for e in events if e.get("deviceId") is not None
         }
         for dev_id, cam_info in cameras.items():
             cam_name = _camera_name(cam_info)
@@ -967,9 +949,7 @@ def main() -> int:
     # --- 讀取認證材料（從環境變數或互動輸入） ---
     try:
         credentials = {
-            "user_nonce": get_credential(
-                "AVIGILON_USER_NONCE", "請輸入 userNonce: "
-            ),
+            "user_nonce": get_credential("AVIGILON_USER_NONCE", "請輸入 userNonce: "),
             "user_key": get_credential(
                 "AVIGILON_USER_KEY", "請輸入 userKey: ", hide=True
             ),
@@ -990,9 +970,12 @@ def main() -> int:
     # --- 跨 process 互斥：避免 cron + 手動同時跑 ---
     try:
         from db.sqlite_writer import acquire_scan_lock
+
         if not acquire_scan_lock(db_path, timeout=0):
-            print("[FAIL] 已有另一個 scan 在跑（DB 內 status='running'），放棄本次執行。",
-                  file=sys.stderr)
+            print(
+                "[FAIL] 已有另一個 scan 在跑（DB 內 status='running'），放棄本次執行。",
+                file=sys.stderr,
+            )
             return 2
     except Exception as exc:
         print(f"[WARN] 無法檢查 scan lock: {exc}", file=sys.stderr)

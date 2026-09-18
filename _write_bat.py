@@ -32,6 +32,7 @@ Files generated
 - 8555 加入 `Pillow`（`web.clips_app._compress_to_thumbnail` 用 `PIL.Image`）
 - 兩者共用：`flask` / `requests` / `nvr_scanner` / `nvr_scan.db` / `nvr_config.json`
 """
+
 from __future__ import annotations
 
 import os
@@ -53,34 +54,34 @@ BUILD_WEB = [
     b'if errorlevel 1 ( "%VENV%" -m pip install "pyinstaller>=6.0" & if errorlevel 1 ( echo [FATAL] & exit /b 2 ) )',
     b'cd /d "%PD%"',
     b'if exist "%PD%nvr_scan.db" (',
-    b'  echo [INFO] Building web.exe with DB...',
+    b"  echo [INFO] Building web.exe with DB...",
     b'  "%VENV%" -m PyInstaller --noconfirm --clean --name web --console --onedir '
     b'--add-data "%PD%web\\templates;web\\templates" '
     b'--add-data "%PD%web\\static;web\\static" '
     b'--add-data "%PD%nvr_config.json;." '
     b'--add-data "%PD%nvr_scan.db;." '
-    b'--collect-all flask --collect-all jinja2 --collect-all click '
-    b'--collect-all itsdangerous --collect-all markupsafe --collect-all werkzeug '
-    b'--collect-all reportlab --collect-all tzdata '
-    b'--collect-all requests --collect-all urllib3 --collect-all certifi '
-    b'--collect-all charset_normalizer --collect-all idna '
-    b'--hidden-import sqlite3 --hidden-import hashlib --hidden-import json --hidden-import csv '
+    b"--collect-all flask --collect-all jinja2 --collect-all click "
+    b"--collect-all itsdangerous --collect-all markupsafe --collect-all werkzeug "
+    b"--collect-all reportlab --collect-all tzdata "
+    b"--collect-all requests --collect-all urllib3 --collect-all certifi "
+    b"--collect-all charset_normalizer --collect-all idna "
+    b"--hidden-import sqlite3 --hidden-import hashlib --hidden-import json --hidden-import csv "
     b'"%PD%web\\app.py"',
-    b') else (',
-    b'  echo [INFO] Building web.exe without DB...',
+    b") else (",
+    b"  echo [INFO] Building web.exe without DB...",
     b'  "%VENV%" -m PyInstaller --noconfirm --clean --name web --console --onedir '
     b'--add-data "%PD%web\\templates;web\\templates" '
     b'--add-data "%PD%web\\static;web\\static" '
     b'--add-data "%PD%nvr_config.json;." '
-    b'--collect-all flask --collect-all jinja2 --collect-all click '
-    b'--collect-all itsdangerous --collect-all markupsafe --collect-all werkzeug '
-    b'--collect-all reportlab --collect-all tzdata '
-    b'--collect-all requests --collect-all urllib3 --collect-all certifi '
-    b'--collect-all charset_normalizer --collect-all idna '
-    b'--hidden-import sqlite3 --hidden-import hashlib --hidden-import json --hidden-import csv '
+    b"--collect-all flask --collect-all jinja2 --collect-all click "
+    b"--collect-all itsdangerous --collect-all markupsafe --collect-all werkzeug "
+    b"--collect-all reportlab --collect-all tzdata "
+    b"--collect-all requests --collect-all urllib3 --collect-all certifi "
+    b"--collect-all charset_normalizer --collect-all idna "
+    b"--hidden-import sqlite3 --hidden-import hashlib --hidden-import json --hidden-import csv "
     b'"%PD%web\\app.py"',
-    b')',
-    b'if errorlevel 1 ( echo [FATAL] & exit /b 4 )',
+    b")",
+    b"if errorlevel 1 ( echo [FATAL] & exit /b 4 )",
     b"echo.",
     b"echo [OK] Built: dist\\web\\web.exe",
     b"exit /b 0",
@@ -106,34 +107,34 @@ BUILD_CLIPS = [
     b'if errorlevel 1 ( "%VENV%" -m pip install "pyinstaller>=6.0" & if errorlevel 1 ( echo [FATAL] & exit /b 2 ) )',
     b'cd /d "%PD%"',
     b'if exist "%PD%nvr_scan.db" (',
-    b'  echo [INFO] Building clips.exe with DB...',
+    b"  echo [INFO] Building clips.exe with DB...",
     b'  "%VENV%" -m PyInstaller --noconfirm --clean --name clips --console --onedir '
     b'--add-data "%PD%web\\clips_templates;web\\clips_templates" '
     b'--add-data "%PD%nvr_config.json;." '
     b'--add-data "%PD%nvr_scan.db;." '
-    b'--collect-all flask --collect-all jinja2 --collect-all click '
-    b'--collect-all itsdangerous --collect-all markupsafe --collect-all werkzeug '
-    b'--collect-all requests --collect-all urllib3 --collect-all certifi '
-    b'--collect-all charset_normalizer --collect-all idna '
-    b'--collect-all Pillow --collect-all tzdata '
-    b'--hidden-import sqlite3 --hidden-import hashlib --hidden-import json --hidden-import csv '
-    b'--hidden-import PIL.Image '
+    b"--collect-all flask --collect-all jinja2 --collect-all click "
+    b"--collect-all itsdangerous --collect-all markupsafe --collect-all werkzeug "
+    b"--collect-all requests --collect-all urllib3 --collect-all certifi "
+    b"--collect-all charset_normalizer --collect-all idna "
+    b"--collect-all Pillow --collect-all tzdata "
+    b"--hidden-import sqlite3 --hidden-import hashlib --hidden-import json --hidden-import csv "
+    b"--hidden-import PIL.Image "
     b'"%PD%web\\clips_app.py"',
-    b') else (',
-    b'  echo [INFO] Building clips.exe without DB...',
+    b") else (",
+    b"  echo [INFO] Building clips.exe without DB...",
     b'  "%VENV%" -m PyInstaller --noconfirm --clean --name clips --console --onedir '
     b'--add-data "%PD%web\\clips_templates;web\\clips_templates" '
     b'--add-data "%PD%nvr_config.json;." '
-    b'--collect-all flask --collect-all jinja2 --collect-all click '
-    b'--collect-all itsdangerous --collect-all markupsafe --collect-all werkzeug '
-    b'--collect-all requests --collect-all urllib3 --collect-all certifi '
-    b'--collect-all charset_normalizer --collect-all idna '
-    b'--collect-all Pillow --collect-all tzdata '
-    b'--hidden-import sqlite3 --hidden-import hashlib --hidden-import json --hidden-import csv '
-    b'--hidden-import PIL.Image '
+    b"--collect-all flask --collect-all jinja2 --collect-all click "
+    b"--collect-all itsdangerous --collect-all markupsafe --collect-all werkzeug "
+    b"--collect-all requests --collect-all urllib3 --collect-all certifi "
+    b"--collect-all charset_normalizer --collect-all idna "
+    b"--collect-all Pillow --collect-all tzdata "
+    b"--hidden-import sqlite3 --hidden-import hashlib --hidden-import json --hidden-import csv "
+    b"--hidden-import PIL.Image "
     b'"%PD%web\\clips_app.py"',
-    b')',
-    b'if errorlevel 1 ( echo [FATAL] & exit /b 4 )',
+    b")",
+    b"if errorlevel 1 ( echo [FATAL] & exit /b 4 )",
     b"echo.",
     b"echo [OK] Built: dist\\clips\\clips.exe",
     b"exit /b 0",
@@ -210,7 +211,7 @@ RUN_WEB = [
     b"    exit /b 2",
     b")",
     b"",
-    b"if not exist \"%VENV_PY%\" (",
+    b'if not exist "%VENV_PY%" (',
     b"    echo [FATAL] \xe6\x89\xbe\xe4\xb8\x8d\xe5\x88\xb0 venv python\xef\xbc\x9a%VENV_PY% 1>&2",
     b"    echo \xe8\xab\x8b\xe5\x85\x88\xef\xbc\x9apython -m venv venv ^&^& venv\\Scripts\\activate ^&^& pip install -r requirements-web.txt 1>&2",
     b"    exit /b 3",
@@ -271,7 +272,7 @@ RUN_WORKER = [
     b'set "EXIT_CODE=%errorlevel%"',
     b"",
     b'if not "%EXIT_CODE%"=="0" (',
-    b"    echo [%date% %time%] run_worker.bat exit_code=%EXIT_CODE% >> \"%LOG_DIR%\\nvr_scanner.log\"",
+    b'    echo [%date% %time%] run_worker.bat exit_code=%EXIT_CODE% >> "%LOG_DIR%\\nvr_scanner.log"',
     b")",
     b"",
     b"exit /b %EXIT_CODE%",
@@ -311,7 +312,7 @@ RUN_CLIPS = [
     b"    exit /b 2",
     b")",
     b"",
-    b"if not exist \"%VENV_PY%\" (",
+    b'if not exist "%VENV_PY%" (',
     b"    echo [FATAL] \xe6\x89\xbe\xe4\xb8\x8d\xe5\x88\xb0 venv python\xef\xbc\x9a%VENV_PY% 1>&2",
     b"    echo \xe8\xab\x8b\xe5\x85\x88\xef\xbc\x9apython -m venv venv ^&^& venv\\Scripts\\activate ^&^& pip install -r requirements-web.txt 1>&2",
     b"    exit /b 3",
@@ -369,7 +370,9 @@ def self_test() -> bool:
                 pass
             if label in ("\\a", "\\b", "\\v", "\\f", "\\t"):
                 if count:
-                    print(f"  [FAIL] {name}: contains {label} ({count}x) — TRUE escape leaked!")
+                    print(
+                        f"  [FAIL] {name}: contains {label} ({count}x) — TRUE escape leaked!"
+                    )
                     ok = False
     return ok
 
@@ -394,8 +397,10 @@ def main() -> int:
 
     print("[OK] No true TAB/BEL/BS/VT/FF chars in any output file.")
     print()
-    print("Re-run after editing the *_WEB/_ALL/_WORKER/_CLIPS byte lists above; "
-          "git-diff the .bat files to verify intent.")
+    print(
+        "Re-run after editing the *_WEB/_ALL/_WORKER/_CLIPS byte lists above; "
+        "git-diff the .bat files to verify intent."
+    )
     return 0
 
 

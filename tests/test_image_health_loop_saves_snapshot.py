@@ -7,6 +7,7 @@ tests/test_image_health_loop_saves_snapshot.py
   - 跟 NVR_IMAGE_HEALTH 合併（一次 HTTPS 同時拿 metadata + 縮圖）
   - 失敗 fallback：JPEG 抓不到就跳過縮圖；image_health 仍記錄
 """
+
 from __future__ import annotations
 
 import gc
@@ -25,6 +26,7 @@ def _make_jpeg_bytes() -> bytes:
     """小 JPEG bytes（測試用）。"""
     from PIL import Image
     import io
+
     im = Image.new("RGB", (640, 480), (100, 150, 200))
     buf = io.BytesIO()
     im.save(buf, format="JPEG", quality=85)
@@ -36,16 +38,25 @@ def db_env():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     w.begin_scan_run("2026-07-29T00:00:00Z")
-    w.upsert_cameras(nvra, {
-        "c1": {"name": "cam1", "connection_state": "CONNECTED"},
-        "c2": {"name": "cam2", "connection_state": "CONNECTED"},
-        "c3": {"name": "cam3", "connection_state": "DISCONNECTED"},  # 離線
-    })
+    w.upsert_cameras(
+        nvra,
+        {
+            "c1": {"name": "cam1", "connection_state": "CONNECTED"},
+            "c2": {"name": "cam2", "connection_state": "CONNECTED"},
+            "c3": {"name": "cam3", "connection_state": "DISCONNECTED"},  # 離線
+        },
+    )
     w._get_conn().commit()
     w.close()
     del w
@@ -59,16 +70,17 @@ def db_env():
 
 def _make_mock_scanner(cameras: dict, jpeg_by_cam: dict):
     """建 mock scanner：
-      - get_cameras() → cameras
-      - fetch_thumbnail(cam_id) → jpeg_by_cam[cam_id] 或 None（保留舊介面相容）
-      - fetch_thumbnail_with_status(cam_id) → (jpeg, None) 或 (None, 'unknown')
-        （2026-07-30 新介面；batch_scan 改用此方法）
+    - get_cameras() → cameras
+    - fetch_thumbnail(cam_id) → jpeg_by_cam[cam_id] 或 None（保留舊介面相容）
+    - fetch_thumbnail_with_status(cam_id) → (jpeg, None) 或 (None, 'unknown')
+      （2026-07-30 新介面；batch_scan 改用此方法）
     """
     scanner = MagicMock()
     scanner.get_cameras.return_value = cameras
     scanner.fetch_thumbnail.side_effect = lambda cid: jpeg_by_cam.get(cid)
     scanner.fetch_thumbnail_with_status.side_effect = lambda cid: (
-        jpeg_by_cam.get(cid), None if jpeg_by_cam.get(cid) else "no jpeg"
+        jpeg_by_cam.get(cid),
+        None if jpeg_by_cam.get(cid) else "no jpeg",
     )
     return scanner
 
@@ -88,8 +100,12 @@ def test_image_health_loop_writes_snapshot_for_connected_cam(db_env):
     w = SqliteWriter(db_path)
     w.begin_scan_run("2026-07-29T00:00:00Z")
     summary = _image_health_check_loop(
-        scanner, nvra, run_id=1, writer=w,
-        verbose=False, frozen_interval_sec=0,  # 跳過 sleep
+        scanner,
+        nvra,
+        run_id=1,
+        writer=w,
+        verbose=False,
+        frozen_interval_sec=0,  # 跳過 sleep
     )
     w._get_conn().commit()
     w.close()
@@ -121,8 +137,12 @@ def test_image_health_loop_skips_snapshot_when_jpeg_missing(db_env):
     w = SqliteWriter(db_path)
     w.begin_scan_run("2026-07-29T00:00:00Z")
     summary = _image_health_check_loop(
-        scanner, nvra, run_id=1, writer=w,
-        verbose=False, frozen_interval_sec=0,
+        scanner,
+        nvra,
+        run_id=1,
+        writer=w,
+        verbose=False,
+        frozen_interval_sec=0,
     )
     w._get_conn().commit()
     w.close()
@@ -147,8 +167,12 @@ def test_image_health_loop_skips_disconnected_cam(db_env):
     w = SqliteWriter(db_path)
     w.begin_scan_run("2026-07-29T00:00:00Z")
     summary = _image_health_check_loop(
-        scanner, nvra, run_id=1, writer=w,
-        verbose=False, frozen_interval_sec=0,
+        scanner,
+        nvra,
+        run_id=1,
+        writer=w,
+        verbose=False,
+        frozen_interval_sec=0,
     )
     w._get_conn().commit()
     w.close()
@@ -171,16 +195,23 @@ def test_image_health_loop_writes_multiple_snapshots(db_env):
         "c1": {"name": "cam1", "connection_state": "CONNECTED"},
         "c2": {"name": "cam2", "connection_state": "CONNECTED"},
     }
-    scanner = _make_mock_scanner(cams, {
-        "c1": _make_jpeg_bytes(),
-        "c2": _make_jpeg_bytes(),
-    })
+    scanner = _make_mock_scanner(
+        cams,
+        {
+            "c1": _make_jpeg_bytes(),
+            "c2": _make_jpeg_bytes(),
+        },
+    )
 
     w = SqliteWriter(db_path)
     w.begin_scan_run("2026-07-29T00:00:00Z")
     summary = _image_health_check_loop(
-        scanner, nvra, run_id=1, writer=w,
-        verbose=False, frozen_interval_sec=0,
+        scanner,
+        nvra,
+        run_id=1,
+        writer=w,
+        verbose=False,
+        frozen_interval_sec=0,
     )
     w._get_conn().commit()
     w.close()
@@ -206,10 +237,13 @@ def test_image_health_loop_snapshot_failure_does_not_break_loop(db_env):
         "c1": {"name": "cam1", "connection_state": "CONNECTED"},
         "c2": {"name": "cam2", "connection_state": "CONNECTED"},
     }
-    scanner = _make_mock_scanner(cams, {
-        "c1": _make_jpeg_bytes(),
-        "c2": _make_jpeg_bytes(),
-    })
+    scanner = _make_mock_scanner(
+        cams,
+        {
+            "c1": _make_jpeg_bytes(),
+            "c2": _make_jpeg_bytes(),
+        },
+    )
 
     # 模擬 Pillow 壞掉
     orig = wsnap._PIL_OK
@@ -218,8 +252,12 @@ def test_image_health_loop_snapshot_failure_does_not_break_loop(db_env):
         w = SqliteWriter(db_path)
         w.begin_scan_run("2026-07-29T00:00:00Z")
         summary = _image_health_check_loop(
-            scanner, nvra, run_id=1, writer=w,
-            verbose=False, frozen_interval_sec=0,
+            scanner,
+            nvra,
+            run_id=1,
+            writer=w,
+            verbose=False,
+            frozen_interval_sec=0,
         )
         w._get_conn().commit()
         w.close()

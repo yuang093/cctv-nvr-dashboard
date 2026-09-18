@@ -10,6 +10,7 @@ Phase 2.7 補：8555 clips app 上的 NVR CRUD Blueprint + Dark Mode 測試。
 - Dark mode toggle 切 session，且 dark 變數注入 clips 跟 nvrs 兩個頁面
 - Clips 頁 navbar 沒 NVR 清單連結、NVR 頁 navbar 沒 Clips 連結（獨立 UI）
 """
+
 from __future__ import annotations
 
 import io
@@ -33,6 +34,7 @@ def _init_db(db_path: str) -> None:
 
 
 # === Fixtures ===
+
 
 @pytest.fixture
 def clips_app(monkeypatch, tmp_path):
@@ -59,22 +61,26 @@ def clips_app_with_nvr(monkeypatch, tmp_path):
     app.config["DB_PATH"] = db_path
     app.config["TESTING"] = True
 
-    webdb.create_nvr(db_path, {
-        "nvr_id": "TEST-NVR-1",
-        "name": "測試 NVR",
-        "host": "10.0.0.1",
-        "port": 8443,
-        "username": "admin",
-        "password": "secret",
-        "verify_ssl": False,
-        "site_id": "LAB",
-        "tags": ["test", "lab"],
-    })
+    webdb.create_nvr(
+        db_path,
+        {
+            "nvr_id": "TEST-NVR-1",
+            "name": "測試 NVR",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "admin",
+            "password": "secret",
+            "verify_ssl": False,
+            "site_id": "LAB",
+            "tags": ["test", "lab"],
+        },
+    )
 
     yield app, db_path
 
 
 # === 路由存在性 ===
+
 
 def test_clips_app_has_nvr_routes(clips_app):
     """Blueprint 註冊後，預期的 11 條 NVR routes 都應該存在。"""
@@ -106,6 +112,7 @@ def test_clips_app_has_dark_toggle_route(clips_app):
 
 
 # === NVR 清單 ===
+
 
 def test_nvrs_list_renders_empty(clips_app):
     app_, _ = clips_app
@@ -149,6 +156,7 @@ def test_nvrs_list_pagination(clips_app):
 
 # === 新增 / 編輯 / 刪除 ===
 
+
 def test_nvrs_new_get_form(clips_app):
     app_, _ = clips_app
     with app_.test_client() as c:
@@ -163,17 +171,21 @@ def test_nvrs_new_get_form(clips_app):
 def test_nvrs_new_post_creates(clips_app, tmp_path):
     app_, db_path = clips_app
     with app_.test_client() as c:
-        r = c.post("/nvrs/new", data={
-            "nvr_id": "NEW-NVR",
-            "name": "新 NVR",
-            "host": "192.168.1.100",
-            "port": "8443",
-            "username": "admin",
-            "password": "pw",
-            "verify_ssl": "",
-            "site_id": "",
-            "tags": "",
-        }, follow_redirects=True)
+        r = c.post(
+            "/nvrs/new",
+            data={
+                "nvr_id": "NEW-NVR",
+                "name": "新 NVR",
+                "host": "192.168.1.100",
+                "port": "8443",
+                "username": "admin",
+                "password": "pw",
+                "verify_ssl": "",
+                "site_id": "",
+                "tags": "",
+            },
+            follow_redirects=True,
+        )
         assert r.status_code == 200
         assert "已建立 NVR" in r.data.decode("utf-8")
         # DB 內真的有這筆
@@ -185,14 +197,17 @@ def test_nvrs_new_post_validation_error(clips_app):
     """缺密碼時應該留在 form 頁並顯示錯誤，不應該寫入 DB。"""
     app_, db_path = clips_app
     with app_.test_client() as c:
-        r = c.post("/nvrs/new", data={
-            "nvr_id": "BAD-NVR",
-            "name": "壞 NVR",
-            "host": "x",
-            "port": "8443",
-            "username": "u",
-            "password": "",  # 缺密碼
-        })
+        r = c.post(
+            "/nvrs/new",
+            data={
+                "nvr_id": "BAD-NVR",
+                "name": "壞 NVR",
+                "host": "x",
+                "port": "8443",
+                "username": "u",
+                "password": "",  # 缺密碼
+            },
+        )
         assert r.status_code == 200
         assert "密碼必填" in r.data.decode("utf-8")
         # DB 內沒有這筆
@@ -203,7 +218,15 @@ def test_nvrs_new_post_validation_error(clips_app):
 def test_nvrs_edit_get_form(clips_app_with_nvr):
     app_, _ = clips_app_with_nvr
     with app_.test_client() as c:
-        nvr = webdb.get_nvrs(webdb._NVR_LIST_DEFAULT_DB_PATH if hasattr(webdb, '_NVR_LIST_DEFAULT_DB_PATH') else "")[0] if False else webdb.get_nvrs(app_.config["DB_PATH"])[0]
+        nvr = (
+            webdb.get_nvrs(
+                webdb._NVR_LIST_DEFAULT_DB_PATH
+                if hasattr(webdb, "_NVR_LIST_DEFAULT_DB_PATH")
+                else ""
+            )[0]
+            if False
+            else webdb.get_nvrs(app_.config["DB_PATH"])[0]
+        )
         r = c.get(f"/nvrs/{nvr['id']}/edit")
         assert r.status_code == 200
         body = r.data.decode("utf-8")
@@ -218,16 +241,20 @@ def test_nvrs_edit_post_updates(clips_app_with_nvr):
     app_, db_path = clips_app_with_nvr
     with app_.test_client() as c:
         nvr = webdb.get_nvrs(db_path)[0]
-        r = c.post(f"/nvrs/{nvr['id']}/edit", data={
-            "nvr_id": nvr["nvr_id"],
-            "name": "改過的名字",
-            "host": "10.0.0.99",
-            "port": "8443",
-            "username": "admin",
-            "password": "",  # 留空 = 不改密碼
-            "site_id": "LAB2",
-            "tags": "updated",
-        }, follow_redirects=True)
+        r = c.post(
+            f"/nvrs/{nvr['id']}/edit",
+            data={
+                "nvr_id": nvr["nvr_id"],
+                "name": "改過的名字",
+                "host": "10.0.0.99",
+                "port": "8443",
+                "username": "admin",
+                "password": "",  # 留空 = 不改密碼
+                "site_id": "LAB2",
+                "tags": "updated",
+            },
+            follow_redirects=True,
+        )
         assert r.status_code == 200
         assert "已更新 NVR" in r.data.decode("utf-8")
         updated = webdb.get_nvr(db_path, nvr["id"])
@@ -264,6 +291,7 @@ def test_nvrs_toggle_enabled(clips_app_with_nvr):
 
 # === 匯入 / 匯出 ===
 
+
 def test_nvrs_import_get_form(clips_app):
     app_, _ = clips_app
     with app_.test_client() as c:
@@ -280,9 +308,14 @@ def test_nvrs_import_post_csv(clips_app, tmp_path):
         "IMP-2,匯入B,10.1.1.2,8443,admin,pw,0,,branch;taichung\r\n"
     )
     with app_.test_client() as c:
-        r = c.post("/nvrs/import", data={
-            "file": (io.BytesIO(csv_content.encode("utf-8-sig")), "test.csv"),
-        }, content_type="multipart/form-data", follow_redirects=True)
+        r = c.post(
+            "/nvrs/import",
+            data={
+                "file": (io.BytesIO(csv_content.encode("utf-8-sig")), "test.csv"),
+            },
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
         assert r.status_code == 200
         assert "匯入完成" in r.data.decode("utf-8")
         nvrs = webdb.get_nvrs(db_path)
@@ -308,6 +341,7 @@ def test_nvrs_import_template_json(clips_app):
         r = c.get("/nvrs/import/template.json")
         assert r.status_code == 200
         import json as _json
+
         data = _json.loads(r.data.decode("utf-8"))
         assert isinstance(data, list)
         assert len(data) >= 1
@@ -331,6 +365,7 @@ def test_nvrs_export_json(clips_app_with_nvr):
         r = c.get("/nvrs/export.json")
         assert r.status_code == 200
         import json as _json
+
         data = _json.loads(r.data.decode("utf-8"))
         assert isinstance(data, list)
         # export 用 `id` 而非 `nvr_id`（跟 import 範本對齊）
@@ -339,17 +374,23 @@ def test_nvrs_export_json(clips_app_with_nvr):
 
 # === 測試連線 ===
 
+
 def test_nvrs_test_connection_missing_env(clips_app, monkeypatch):
     """沒 AVIGILON_USER_NONCE/KEY 時，回 500 + 錯誤訊息。"""
     app_, _ = clips_app
     monkeypatch.delenv("AVIGILON_USER_NONCE", raising=False)
     monkeypatch.delenv("AVIGILON_USER_KEY", raising=False)
     with app_.test_client() as c:
-        r = c.post("/nvrs/test-connection", json={
-            "host": "10.0.0.1", "port": 8443,
-            "username": "u", "password": "p",
-            "verify_ssl": False,
-        })
+        r = c.post(
+            "/nvrs/test-connection",
+            json={
+                "host": "10.0.0.1",
+                "port": 8443,
+                "username": "u",
+                "password": "p",
+                "verify_ssl": False,
+            },
+        )
         assert r.status_code == 500
         data = r.get_json()
         assert data["ok"] is False
@@ -360,15 +401,19 @@ def test_nvrs_test_connection_missing_field(clips_app):
     """缺欄位時回 400。"""
     app_, _ = clips_app
     with app_.test_client() as c:
-        r = c.post("/nvrs/test-connection", json={
-            "host": "10.0.0.1",
-            # 缺 port / username / password
-        })
+        r = c.post(
+            "/nvrs/test-connection",
+            json={
+                "host": "10.0.0.1",
+                # 缺 port / username / password
+            },
+        )
         assert r.status_code == 400
         assert r.get_json()["ok"] is False
 
 
 # === Dark Mode ===
+
 
 def test_dark_toggle_flips_session(clips_app):
     """POST /dark/toggle 應該翻轉 session['dark']。"""
@@ -436,6 +481,7 @@ def test_dark_css_renders_when_dark_true_nvrs(clips_app):
 
 # === 跨頁 cross-link ===
 
+
 def test_clips_page_has_nvr_nav_link(clips_app):
     """Clips 頁 navbar 要有「NVR 清單」連結（2026-07-09 user 要求：方便編輯 NVR 不用輸入網址）。
 
@@ -477,6 +523,7 @@ def test_nvrs_page_has_no_clips_nav_link(clips_app):
 
 # === Template 結構回歸測試（防止以後改壞） ===
 
+
 def test_clips_template_has_dark_toggle_button():
     """clips.html navbar 必須有 dark toggle form。"""
     body = Path_filesafe_read("web/clips_templates/clips.html")
@@ -506,11 +553,14 @@ def test_nvrs_list_template_has_dark_toggle():
     assert "{{ url_for('dark_toggle') }}" in body
 
 
-@pytest.mark.parametrize("template_file", [
-    "web/clips_templates/nvrs_list.html",
-    "web/clips_templates/nvr_form.html",
-    "web/clips_templates/nvr_import.html",
-])
+@pytest.mark.parametrize(
+    "template_file",
+    [
+        "web/clips_templates/nvrs_list.html",
+        "web/clips_templates/nvr_form.html",
+        "web/clips_templates/nvr_import.html",
+    ],
+)
 def test_nvr_templates_have_dark_toggle(template_file):
     """3 個 NVR CRUD template 都要有 dark mode toggle form。"""
     body = Path_filesafe_read(template_file)
@@ -519,6 +569,8 @@ def test_nvr_templates_have_dark_toggle(template_file):
 
 # === Helper ===
 
+
 def Path_filesafe_read(path):
     from pathlib import Path
+
     return Path(path).read_text(encoding="utf-8")

@@ -18,11 +18,11 @@ tests/test_frozen_dark_scene.py
 
   旗標仍記錄 dark_scene_skipped（給未來 debug 用），但不當異常。
 """
+
 from __future__ import annotations
 
 from io import BytesIO
 
-import pytest
 from PIL import Image
 
 from web.image_health import FROZEN_DIFF_THRESHOLD, is_frozen

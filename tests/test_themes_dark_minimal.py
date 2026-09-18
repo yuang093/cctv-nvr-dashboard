@@ -1,8 +1,15 @@
 """驗證 minimal-dark.css 內容齊全。"""
+
 import re
 from pathlib import Path
 
-DARK_CSS = Path(__file__).resolve().parent.parent / "web" / "static" / "themes" / "minimal-dark.css"
+DARK_CSS = (
+    Path(__file__).resolve().parent.parent
+    / "web"
+    / "static"
+    / "themes"
+    / "minimal-dark.css"
+)
 
 
 def test_dark_file_exists():
@@ -25,5 +32,7 @@ def test_dark_accent_is_gray():
     primary_match = re.search(r"--primary:\s*(#[0-9a-fA-F]+)", content)
     assert primary_match
     color = primary_match.group(1).lower()
-    r, g, b = (int(color[i:i + 2], 16) for i in (1, 3, 5))
-    assert abs(r - g) < 20 and abs(g - b) < 20, f"minimal --primary 應為中性灰，實際 {color}"
+    r, g, b = (int(color[i : i + 2], 16) for i in (1, 3, 5))
+    assert (
+        abs(r - g) < 20 and abs(g - b) < 20
+    ), f"minimal --primary 應為中性灰，實際 {color}"

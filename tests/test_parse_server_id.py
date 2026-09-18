@@ -11,6 +11,7 @@ tests/test_parse_server_id.py
   `{"servers": [{"id": "..."}]}` 結構。
 - 支援 `servers` 陣列 wrapper。
 """
+
 from __future__ import annotations
 
 import pytest

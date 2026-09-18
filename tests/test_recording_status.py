@@ -5,6 +5,7 @@ tests/test_recording_status.py
 
 目的：確保 scanner 寫入的 24h 完整率 / 缺段小時數能正確存 DB。
 """
+
 from __future__ import annotations
 
 import gc
@@ -43,15 +44,22 @@ def test_recording_status_table_exists(writer):
 def test_recording_status_unique_per_camera(writer):
     """recording_status 表應有 (nvr_id, camera_id) UNIQUE 約束。"""
     w, db_path = writer
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-29T00:00:00Z")
     w.upsert_cameras(nvra, {"c1": {"name": "cam1", "connection_state": "CONNECTED"}})
 
     w.upsert_recording_status(
-        nvra, "c1",
+        nvra,
+        "c1",
         window_start="2026-07-28T00:00:00Z",
         window_end="2026-07-29T00:00:00Z",
         completeness=0.5,
@@ -59,7 +67,8 @@ def test_recording_status_unique_per_camera(writer):
     )
     # 第二次 upsert 同一 (nvr, camera) 應覆蓋
     w.upsert_recording_status(
-        nvra, "c1",
+        nvra,
+        "c1",
         window_start="2026-07-28T00:00:00Z",
         window_end="2026-07-29T00:00:00Z",
         completeness=0.9,
@@ -79,15 +88,22 @@ def test_recording_status_unique_per_camera(writer):
 def test_recording_status_round_trip(writer):
     """寫入後能讀回完整欄位。"""
     w, db_path = writer
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-29T00:00:00Z")
     w.upsert_cameras(nvra, {"c1": {"name": "cam1", "connection_state": "CONNECTED"}})
 
     w.upsert_recording_status(
-        nvra, "c1",
+        nvra,
+        "c1",
         window_start="2026-07-28T00:00:00Z",
         window_end="2026-07-29T00:00:00Z",
         completeness=0.228,

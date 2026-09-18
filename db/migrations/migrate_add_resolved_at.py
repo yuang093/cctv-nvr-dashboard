@@ -12,6 +12,7 @@ db/migrations/migrate_add_resolved_at.py
 預設 db_path = ./nvr_scan.db（從 cwd 計算）
 退出碼：0 = 已套用（或已存在）/ 1 = 失敗
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -35,10 +36,7 @@ def run(db_path: str) -> int:
             return 0
 
         # 檢查欄位
-        cols = [
-            r["name"]
-            for r in conn.execute("PRAGMA table_info(events)").fetchall()
-        ]
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(events)").fetchall()]
         if "resolved_at" in cols:
             print(f"[skip] {db_path} 已含 resolved_at 欄位（idempotent）")
             return 0

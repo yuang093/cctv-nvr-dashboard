@@ -3,10 +3,13 @@
 Bug：recording_latest_at 已是 'YYYY-MM-DDTHH:MM:SSZ'，
 template 寫 'new Date(latest + "Z").getTime()' → '...ZZ' → NaN。
 """
+
 from pathlib import Path
 
 
-DASH_HTML = Path(__file__).resolve().parent.parent / "web" / "templates" / "dashboard.html"
+DASH_HTML = (
+    Path(__file__).resolve().parent.parent / "web" / "templates" / "dashboard.html"
+)
 
 
 def test_dashboard_does_not_concat_z_to_iso_string():
@@ -14,9 +17,9 @@ def test_dashboard_does_not_concat_z_to_iso_string():
     content = DASH_HTML.read_text(encoding="utf-8")
     forbidden = ['latest + "Z"', "latest + 'Z'", 'latest+ "Z"']
     for pat in forbidden:
-        assert pat not in content, (
-            f"dashboard.html 含 {pat!r} — 會把已帶 Z 的 ISO 字串變 ...ZZ → NaN"
-        )
+        assert (
+            pat not in content
+        ), f"dashboard.html 含 {pat!r} — 會把已帶 Z 的 ISO 字串變 ...ZZ → NaN"
 
 
 def test_dashboard_uses_safe_iso_parse():

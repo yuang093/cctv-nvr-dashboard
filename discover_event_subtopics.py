@@ -92,19 +92,13 @@ def normalize_topics(data: Any) -> list[str]:
     # 先解開 {status: success, result: ...} 外層包裝
     data = unwrap_response(data)
     # 再用 nvr_scanner._extract_list 解開常見包裝
-    candidates = _extract_list(
-        data, "eventSubtopics", "subtopics", "topics", "items"
-    )
+    candidates = _extract_list(data, "eventSubtopics", "subtopics", "topics", "items")
     topics: list[str] = []
     for item in candidates:
         if isinstance(item, str):
             topics.append(item)
         elif isinstance(item, dict):
-            t = (
-                item.get("subtopic")
-                or item.get("name")
-                or item.get("topic")
-            )
+            t = item.get("subtopic") or item.get("name") or item.get("topic")
             if t:
                 topics.append(str(t))
     if topics:
@@ -190,6 +184,7 @@ def main() -> int:
 
     # --- 讀取認證金鑰（環境變數優先） ---
     import os
+
     user_nonce = os.environ.get("AVIGILON_USER_NONCE", "")
     user_key = os.environ.get("AVIGILON_USER_KEY", "")
     integration_id = os.environ.get("AVIGILON_INTEGRATION_ID", "")
@@ -204,15 +199,13 @@ def main() -> int:
 
     # --- 帳密：環境變數可覆寫 nvr_config.json ---
     nvr = dict(nvr)
-    nvr["username"] = (
-        os.environ.get("AVIGILON_USERNAME") or nvr["username"]
-    )
-    nvr["password"] = (
-        os.environ.get("AVIGILON_PASSWORD") or nvr["password"]
-    )
+    nvr["username"] = os.environ.get("AVIGILON_USERNAME") or nvr["username"]
+    nvr["password"] = os.environ.get("AVIGILON_PASSWORD") or nvr["password"]
 
-    print(f"[INFO] 目標 NVR：{nvr.get('name')} @ "
-          f"https://{nvr['host']}:{nvr.get('port', 8443)}")
+    print(
+        f"[INFO] 目標 NVR：{nvr.get('name')} @ "
+        f"https://{nvr['host']}:{nvr.get('port', 8443)}"
+    )
 
     # --- 用 AvigilonScanner 登入並探勘 ---
     try:

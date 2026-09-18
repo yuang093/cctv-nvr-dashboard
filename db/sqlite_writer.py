@@ -241,8 +241,7 @@ class SqliteWriter:
     def _migrate_add_resolved_at(conn: sqlite3.Connection) -> None:
         """若 events 表缺 resolved_at 欄位 → ALTER TABLE（idempotent）。"""
         cols = [
-            row["name"]
-            for row in conn.execute("PRAGMA table_info(events)").fetchall()
+            row["name"] for row in conn.execute("PRAGMA table_info(events)").fetchall()
         ]
         if "resolved_at" not in cols:
             conn.execute("ALTER TABLE events ADD COLUMN resolved_at TEXT")
@@ -296,8 +295,7 @@ class SqliteWriter:
         Nullable（尚未檢查過的 cam 為 NULL）。
         """
         cols = [
-            row["name"]
-            for row in conn.execute("PRAGMA table_info(cameras)").fetchall()
+            row["name"] for row in conn.execute("PRAGMA table_info(cameras)").fetchall()
         ]
         if "last_health_check_id" not in cols:
             conn.execute("ALTER TABLE cameras ADD COLUMN last_health_check_id INTEGER")
@@ -311,8 +309,7 @@ class SqliteWriter:
         Nullable（舊 NVR API 沒回、或 NVR 未跑過新版本 writer 就不填）。
         """
         cols = {
-            row["name"]
-            for row in conn.execute("PRAGMA table_info(cameras)").fetchall()
+            row["name"] for row in conn.execute("PRAGMA table_info(cameras)").fetchall()
         }
         if "ip_address" not in cols:
             conn.execute("ALTER TABLE cameras ADD COLUMN ip_address TEXT")
@@ -327,11 +324,12 @@ class SqliteWriter:
         預設 0（活躍）。scan 結束時 batch_scan 呼叫 `mark_ghost_cameras()` 維護。
         """
         cols = {
-            row["name"]
-            for row in conn.execute("PRAGMA table_info(cameras)").fetchall()
+            row["name"] for row in conn.execute("PRAGMA table_info(cameras)").fetchall()
         }
         if "is_ghost" not in cols:
-            conn.execute("ALTER TABLE cameras ADD COLUMN is_ghost INTEGER NOT NULL DEFAULT 0")
+            conn.execute(
+                "ALTER TABLE cameras ADD COLUMN is_ghost INTEGER NOT NULL DEFAULT 0"
+            )
 
     @staticmethod
     def _migrate_add_discover_sessions_port(conn: sqlite3.Connection) -> None:
@@ -345,7 +343,9 @@ class SqliteWriter:
             for row in conn.execute("PRAGMA table_info(discover_sessions)").fetchall()
         ]
         if "port" not in cols:
-            conn.execute("ALTER TABLE discover_sessions ADD COLUMN port INTEGER DEFAULT 8443")
+            conn.execute(
+                "ALTER TABLE discover_sessions ADD COLUMN port INTEGER DEFAULT 8443"
+            )
 
     @staticmethod
     def _migrate_seed_event_kind_catalog(conn: sqlite3.Connection) -> None:
@@ -356,41 +356,115 @@ class SqliteWriter:
         """
         rows = [
             # (event_topic, name_zh, name_en, category, is_fault, sort_order)
-            ("DEVICE_VIDEO_SIGNAL_LOST", "影像訊號斷線（黑畫面）",
-             "Video signal lost (black screen)", "DEVICE", 1, 10),
-            ("DEVICE_TAMPERING", "破壞/遮蔽（場景改變）",
-             "Tampering / scene changed", "DEVICE", 1, 20),
-            ("DEVICE_COMMUNICATION_LOST", "通訊中斷",
-             "Communication lost", "DEVICE", 1, 30),
-            ("DEVICE_CONNECTION_ERROR", "連線錯誤",
-             "Connection error", "DEVICE", 1, 40),
-            ("DEVICE_LONG_FAILED", "長期失敗（拔線）",
-             "Long failed (unplugged)", "DEVICE", 1, 50),
-            ("DEVICE_DISCONNECTED", "斷線",
-             "Disconnected", "DEVICE", 1, 60),
-            ("DEVICE_ANOMALY_START", "影像分析異常",
-             "Video analytics anomaly", "DEVICE", 1, 70),
-            ("DEVICE_UNUSUAL_STARTED", "未預期活動",
-             "Unusual activity started", "DEVICE", 1, 80),
-            ("STATE_DISCONNECTED", "斷線（攝影機無回應）",
-             "State: disconnected", "STATE", 1, 110),
-            ("STATE_NOT_RESPONDING", "無回應（攝影機 hang）",
-             "State: not responding", "STATE", 1, 120),
-            ("STATE_FAILED", "連線失敗",
-             "State: failed", "STATE", 1, 130),
-            ("STATE_LONG_FAILED", "長期失敗（拔網路線）",
-             "State: long failed", "STATE", 1, 140),
-            ("STATE_BAD_CERTIFICATE", "憑證錯誤",
-             "State: bad certificate", "STATE", 1, 150),
-            ("STATE_AUTH_FAILED", "認證失敗（帳密錯）",
-             "State: auth failed", "STATE", 1, 160),
-            ("STATE_NETWORK_DOWN", "網路斷線",
-             "State: network down", "STATE", 1, 170),
-            ("STATE_TIMED_OUT", "連線逾時",
-             "State: timed out", "STATE", 1, 180),
+            (
+                "DEVICE_VIDEO_SIGNAL_LOST",
+                "影像訊號斷線（黑畫面）",
+                "Video signal lost (black screen)",
+                "DEVICE",
+                1,
+                10,
+            ),
+            (
+                "DEVICE_TAMPERING",
+                "破壞/遮蔽（場景改變）",
+                "Tampering / scene changed",
+                "DEVICE",
+                1,
+                20,
+            ),
+            (
+                "DEVICE_COMMUNICATION_LOST",
+                "通訊中斷",
+                "Communication lost",
+                "DEVICE",
+                1,
+                30,
+            ),
+            (
+                "DEVICE_CONNECTION_ERROR",
+                "連線錯誤",
+                "Connection error",
+                "DEVICE",
+                1,
+                40,
+            ),
+            (
+                "DEVICE_LONG_FAILED",
+                "長期失敗（拔線）",
+                "Long failed (unplugged)",
+                "DEVICE",
+                1,
+                50,
+            ),
+            ("DEVICE_DISCONNECTED", "斷線", "Disconnected", "DEVICE", 1, 60),
+            (
+                "DEVICE_ANOMALY_START",
+                "影像分析異常",
+                "Video analytics anomaly",
+                "DEVICE",
+                1,
+                70,
+            ),
+            (
+                "DEVICE_UNUSUAL_STARTED",
+                "未預期活動",
+                "Unusual activity started",
+                "DEVICE",
+                1,
+                80,
+            ),
+            (
+                "STATE_DISCONNECTED",
+                "斷線（攝影機無回應）",
+                "State: disconnected",
+                "STATE",
+                1,
+                110,
+            ),
+            (
+                "STATE_NOT_RESPONDING",
+                "無回應（攝影機 hang）",
+                "State: not responding",
+                "STATE",
+                1,
+                120,
+            ),
+            ("STATE_FAILED", "連線失敗", "State: failed", "STATE", 1, 130),
+            (
+                "STATE_LONG_FAILED",
+                "長期失敗（拔網路線）",
+                "State: long failed",
+                "STATE",
+                1,
+                140,
+            ),
+            (
+                "STATE_BAD_CERTIFICATE",
+                "憑證錯誤",
+                "State: bad certificate",
+                "STATE",
+                1,
+                150,
+            ),
+            (
+                "STATE_AUTH_FAILED",
+                "認證失敗（帳密錯）",
+                "State: auth failed",
+                "STATE",
+                1,
+                160,
+            ),
+            ("STATE_NETWORK_DOWN", "網路斷線", "State: network down", "STATE", 1, 170),
+            ("STATE_TIMED_OUT", "連線逾時", "State: timed out", "STATE", 1, 180),
             # STATE_CONNECTING 是資訊性事件（短暫狀態），不計入 pending 警示
-            ("STATE_CONNECTING", "連線中（短暫狀態）",
-             "State: connecting (transient)", "STATE", 0, 200),
+            (
+                "STATE_CONNECTING",
+                "連線中（短暫狀態）",
+                "State: connecting (transient)",
+                "STATE",
+                0,
+                200,
+            ),
         ]
         conn.executemany(
             """
@@ -417,9 +491,7 @@ class SqliteWriter:
     def _require_active(self) -> sqlite3.Connection:
         """確認有 active scan_run，否則拋 RuntimeError。"""
         if self._conn is None or self._current_scan_run_id is None:
-            raise RuntimeError(
-                "沒有進行中的 scan_run，請先呼叫 begin_scan_run()"
-            )
+            raise RuntimeError("沒有進行中的 scan_run，請先呼叫 begin_scan_run()")
         return self._conn
 
     # --- IDatabaseWriter Protocol ---
@@ -492,9 +564,7 @@ class SqliteWriter:
             RuntimeError: 已有 active scan_run 未結束。
         """
         if self._current_scan_run_id is not None:
-            raise RuntimeError(
-                "已有進行中的 scan_run，請先呼叫 finish_scan_run()"
-            )
+            raise RuntimeError("已有進行中的 scan_run，請先呼叫 finish_scan_run()")
         conn = self._get_conn()
         cur = conn.execute(
             """
@@ -508,9 +578,7 @@ class SqliteWriter:
         self._current_scan_run_id = int(cur.lastrowid)
         return self._current_scan_run_id
 
-    def upsert_cameras(
-        self, nvr_id: int, cameras: dict[str, Any]
-    ) -> None:
+    def upsert_cameras(self, nvr_id: int, cameras: dict[str, Any]) -> None:
         """
         新增或更新 cameras（同一 nvr_id + device_id 不重複）。
 
@@ -542,9 +610,7 @@ class SqliteWriter:
                 (nvr_id, str(dev_id), name, now, ip, mac),
             )
 
-    def mark_ghost_cameras(
-        self, nvr_id: int, active_device_ids: list[str]
-    ) -> None:
+    def mark_ghost_cameras(self, nvr_id: int, active_device_ids: list[str]) -> None:
         """2026-07-30：把這次 scan 沒看到的 cam 標 is_ghost = 1。
 
         NVR 重啟時可能短暫看到 RTSP stream placeholder（名稱顯示為 `rtsp://...`），
@@ -616,8 +682,15 @@ class SqliteWriter:
                 missing_seconds = excluded.missing_seconds,
                 checked_at = excluded.checked_at
             """,
-            (nvr_id, camera_id, window_start, window_end,
-             completeness, missing_seconds, now),
+            (
+                nvr_id,
+                camera_id,
+                window_start,
+                window_end,
+                completeness,
+                missing_seconds,
+                now,
+            ),
         )
 
     def upsert_snapshot(
@@ -683,8 +756,7 @@ class SqliteWriter:
             if isinstance(topics, str):
                 topics = [topics]
             primary_topic = str(
-                ev.get("eventTopic")
-                or (topics[0] if topics else "UNKNOWN")
+                ev.get("eventTopic") or (topics[0] if topics else "UNKNOWN")
             )
             device_id = str(ev.get("deviceId", ""))
             new_occurred = str(ev.get("occurred_at") or now)
@@ -756,8 +828,11 @@ class SqliteWriter:
             VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
-                camera_id, nvr_server_id, checked_at_utc,
-                metrics_json, flags_json,
+                camera_id,
+                nvr_server_id,
+                checked_at_utc,
+                metrics_json,
+                flags_json,
                 json.dumps(triggered_event_ids or []),
             ),
         )
@@ -915,7 +990,10 @@ class SqliteWriter:
         conn = self._get_conn()
         # 注意：_require_active 會驗 active scan_run，
         # 但這裡只讀 scan_run_id 對不對，不該限制 call timing
-        if self._current_scan_run_id is not None and scan_run_id != self._current_scan_run_id:
+        if (
+            self._current_scan_run_id is not None
+            and scan_run_id != self._current_scan_run_id
+        ):
             raise RuntimeError(
                 f"scan_run_id 不符：active={self._current_scan_run_id}, "
                 f"傳入={scan_run_id}"
@@ -1017,6 +1095,7 @@ def acquire_scan_lock(db_path: str, *, timeout: float = 0.0) -> bool:
     """
     import sqlite3
     import time
+
     deadline = time.monotonic() + timeout
     while True:
         conn = sqlite3.connect(db_path, timeout=5.0)

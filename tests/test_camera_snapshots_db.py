@@ -5,6 +5,7 @@ SqliteWriter.camera_snapshots 表 + upsert_snapshot + get_snapshot_for_camera。
 
 對齊 docs/superpowers/specs/2026-07-29-wall-thumbnail-redesign-design.md §1 架構。
 """
+
 from __future__ import annotations
 
 import gc
@@ -22,7 +23,10 @@ def _make_jpeg(seed: int) -> bytes:
     """小 JPEG bytes（每個 seed 不同避免互相覆蓋時搞混）。"""
     from PIL import Image
     import io
-    im = Image.new("RGB", (640, 480), (seed * 10 % 256, seed * 20 % 256, seed * 30 % 256))
+
+    im = Image.new(
+        "RGB", (640, 480), (seed * 10 % 256, seed * 20 % 256, seed * 30 % 256)
+    )
     buf = io.BytesIO()
     im.save(buf, format="JPEG", quality=85)
     return buf.getvalue()
@@ -46,15 +50,24 @@ def seeded_env(db_env):
     upsert_cameras / upsert_snapshot 都需要 begin_scan_run 先建立。
     """
     w = SqliteWriter(db_env)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     w.begin_scan_run("2026-07-29T00:00:00Z")
-    w.upsert_cameras(nvra, {
-        "c1": {"name": "cam1", "connection_state": "CONNECTED"},
-        "c2": {"name": "cam2", "connection_state": "CONNECTED"},
-    })
+    w.upsert_cameras(
+        nvra,
+        {
+            "c1": {"name": "cam1", "connection_state": "CONNECTED"},
+            "c2": {"name": "cam2", "connection_state": "CONNECTED"},
+        },
+    )
     w._get_conn().commit()
     w.close()
     del w
@@ -73,8 +86,18 @@ def test_camera_snapshots_table_created_on_init(db_env):
         ).fetchone()
         assert row is not None, "camera_snapshots 表應自動建立"
         # 欄位檢查
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(camera_snapshots)").fetchall()]
-        for required in ("id", "nvr_id", "camera_id", "jpeg_bytes", "width", "height", "captured_at"):
+        cols = [
+            r[1] for r in conn.execute("PRAGMA table_info(camera_snapshots)").fetchall()
+        ]
+        for required in (
+            "id",
+            "nvr_id",
+            "camera_id",
+            "jpeg_bytes",
+            "width",
+            "height",
+            "captured_at",
+        ):
             assert required in cols, f"缺少欄位 {required}"
     finally:
         conn.close()
@@ -152,8 +175,26 @@ def test_upsert_snapshot_different_cameras(seeded_env):
 def test_upsert_snapshot_different_nvrs(db_env):
     """不同 nvr_id, 同一 camera_id → 各自存（UNIQUE 是 (nvr_id, camera_id)）。"""
     w = SqliteWriter(db_env)
-    nvra = w.upsert_nvr({"id": "A", "name": "A", "host": "1.1.1.1", "port": 8443, "username": "u", "password": "p"})
-    nvrb = w.upsert_nvr({"id": "B", "name": "B", "host": "2.2.2.2", "port": 8443, "username": "u", "password": "p"})
+    nvra = w.upsert_nvr(
+        {
+            "id": "A",
+            "name": "A",
+            "host": "1.1.1.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
+    nvrb = w.upsert_nvr(
+        {
+            "id": "B",
+            "name": "B",
+            "host": "2.2.2.2",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     w.begin_scan_run("2026-07-29T00:00:00Z")
     w.upsert_cameras(nvra, {"c1": {"name": "cam1"}})
     w.upsert_cameras(nvrb, {"c1": {"name": "cam1"}})

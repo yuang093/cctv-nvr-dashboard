@@ -14,6 +14,7 @@ Phase 2.5a：Web UI NVR CRUD 的整合測試。
     - 編輯：GET form（密碼永遠清空）、POST 更新 name、POST 密碼留空=不變、POST 密碼填寫=變更
     - 刪除：POST 刪 NVR+cameras，保留 events/scan_runs
 """
+
 from __future__ import annotations
 
 import gc
@@ -35,31 +36,57 @@ def crud_web_app():
 
     w = SqliteWriter(db_path)
     # 1. upsert_nvr 不需要 scan_run（在 begin 之前）
-    nvr_a_id = w.upsert_nvr({
-        "id": "NVR-A", "name": "A 分店", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-        "tags": ["branch", "taipei"],
-    })
+    nvr_a_id = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A 分店",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "tags": ["branch", "taipei"],
+        }
+    )
     # 2. begin_scan_run → 開 transaction
     rid = w.begin_scan_run("2026-07-01T00:00:00Z")
     # 3. upsert_cameras 需要 scan_run
-    w.upsert_cameras(nvr_a_id, {
-        "d1": {"name": "大門", "connection_state": "CONNECTED", "available": True},
-        "d2": {"name": "停車場", "connection_state": "LONG_FAILED", "available": False},
-    })
+    w.upsert_cameras(
+        nvr_a_id,
+        {
+            "d1": {"name": "大門", "connection_state": "CONNECTED", "available": True},
+            "d2": {
+                "name": "停車場",
+                "connection_state": "LONG_FAILED",
+                "available": False,
+            },
+        },
+    )
     # 4. insert_events
-    w.insert_events(rid, nvr_a_id, [{
-        "eventId": "e1", "deviceId": "d2",
-        "eventTopics": ["STATE_LONG_FAILED"],
-        "eventTopic": "STATE_LONG_FAILED",
-        "occurred_at": "2026-07-01T00:00:00Z",
-    }])
+    w.insert_events(
+        rid,
+        nvr_a_id,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "d2",
+                "eventTopics": ["STATE_LONG_FAILED"],
+                "eventTopic": "STATE_LONG_FAILED",
+                "occurred_at": "2026-07-01T00:00:00Z",
+            }
+        ],
+    )
     # 5. finish_scan_run → commit
     w.finish_scan_run(
-        rid, finished_at="2026-07-01T00:01:00Z",
+        rid,
+        finished_at="2026-07-01T00:01:00Z",
         status="success",
-        stats={"total_cameras": 2, "abnormal_cameras": 1,
-               "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0},
+        stats={
+            "total_cameras": 2,
+            "abnormal_cameras": 1,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
     )
 
     app = create_app(db_path=db_path)
@@ -81,6 +108,7 @@ def client(crud_web_app):
 
 
 # === 1. 清單頁 ===
+
 
 def test_nvr_list_default_shows_seeded(client):
     """GET /nvrs 200 + 看到 seed 的 NVR-A。"""
@@ -115,29 +143,43 @@ def test_nvr_list_search_q_match(client):
 
 # === 2. 新增頁 ===
 
+
 def test_nvr_new_get_shows_form(client):
     """GET /nvrs/new 200 + 表單欄位齊全。"""
     resp = client.get("/nvrs/new")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
-    for field in ("nvr_id", "name", "host", "port", "username", "password",
-                  "verify_ssl", "site_id", "tags"):
+    for field in (
+        "nvr_id",
+        "name",
+        "host",
+        "port",
+        "username",
+        "password",
+        "verify_ssl",
+        "site_id",
+        "tags",
+    ):
         assert f'name="{field}"' in body, f"缺少欄位 {field}"
 
 
 def test_nvr_new_post_creates_and_redirects(client):
     """POST /nvrs/new 建立成功 → 跳轉 + DB 有新 NVR。"""
-    resp = client.post("/nvrs/new", data={
-        "nvr_id": "NEW-NVR",
-        "name": "新 NVR",
-        "host": "192.168.1.100",
-        "port": "8443",
-        "username": "api_reader",
-        "password": "secret",
-        "verify_ssl": "on",
-        "site_id": "HQ",
-        "tags": "branch;hsinchu",
-    }, follow_redirects=False)
+    resp = client.post(
+        "/nvrs/new",
+        data={
+            "nvr_id": "NEW-NVR",
+            "name": "新 NVR",
+            "host": "192.168.1.100",
+            "port": "8443",
+            "username": "api_reader",
+            "password": "secret",
+            "verify_ssl": "on",
+            "site_id": "HQ",
+            "tags": "branch;hsinchu",
+        },
+        follow_redirects=False,
+    )
     assert resp.status_code == 302  # redirect to nvrs_list
     assert "/nvrs" in resp.headers["Location"]
 
@@ -150,14 +192,17 @@ def test_nvr_new_post_creates_and_redirects(client):
 
 def test_nvr_new_post_validation_error_renders_form_with_input(client):
     """POST /nvrs/new 缺 host → 顯示錯誤，不寫入。"""
-    resp = client.post("/nvrs/new", data={
-        "nvr_id": "BAD-NVR",
-        "name": "Bad NVR",
-        # host 缺
-        "port": "8443",
-        "username": "u",
-        "password": "p",
-    })
+    resp = client.post(
+        "/nvrs/new",
+        data={
+            "nvr_id": "BAD-NVR",
+            "name": "Bad NVR",
+            # host 缺
+            "port": "8443",
+            "username": "u",
+            "password": "p",
+        },
+    )
     # 不 redirect，留在 form 頁
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
@@ -169,6 +214,7 @@ def test_nvr_new_post_validation_error_renders_form_with_input(client):
     # 搜尋框內的 BAD-NVR 是 value="BAD-NVR"，但 NVR 清單表不該有 BAD-NVR
     # 用 tbody 內是否有 <code>BAD-NVR</code> 來判斷
     import re
+
     tbody_match = re.search(r"<tbody>.*?</tbody>", body2, re.DOTALL)
     assert tbody_match is not None
     assert "BAD-NVR" not in tbody_match.group(0)
@@ -176,14 +222,17 @@ def test_nvr_new_post_validation_error_renders_form_with_input(client):
 
 def test_nvr_new_post_duplicate_id_rejected(client):
     """POST 重複 nvr_id (NVR-A 已存在) → 錯誤，不寫入。"""
-    resp = client.post("/nvrs/new", data={
-        "nvr_id": "NVR-A",  # 重複
-        "name": "dup",
-        "host": "10.0.0.99",
-        "port": "8443",
-        "username": "u",
-        "password": "p",
-    })
+    resp = client.post(
+        "/nvrs/new",
+        data={
+            "nvr_id": "NVR-A",  # 重複
+            "name": "dup",
+            "host": "10.0.0.99",
+            "port": "8443",
+            "username": "u",
+            "password": "p",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "id 重複" in body or "alert-danger" in body
@@ -191,14 +240,17 @@ def test_nvr_new_post_duplicate_id_rejected(client):
 
 def test_nvr_new_post_invalid_port_rejected(client):
     """POST port=99999 → 錯誤。"""
-    resp = client.post("/nvrs/new", data={
-        "nvr_id": "BAD-PORT",
-        "name": "x",
-        "host": "10.0.0.1",
-        "port": "99999",
-        "username": "u",
-        "password": "p",
-    })
+    resp = client.post(
+        "/nvrs/new",
+        data={
+            "nvr_id": "BAD-PORT",
+            "name": "x",
+            "host": "10.0.0.1",
+            "port": "99999",
+            "username": "u",
+            "password": "p",
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "Port" in body or "alert-danger" in body
@@ -206,20 +258,24 @@ def test_nvr_new_post_invalid_port_rejected(client):
 
 def test_nvr_new_post_missing_password_rejected(client):
     """POST 沒填密碼（new 模式必填）→ 錯誤。"""
-    resp = client.post("/nvrs/new", data={
-        "nvr_id": "NO-PWD",
-        "name": "x",
-        "host": "10.0.0.1",
-        "port": "8443",
-        "username": "u",
-        # password 缺
-    })
+    resp = client.post(
+        "/nvrs/new",
+        data={
+            "nvr_id": "NO-PWD",
+            "name": "x",
+            "host": "10.0.0.1",
+            "port": "8443",
+            "username": "u",
+            # password 缺
+        },
+    )
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert "密碼" in body or "alert-danger" in body
 
 
 # === 3. 編輯頁 ===
+
 
 def test_nvr_edit_get_shows_form_with_password_blank(crud_web_app):
     """GET /nvrs/<id>/edit 200 + 密碼欄位永遠為空。"""
@@ -246,16 +302,22 @@ def test_nvr_edit_post_updates_name(crud_web_app):
     """POST 改名 → DB 更新 + 跳轉。"""
     app, _, nvr_a_id = crud_web_app
     c = app.test_client()
-    resp = c.post(f"/nvrs/{nvr_a_id}/edit", data={
-        "nvr_id": "NVR-A",  # readonly，但仍要帶（Flask test client 不自動填）
-        "name": "A 分店（改名後）",
-        "host": "10.0.0.1",
-        "port": "8443",
-        "username": "u",
-        # password 留空（password_changed=False）
-        "tags": "branch;taipei",
-    }, follow_redirects=False)
-    assert resp.status_code == 302, f"got {resp.status_code}, body={resp.get_data(as_text=True)[:300]}"
+    resp = c.post(
+        f"/nvrs/{nvr_a_id}/edit",
+        data={
+            "nvr_id": "NVR-A",  # readonly，但仍要帶（Flask test client 不自動填）
+            "name": "A 分店（改名後）",
+            "host": "10.0.0.1",
+            "port": "8443",
+            "username": "u",
+            # password 留空（password_changed=False）
+            "tags": "branch;taipei",
+        },
+        follow_redirects=False,
+    )
+    assert (
+        resp.status_code == 302
+    ), f"got {resp.status_code}, body={resp.get_data(as_text=True)[:300]}"
 
     # 重新查
     resp2 = c.get("/nvrs?q=NVR-A")
@@ -266,6 +328,7 @@ def test_nvr_edit_post_updates_name(crud_web_app):
 def test_nvr_edit_password_unchanged_when_empty(crud_web_app):
     """POST 編輯時密碼留空 → DB 內密碼保持原值。"""
     import sqlite3
+
     app, db_path, nvr_a_id = crud_web_app
     c = app.test_client()
 
@@ -278,14 +341,17 @@ def test_nvr_edit_password_unchanged_when_empty(crud_web_app):
     assert orig_pwd == "p"
 
     # POST 不填密碼
-    c.post(f"/nvrs/{nvr_a_id}/edit", data={
-        "nvr_id": "NVR-A",  # readonly，但仍要帶
-        "name": "A 分店",
-        "host": "10.0.0.1",
-        "port": "8443",
-        "username": "u",
-        # password 留空
-    })
+    c.post(
+        f"/nvrs/{nvr_a_id}/edit",
+        data={
+            "nvr_id": "NVR-A",  # readonly，但仍要帶
+            "name": "A 分店",
+            "host": "10.0.0.1",
+            "port": "8443",
+            "username": "u",
+            # password 留空
+        },
+    )
 
     # 確認密碼仍是原值
     conn = sqlite3.connect(db_path)
@@ -299,17 +365,21 @@ def test_nvr_edit_password_unchanged_when_empty(crud_web_app):
 def test_nvr_edit_password_changed_when_filled(crud_web_app):
     """POST 編輯時密碼有填 → DB 內密碼更新。"""
     import sqlite3
+
     app, db_path, nvr_a_id = crud_web_app
     c = app.test_client()
 
-    c.post(f"/nvrs/{nvr_a_id}/edit", data={
-        "nvr_id": "NVR-A",  # readonly，但仍要帶
-        "name": "A 分店",
-        "host": "10.0.0.1",
-        "port": "8443",
-        "username": "u",
-        "password": "new_secret",  # 填新密碼
-    })
+    c.post(
+        f"/nvrs/{nvr_a_id}/edit",
+        data={
+            "nvr_id": "NVR-A",  # readonly，但仍要帶
+            "name": "A 分店",
+            "host": "10.0.0.1",
+            "port": "8443",
+            "username": "u",
+            "password": "new_secret",  # 填新密碼
+        },
+    )
 
     conn = sqlite3.connect(db_path)
     new_pwd = conn.execute(
@@ -321,9 +391,11 @@ def test_nvr_edit_password_changed_when_filled(crud_web_app):
 
 # === 4. 刪除 ===
 
+
 def test_nvr_delete_post_removes_nvr_and_cameras(crud_web_app):
     """POST 刪除 → NVR + cameras 都消失。"""
     import sqlite3
+
     app, db_path, nvr_a_id = crud_web_app
     c = app.test_client()
 
@@ -350,9 +422,7 @@ def test_nvr_delete_post_removes_nvr_and_cameras(crud_web_app):
     events_after = conn.execute(
         "SELECT COUNT(*) FROM events WHERE nvr_id = ?", (nvr_a_id,)
     ).fetchone()[0]
-    runs_after = conn.execute(
-        "SELECT COUNT(*) FROM scan_runs"
-    ).fetchone()[0]
+    runs_after = conn.execute("SELECT COUNT(*) FROM scan_runs").fetchone()[0]
     conn.close()
     assert nvr_after == 0, "NVR 應被刪除"
     assert cam_after == 0, "cameras 應一併刪除"

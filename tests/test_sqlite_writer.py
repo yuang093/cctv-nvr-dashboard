@@ -13,10 +13,10 @@ SqliteWriter 單元測試。
     - 新增：batch stats 欄位寫入
     - 新增：向下相容（不帶新欄位 → 預設 0）
 """
+
 from __future__ import annotations
 
 import gc
-import json
 from datetime import datetime
 
 import pytest
@@ -26,19 +26,30 @@ from db.sqlite_writer import SqliteWriter
 
 def _seed_full_scan(w: "SqliteWriter", nvr_id: str = "n1") -> int:
     """helper：跑一次完整 lifecycle（upsert_nvr → begin → cameras → events → finish）。"""
-    nvr_int = w.upsert_nvr({
-        "id": nvr_id, "name": nvr_id, "host": "1.1.1.1",
-        "username": "u", "password": "p",
-    })
+    nvr_int = w.upsert_nvr(
+        {
+            "id": nvr_id,
+            "name": nvr_id,
+            "host": "1.1.1.1",
+            "username": "u",
+            "password": "p",
+        }
+    )
     run_id = w.begin_scan_run("2026-06-23T00:00:00Z")
     w.upsert_cameras(nvr_int, {"d1": "cam1", "d2": "cam2"})
-    w.insert_events(run_id, nvr_int, [
-        {
-            "eventId": "e1", "deviceId": "d1",
-            "eventTopics": ["X"], "eventTopic": "X",
-            "occurred_at": "2026-06-23T00:00:00Z",
-        },
-    ])
+    w.insert_events(
+        run_id,
+        nvr_int,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "d1",
+                "eventTopics": ["X"],
+                "eventTopic": "X",
+                "occurred_at": "2026-06-23T00:00:00Z",
+            },
+        ],
+    )
     return nvr_int, run_id
 
 
@@ -47,7 +58,8 @@ def test_basic_lifecycle(memory_db):
     w = memory_db
     nvr_int, run_id = _seed_full_scan(w)
     w.finish_scan_run(
-        run_id, finished_at="2026-06-23T00:01:00Z",
+        run_id,
+        finished_at="2026-06-23T00:01:00Z",
         status="success",
         stats={"total_cameras": 2, "abnormal_cameras": 1},
     )
@@ -63,7 +75,8 @@ def test_query_with_join(memory_db):
     w = memory_db
     nvr_int, run_id = _seed_full_scan(w, "n2")
     w.finish_scan_run(
-        run_id, finished_at="2026-06-23T00:01:00Z",
+        run_id,
+        finished_at="2026-06-23T00:01:00Z",
         status="success",
         stats={"total_cameras": 2, "abnormal_cameras": 1},
     )
@@ -79,20 +92,30 @@ def test_consecutive_scan_runs(memory_db):
     # 第一次
     nvr_int, r1 = _seed_full_scan(w, "n3")
     w.finish_scan_run(
-        r1, finished_at="2026-06-23T00:01:00Z",
+        r1,
+        finished_at="2026-06-23T00:01:00Z",
         status="success",
         stats={"total_cameras": 2, "abnormal_cameras": 1},
     )
     # 第二次
     r2 = w.begin_scan_run("2026-06-23T00:02:00Z")
     w.upsert_cameras(nvr_int, {"d3": "cam3"})
-    w.insert_events(r2, nvr_int, [{
-        "eventId": "e2", "deviceId": "d3",
-        "eventTopics": ["Y"], "eventTopic": "Y",
-        "occurred_at": "2026-06-23T00:02:00Z",
-    }])
+    w.insert_events(
+        r2,
+        nvr_int,
+        [
+            {
+                "eventId": "e2",
+                "deviceId": "d3",
+                "eventTopics": ["Y"],
+                "eventTopic": "Y",
+                "occurred_at": "2026-06-23T00:02:00Z",
+            }
+        ],
+    )
     w.finish_scan_run(
-        r2, finished_at="2026-06-23T00:03:00Z",
+        r2,
+        finished_at="2026-06-23T00:03:00Z",
         status="success",
         stats={"total_cameras": 3, "abnormal_cameras": 1},
     )
@@ -105,7 +128,8 @@ def test_file_db_persistence(tmp_db, tmp_path):
     w = tmp_db
     nvr_int, run_id = _seed_full_scan(w, "n4")
     w.finish_scan_run(
-        run_id, finished_at="2026-06-23T00:01:00Z",
+        run_id,
+        finished_at="2026-06-23T00:01:00Z",
         status="success",
         stats={"total_cameras": 2, "abnormal_cameras": 1},
     )
@@ -114,6 +138,7 @@ def test_file_db_persistence(tmp_db, tmp_path):
     gc.collect()
     # 重新連線讀
     from db.sqlite_writer import SqliteWriter
+
     w2 = SqliteWriter(str(tmp_path / "test.db"))
     runs = w2.get_scan_runs(5)
     assert len(runs) == 1
@@ -124,15 +149,24 @@ def test_file_db_persistence(tmp_db, tmp_path):
 def test_rollback_on_close(tmp_path):
     db_path = str(tmp_path / "rollback.db")
     w = SqliteWriter(db_path)
-    w.upsert_nvr({"id": "n5", "name": "n5", "host": "1.1.1.1",
-                  "username": "u", "password": "p"})
+    w.upsert_nvr(
+        {"id": "n5", "name": "n5", "host": "1.1.1.1", "username": "u", "password": "p"}
+    )
     rid = w.begin_scan_run("2026-06-23T00:00:00Z")
     w.upsert_cameras(1, {"d1": "cam1"})
-    w.insert_events(rid, 1, [{
-        "eventId": "e1", "deviceId": "d1",
-        "eventTopics": ["X"], "eventTopic": "X",
-        "occurred_at": "2026-06-23T00:00:00Z",
-    }])
+    w.insert_events(
+        rid,
+        1,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "d1",
+                "eventTopics": ["X"],
+                "eventTopic": "X",
+                "occurred_at": "2026-06-23T00:00:00Z",
+            }
+        ],
+    )
     # 不 finish，直接 close → transaction 應 rollback
     w._conn.close()
     del w
@@ -147,8 +181,9 @@ def test_rollback_on_close(tmp_path):
 # === 6. 錯誤處理：無 begin 就 upsert_cameras ===
 def test_error_without_begin(memory_db):
     w = memory_db
-    w.upsert_nvr({"id": "n6", "name": "n6", "host": "1.1.1.1",
-                  "username": "u", "password": "p"})
+    w.upsert_nvr(
+        {"id": "n6", "name": "n6", "host": "1.1.1.1", "username": "u", "password": "p"}
+    )
     with pytest.raises(RuntimeError, match="begin_scan_run"):
         w.upsert_cameras(1, {"d1": "cam1"})
 
@@ -157,11 +192,13 @@ def test_error_without_begin(memory_db):
 def test_batch_stats_fields(memory_db):
     """finish_scan_run 接受 total_nvrs/ok_nvrs/failed_nvrs 寫入 DB。"""
     w = memory_db
-    w.upsert_nvr({"id": "n7", "name": "n7", "host": "1.1.1.1",
-                  "username": "u", "password": "p"})
+    w.upsert_nvr(
+        {"id": "n7", "name": "n7", "host": "1.1.1.1", "username": "u", "password": "p"}
+    )
     rid = w.begin_scan_run("2026-06-23T00:00:00Z")
     w.finish_scan_run(
-        rid, finished_at="2026-06-23T00:01:00Z",
+        rid,
+        finished_at="2026-06-23T00:01:00Z",
         status="partial",
         stats={
             "total_cameras": 10,
@@ -188,11 +225,13 @@ def test_batch_stats_fields(memory_db):
 def test_backward_compat_finish_scan_run(memory_db):
     """舊呼叫（只帶 total_cameras/abnormal_cameras）仍正常，新欄位預設 0。"""
     w = memory_db
-    w.upsert_nvr({"id": "n8", "name": "n8", "host": "1.1.1.1",
-                  "username": "u", "password": "p"})
+    w.upsert_nvr(
+        {"id": "n8", "name": "n8", "host": "1.1.1.1", "username": "u", "password": "p"}
+    )
     rid = w.begin_scan_run("2026-06-23T00:00:00Z")
     w.finish_scan_run(
-        rid, finished_at="2026-06-23T00:01:00Z",
+        rid,
+        finished_at="2026-06-23T00:01:00Z",
         status="success",
         stats={"total_cameras": 1, "abnormal_cameras": 0},
         # 故意不帶 total_nvrs/ok_nvrs/failed_nvrs
@@ -209,12 +248,14 @@ def test_backward_compat_finish_scan_run(memory_db):
 # === 9. scan_run_id 不符拋錯 ===
 def test_scan_run_id_mismatch(memory_db):
     w = memory_db
-    w.upsert_nvr({"id": "n9", "name": "n9", "host": "1.1.1.1",
-                  "username": "u", "password": "p"})
+    w.upsert_nvr(
+        {"id": "n9", "name": "n9", "host": "1.1.1.1", "username": "u", "password": "p"}
+    )
     rid = w.begin_scan_run("2026-06-23T00:00:00Z")
     with pytest.raises(RuntimeError, match="scan_run_id 不符"):
         w.finish_scan_run(
-            rid + 999, finished_at="2026-06-23T00:01:00Z",
+            rid + 999,
+            finished_at="2026-06-23T00:01:00Z",
             status="success",
             stats={"total_cameras": 0, "abnormal_cameras": 0},
         )
@@ -231,16 +272,26 @@ def test_double_begin_raises(memory_db):
 # === 11. cameras dict 值相容（純字串 vs 含 name 的 dict）===
 def test_cameras_dict_compat(memory_db):
     w = memory_db
-    w.upsert_nvr({"id": "n10", "name": "n10", "host": "1.1.1.1",
-                  "username": "u", "password": "p"})
+    w.upsert_nvr(
+        {
+            "id": "n10",
+            "name": "n10",
+            "host": "1.1.1.1",
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-06-23T00:00:00Z")
     # 純字串值
     w.upsert_cameras(1, {"d1": "純字串名"})
     # dict 值（含 name）
-    w.upsert_cameras(1, {
-        "d2": {"name": "dict格式名"},
-        "d3": {"name": "另一台", "connection_state": "CONNECTED"},
-    })
+    w.upsert_cameras(
+        1,
+        {
+            "d2": {"name": "dict格式名"},
+            "d3": {"name": "另一台", "connection_state": "CONNECTED"},
+        },
+    )
     rows = w._conn.execute(
         "SELECT device_id, camera_name FROM cameras ORDER BY device_id"
     ).fetchall()
@@ -260,9 +311,11 @@ def test_resolved_at_column_exists_after_init(memory_db):
     }
     assert "resolved_at" in cols, "events 表應有 resolved_at 欄位"
     # type 應為 TEXT（或 None 表示 nullable）
-    assert cols["resolved_at"] in (None, "", "TEXT"), (
-        f"resolved_at type 應為 TEXT，got {cols['resolved_at']!r}"
-    )
+    assert cols["resolved_at"] in (
+        None,
+        "",
+        "TEXT",
+    ), f"resolved_at type 應為 TEXT，got {cols['resolved_at']!r}"
 
 
 # === 13. Phase 1：對舊 DB（缺 resolved_at）自動 ALTER ===
@@ -349,9 +402,7 @@ def test_migrate_old_db_adds_resolved_at(tmp_path):
 
     # 2. SqliteWriter 開啟這個舊 DB → 應自動 migrate
     w = SqliteWriter(db_path)
-    cols = {
-        r["name"] for r in w._conn.execute("PRAGMA table_info(events)").fetchall()
-    }
+    cols = {r["name"] for r in w._conn.execute("PRAGMA table_info(events)").fetchall()}
     assert "resolved_at" in cols, "自動 migration 後應有 resolved_at"
 
     # 3. 舊資料應完整保留
@@ -373,21 +424,36 @@ def test_migrate_old_db_adds_resolved_at(tmp_path):
 def test_mark_resolved_prior_event_when_current_normal(memory_db):
     """scan_1 d1 異常 → scan_2 d1 沒 event → 標記 scan_1 那筆 resolved。"""
     w = memory_db
-    nvr_int = w.upsert_nvr({
-        "id": "n11", "name": "n11", "host": "1.1.1.1",
-        "username": "u", "password": "p",
-    })
+    nvr_int = w.upsert_nvr(
+        {
+            "id": "n11",
+            "name": "n11",
+            "host": "1.1.1.1",
+            "username": "u",
+            "password": "p",
+        }
+    )
 
     # --- scan_1: d1 異常 ---
     r1 = w.begin_scan_run("2026-06-30T08:00:00Z")
     w.upsert_cameras(nvr_int, {"d1": "cam1", "d2": "cam2"})
-    w.insert_events(r1, nvr_int, [{
-        "eventId": "ev-prior", "deviceId": "d1",
-        "eventTopics": ["VIDEO_LOSS"], "eventTopic": "VIDEO_LOSS",
-        "occurred_at": "2026-06-30T08:00:00Z",
-    }])
+    w.insert_events(
+        r1,
+        nvr_int,
+        [
+            {
+                "eventId": "ev-prior",
+                "deviceId": "d1",
+                "eventTopics": ["VIDEO_LOSS"],
+                "eventTopic": "VIDEO_LOSS",
+                "occurred_at": "2026-06-30T08:00:00Z",
+            }
+        ],
+    )
     w.finish_scan_run(
-        r1, finished_at="2026-06-30T08:01:00Z", status="success",
+        r1,
+        finished_at="2026-06-30T08:01:00Z",
+        status="success",
         stats={"total_cameras": 2, "abnormal_cameras": 1},
     )
 
@@ -404,41 +470,64 @@ def test_mark_resolved_prior_event_when_current_normal(memory_db):
     assert row["resolved_at"] is not None, "resolved_at 應已被填入"
     # 應為當下（NOW()）；簡單檢查是 ISO 8601 開頭
     today_prefix = datetime.utcnow().strftime("%Y-%m-%dT")
-    assert row["resolved_at"].startswith(today_prefix), (
-        f"resolved_at 應為當下 ISO 8601，got {row['resolved_at']!r}"
-    )
+    assert row["resolved_at"].startswith(
+        today_prefix
+    ), f"resolved_at 應為當下 ISO 8601，got {row['resolved_at']!r}"
 
 
 # === 15. Phase 1：mark_resolved 對仍異常的 device 不動作 ===
 def test_mark_resolved_skips_still_abnormal(memory_db):
     """scan_2 d1 還在異常 → 不應被 mark_resolved 動到（仍 OPEN）。"""
     w = memory_db
-    nvr_int = w.upsert_nvr({
-        "id": "n12", "name": "n12", "host": "1.1.1.1",
-        "username": "u", "password": "p",
-    })
+    nvr_int = w.upsert_nvr(
+        {
+            "id": "n12",
+            "name": "n12",
+            "host": "1.1.1.1",
+            "username": "u",
+            "password": "p",
+        }
+    )
 
     # scan_1: d1 異常
     r1 = w.begin_scan_run("2026-06-30T08:00:00Z")
     w.upsert_cameras(nvr_int, {"d1": "cam1"})
-    w.insert_events(r1, nvr_int, [{
-        "eventId": "ev-still", "deviceId": "d1",
-        "eventTopics": ["X"], "eventTopic": "X",
-        "occurred_at": "2026-06-30T08:00:00Z",
-    }])
+    w.insert_events(
+        r1,
+        nvr_int,
+        [
+            {
+                "eventId": "ev-still",
+                "deviceId": "d1",
+                "eventTopics": ["X"],
+                "eventTopic": "X",
+                "occurred_at": "2026-06-30T08:00:00Z",
+            }
+        ],
+    )
     w.finish_scan_run(
-        r1, finished_at="2026-06-30T08:01:00Z", status="success",
+        r1,
+        finished_at="2026-06-30T08:01:00Z",
+        status="success",
         stats={"total_cameras": 1, "abnormal_cameras": 1},
     )
 
     # scan_2: d1 仍異常 → 再 insert 一筆
     r2 = w.begin_scan_run("2026-06-30T09:00:00Z")
     w.upsert_cameras(nvr_int, {"d1": "cam1"})
-    w.insert_events(r2, nvr_int, [{
-        "eventId": "ev-still-2", "deviceId": "d1",
-        "eventTopics": ["X"], "eventTopic": "X",
-        "occurred_at": "2026-06-30T09:00:00Z",
-    }])
+    w.insert_events(
+        r2,
+        nvr_int,
+        [
+            {
+                "eventId": "ev-still-2",
+                "deviceId": "d1",
+                "eventTopics": ["X"],
+                "eventTopic": "X",
+                "occurred_at": "2026-06-30T09:00:00Z",
+            }
+        ],
+    )
     count = w.mark_resolved(r2, nvr_int)
     assert count == 0, "d1 仍異常，不應被 mark_resolved"
 
@@ -453,29 +542,57 @@ def test_mark_resolved_skips_still_abnormal(memory_db):
 def test_mark_resolved_scoped_to_nvr(memory_db):
     """mark_resolved 只影響指定 nvr_id 的事件，不波及別台 NVR。"""
     w = memory_db
-    nvr_a = w.upsert_nvr({
-        "id": "nA", "name": "nA", "host": "1.1.1.1",
-        "username": "u", "password": "p",
-    })
-    nvr_b = w.upsert_nvr({
-        "id": "nB", "name": "nB", "host": "2.2.2.2",
-        "username": "u", "password": "p",
-    })
+    nvr_a = w.upsert_nvr(
+        {
+            "id": "nA",
+            "name": "nA",
+            "host": "1.1.1.1",
+            "username": "u",
+            "password": "p",
+        }
+    )
+    nvr_b = w.upsert_nvr(
+        {
+            "id": "nB",
+            "name": "nB",
+            "host": "2.2.2.2",
+            "username": "u",
+            "password": "p",
+        }
+    )
 
     # scan: 兩台 NVR 各有 d1 異常
     r1 = w.begin_scan_run("2026-06-30T08:00:00Z")
     w.upsert_cameras(nvr_a, {"d1": "camA"})
     w.upsert_cameras(nvr_b, {"d1": "camB"})
-    w.insert_events(r1, nvr_a, [{
-        "eventId": "ev-a", "deviceId": "d1",
-        "eventTopics": ["X"], "occurred_at": "2026-06-30T08:00:00Z",
-    }])
-    w.insert_events(r1, nvr_b, [{
-        "eventId": "ev-b", "deviceId": "d1",
-        "eventTopics": ["X"], "occurred_at": "2026-06-30T08:00:00Z",
-    }])
+    w.insert_events(
+        r1,
+        nvr_a,
+        [
+            {
+                "eventId": "ev-a",
+                "deviceId": "d1",
+                "eventTopics": ["X"],
+                "occurred_at": "2026-06-30T08:00:00Z",
+            }
+        ],
+    )
+    w.insert_events(
+        r1,
+        nvr_b,
+        [
+            {
+                "eventId": "ev-b",
+                "deviceId": "d1",
+                "eventTopics": ["X"],
+                "occurred_at": "2026-06-30T08:00:00Z",
+            }
+        ],
+    )
     w.finish_scan_run(
-        r1, finished_at="2026-06-30T08:01:00Z", status="success",
+        r1,
+        finished_at="2026-06-30T08:01:00Z",
+        status="success",
         stats={"total_cameras": 2, "abnormal_cameras": 2},
     )
 
@@ -483,10 +600,18 @@ def test_mark_resolved_scoped_to_nvr(memory_db):
     r2 = w.begin_scan_run("2026-06-30T09:00:00Z")
     w.upsert_cameras(nvr_a, {"d1": "camA"})  # A 正常 → 不 insert_events
     w.upsert_cameras(nvr_b, {"d1": "camB"})
-    w.insert_events(r2, nvr_b, [{
-        "eventId": "ev-b-2", "deviceId": "d1",
-        "eventTopics": ["X"], "occurred_at": "2026-06-30T09:00:00Z",
-    }])
+    w.insert_events(
+        r2,
+        nvr_b,
+        [
+            {
+                "eventId": "ev-b-2",
+                "deviceId": "d1",
+                "eventTopics": ["X"],
+                "occurred_at": "2026-06-30T09:00:00Z",
+            }
+        ],
+    )
     # 只對 NVR A 跑 mark_resolved
     count = w.mark_resolved(r2, nvr_a)
     assert count == 1, "只有 NVR A 的 d1 該被標記"
@@ -504,9 +629,14 @@ def test_mark_resolved_scoped_to_nvr(memory_db):
 # === 17. Phase 1：mark_resolved 沒 active scan_run 拋 RuntimeError ===
 def test_mark_resolved_no_active_run_raises(memory_db):
     w = memory_db
-    w.upsert_nvr({
-        "id": "n13", "name": "n13", "host": "1.1.1.1",
-        "username": "u", "password": "p",
-    })
+    w.upsert_nvr(
+        {
+            "id": "n13",
+            "name": "n13",
+            "host": "1.1.1.1",
+            "username": "u",
+            "password": "p",
+        }
+    )
     with pytest.raises(RuntimeError, match="begin_scan_run"):
         w.mark_resolved(1, 1)

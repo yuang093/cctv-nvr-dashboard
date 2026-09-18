@@ -3,6 +3,7 @@ tests/test_device_detail_route.py
 =================================
 Phase 2.8（Arisan）Phase #5：/devices/<device_id> + /health/cameras/<id> 詳情頁。
 """
+
 from __future__ import annotations
 
 import gc
@@ -21,20 +22,36 @@ def detail_app():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A 分店", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A 分店",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-17T00:00:00Z")
-    w.upsert_cameras(nvra, {
-        "d1": {"name": "大門", "connection_state": "CONNECTED"},
-    })
-    w.insert_events(rid, nvra, [{
-        "eventId": "e1", "deviceId": "d1",
-        "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
-        "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-        "occurred_at": "2026-07-17T00:00:00Z",
-    }])
+    w.upsert_cameras(
+        nvra,
+        {
+            "d1": {"name": "大門", "connection_state": "CONNECTED"},
+        },
+    )
+    w.insert_events(
+        rid,
+        nvra,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "d1",
+                "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                "occurred_at": "2026-07-17T00:00:00Z",
+            }
+        ],
+    )
     # image_health_check（用手動 SQL）
     conn = w._require_active()
     cur = conn.execute(
@@ -43,11 +60,24 @@ def detail_app():
             (camera_id, nvr_server_id, checked_at_utc, metrics_json, flags_json)
         VALUES (?, ?, ?, ?, ?)
         """,
-        ("d1", nvra, "2026-07-17T00:00:30Z",
-         json.dumps({"blur_var": 12.5, "mean_luma": 0.92, "is_overexposed": True, "is_frozen": False}),
-         json.dumps(["overexposed"])),
+        (
+            "d1",
+            nvra,
+            "2026-07-17T00:00:30Z",
+            json.dumps(
+                {
+                    "blur_var": 12.5,
+                    "mean_luma": 0.92,
+                    "is_overexposed": True,
+                    "is_frozen": False,
+                }
+            ),
+            json.dumps(["overexposed"]),
+        ),
     )
-    w.finish_scan_run(rid, finished_at="2026-07-17T00:01:00Z", status="partial", stats={})
+    w.finish_scan_run(
+        rid, finished_at="2026-07-17T00:01:00Z", status="partial", stats={}
+    )
 
     app = create_app(db_path=db_path)
     app.config["TESTING"] = True
@@ -111,13 +141,21 @@ def test_device_detail_shows_recording_status_when_present(detail_app):
     app, db_path = detail_app
     # 把 recording_status 寫入
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     conn.execute(
         "INSERT INTO recording_status "
         "(nvr_id, camera_id, window_start, window_end, completeness, missing_seconds, checked_at) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (1, "d1", "2026-07-28T00:00:00Z", "2026-07-29T00:00:00Z",
-         0.65, 12.6 * 3600, "2026-07-29T00:00:00Z"),
+        (
+            1,
+            "d1",
+            "2026-07-28T00:00:00Z",
+            "2026-07-29T00:00:00Z",
+            0.65,
+            12.6 * 3600,
+            "2026-07-29T00:00:00Z",
+        ),
     )
     conn.commit()
     conn.close()
@@ -156,15 +194,30 @@ def test_health_history_shows_flags(client):
 
 def test_health_history_shows_empty_state():
     """無 image_health_checks 紀錄時顯示提示。"""
-    import tempfile, gc
+    import tempfile
+    import gc
+
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     try:
         w = SqliteWriter(db_path)
-        nvra = w.upsert_nvr({"id":"X","name":"X","host":"1.1.1.1","port":8443,"username":"u","password":"p"})
+        nvra = w.upsert_nvr(
+            {
+                "id": "X",
+                "name": "X",
+                "host": "1.1.1.1",
+                "port": 8443,
+                "username": "u",
+                "password": "p",
+            }
+        )
         rid = w.begin_scan_run("2026-07-17T00:00:00Z")
-        w.upsert_cameras(nvra, {"d99": {"name":"cam99","connection_state":"CONNECTED"}})
-        w.finish_scan_run(rid, finished_at="2026-07-17T00:01:00Z", status="partial", stats={})
+        w.upsert_cameras(
+            nvra, {"d99": {"name": "cam99", "connection_state": "CONNECTED"}}
+        )
+        w.finish_scan_run(
+            rid, finished_at="2026-07-17T00:01:00Z", status="partial", stats={}
+        )
         # close conn before creating new app
         w._conn.close()
 

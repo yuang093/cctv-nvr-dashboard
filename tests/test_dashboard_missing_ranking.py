@@ -8,6 +8,7 @@ Dashboard 統計：「24h 缺錄最多」排名（取 recording_status.missing_s
 - 缺錄越多越靠前
 - 沒資料 → 空 list
 """
+
 from __future__ import annotations
 
 import gc
@@ -25,25 +26,49 @@ def db_env():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-29T00:00:00Z")
-    w.upsert_cameras(nvra, {
-        "c1": {"name": "cam1", "connection_state": "CONNECTED"},
-        "c2": {"name": "cam2", "connection_state": "CONNECTED"},
-        "c3": {"name": "cam3", "connection_state": "CONNECTED"},
-    })
-    w.upsert_recording_status(nvra, "c1",
-        window_start="2026-07-28T00:00:00Z", window_end="2026-07-29T00:00:00Z",
-        completeness=0.9, missing_seconds=2 * 3600)
-    w.upsert_recording_status(nvra, "c2",
-        window_start="2026-07-28T00:00:00Z", window_end="2026-07-29T00:00:00Z",
-        completeness=0.1, missing_seconds=21.6 * 3600)
-    w.upsert_recording_status(nvra, "c3",
-        window_start="2026-07-28T00:00:00Z", window_end="2026-07-29T00:00:00Z",
-        completeness=0.5, missing_seconds=12.0 * 3600)
+    w.upsert_cameras(
+        nvra,
+        {
+            "c1": {"name": "cam1", "connection_state": "CONNECTED"},
+            "c2": {"name": "cam2", "connection_state": "CONNECTED"},
+            "c3": {"name": "cam3", "connection_state": "CONNECTED"},
+        },
+    )
+    w.upsert_recording_status(
+        nvra,
+        "c1",
+        window_start="2026-07-28T00:00:00Z",
+        window_end="2026-07-29T00:00:00Z",
+        completeness=0.9,
+        missing_seconds=2 * 3600,
+    )
+    w.upsert_recording_status(
+        nvra,
+        "c2",
+        window_start="2026-07-28T00:00:00Z",
+        window_end="2026-07-29T00:00:00Z",
+        completeness=0.1,
+        missing_seconds=21.6 * 3600,
+    )
+    w.upsert_recording_status(
+        nvra,
+        "c3",
+        window_start="2026-07-28T00:00:00Z",
+        window_end="2026-07-29T00:00:00Z",
+        completeness=0.5,
+        missing_seconds=12.0 * 3600,
+    )
     w._get_conn().commit()
     w.close()
     yield db_path
@@ -76,9 +101,9 @@ def test_get_top_missing_cameras_sorted_desc(db_env):
     """結果按 missing_seconds 降序排序。"""
     rows = get_top_missing_cameras(db_env, limit=5)
     assert len(rows) == 3
-    assert rows[0]["camera_id"] == "c2"     # 21.6h
-    assert rows[1]["camera_id"] == "c3"     # 12.0h
-    assert rows[2]["camera_id"] == "c1"     # 2.0h
+    assert rows[0]["camera_id"] == "c2"  # 21.6h
+    assert rows[1]["camera_id"] == "c3"  # 12.0h
+    assert rows[2]["camera_id"] == "c1"  # 2.0h
 
 
 def test_get_top_missing_cameras_includes_nvr_name_and_camera_name(db_env):
@@ -111,12 +136,13 @@ def test_get_top_missing_cameras_excludes_disabled_nvrs(db_env):
     場景：dedup 後保留了 nvr_servers 兩列同 host，舊的那列停用後不該被算入。
     """
     import sqlite3
+
     conn = sqlite3.connect(db_env)
     try:
         # 停用 NVR-A
-        nvr_a_id = conn.execute(
-            "SELECT id FROM nvr_servers WHERE name='A'"
-        ).fetchone()[0]
+        nvr_a_id = conn.execute("SELECT id FROM nvr_servers WHERE name='A'").fetchone()[
+            0
+        ]
         conn.execute("UPDATE nvr_servers SET enabled=0 WHERE id=?", (nvr_a_id,))
         conn.commit()
     finally:
@@ -129,15 +155,27 @@ def test_get_top_missing_cameras_excludes_disabled_nvrs(db_env):
 def test_get_top_missing_cameras_only_shows_enabled_nvr_when_mixed(db_env):
     """混合場景：兩台 NVR，一啟用一停用，只有啟用的 NVR 資料出現。"""
     import sqlite3
+
     w = SqliteWriter(db_env)
-    nvrb = w.upsert_nvr({
-        "id": "NVR-B", "name": "B", "host": "10.0.0.2",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvrb = w.upsert_nvr(
+        {
+            "id": "NVR-B",
+            "name": "B",
+            "host": "10.0.0.2",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     w.begin_scan_run("2026-07-29T00:00:00Z")
-    w.upsert_recording_status(nvrb, "x1",
-        window_start="2026-07-28T00:00:00Z", window_end="2026-07-29T00:00:00Z",
-        completeness=0.2, missing_seconds=19.2 * 3600)
+    w.upsert_recording_status(
+        nvrb,
+        "x1",
+        window_start="2026-07-28T00:00:00Z",
+        window_end="2026-07-29T00:00:00Z",
+        completeness=0.2,
+        missing_seconds=19.2 * 3600,
+    )
     w._get_conn().commit()
     w.close()
 
@@ -151,9 +189,9 @@ def test_get_top_missing_cameras_only_shows_enabled_nvr_when_mixed(db_env):
     # 把 B 停用 → 只剩 A
     conn = sqlite3.connect(db_env)
     try:
-        nvrb_id = conn.execute(
-            "SELECT id FROM nvr_servers WHERE name='B'"
-        ).fetchone()[0]
+        nvrb_id = conn.execute("SELECT id FROM nvr_servers WHERE name='B'").fetchone()[
+            0
+        ]
         conn.execute("UPDATE nvr_servers SET enabled=0 WHERE id=?", (nvrb_id,))
         conn.commit()
     finally:

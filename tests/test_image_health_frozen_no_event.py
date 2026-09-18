@@ -12,6 +12,7 @@ tests/test_image_health_frozen_no_event.py
 代價：真凍結不再觸發 IMAGE_HEALTH_FROZEN event（反正救不了）。
 未來若要智慧化凍結偵測，重寫 is_frozen 演算法即可，metrics 一直在。
 """
+
 from __future__ import annotations
 
 import gc
@@ -48,7 +49,9 @@ def _make_jpeg(color: int, size: tuple[int, int] = (64, 64)) -> bytes:
     return buf.getvalue()
 
 
-def _make_jpeg_with_structure(low: int = 0, high: int = 255, size: tuple[int, int] = (64, 64)) -> bytes:
+def _make_jpeg_with_structure(
+    low: int = 0, high: int = 255, size: tuple[int, int] = (64, 64)
+) -> bytes:
     """生成 alternating 結構的灰階 JPEG（有 edge，避免被當 blurry）。
 
     設計：(x+y)%2 決定亮度 → 高頻變化 → gradient variance 大 → not blurry。
@@ -75,16 +78,26 @@ def _make_scanner_mock(cameras: dict, jpeg_bytes: bytes) -> MagicMock:
     return scanner
 
 
-def _setup_writer_with_nvr(db_path: str, nvr_id: str = "NVR-T", cam_devices: list[str] | None = None) -> tuple[SqliteWriter, int, int]:
+def _setup_writer_with_nvr(
+    db_path: str, nvr_id: str = "NVR-T", cam_devices: list[str] | None = None
+) -> tuple[SqliteWriter, int, int]:
     if cam_devices is None:
         cam_devices = []
     w = SqliteWriter(db_path)
-    nvr_int = w.upsert_nvr({
-        "id": nvr_id, "name": nvr_id, "host": "1.1.1.1",
-        "username": "u", "password": "p",
-    })
+    nvr_int = w.upsert_nvr(
+        {
+            "id": nvr_id,
+            "name": nvr_id,
+            "host": "1.1.1.1",
+            "username": "u",
+            "password": "p",
+        }
+    )
     run_id = w.begin_scan_run("2026-07-30T00:00:00Z")
-    cams_dict = {d: {"name": f"cam-{d}", "connection_state": "CONNECTED", "available": True} for d in cam_devices}
+    cams_dict = {
+        d: {"name": f"cam-{d}", "connection_state": "CONNECTED", "available": True}
+        for d in cam_devices
+    }
     w.upsert_cameras(nvr_int, cams_dict)
     return w, nvr_int, run_id
 
@@ -103,7 +116,9 @@ def test_frozen_no_longer_triggers_event(tmp_db_path):
         cameras={"d1": {"name": "cam1", "connection_state": "CONNECTED"}},
         jpeg_bytes=_make_jpeg_with_structure(),  # 0/255 alternating → frozen only
     )
-    summary = _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    summary = _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
 
     # summary: checked=1, triggered=0（frozen 不算 triggered）
     assert summary["checked"] == 1
@@ -124,9 +139,7 @@ def test_frozen_no_longer_triggers_event(tmp_db_path):
     assert triggered == [], "triggered_event_ids 應為空"
 
     # events 表不應有 IMAGE_HEALTH_FROZEN
-    ev_count = conn.execute(
-        "SELECT COUNT(*) FROM events"
-    ).fetchone()[0]
+    ev_count = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
     assert ev_count == 0, "frozen 不該寫 events"
 
 
@@ -162,7 +175,9 @@ def test_frozen_plus_blurry_still_triggers_blur_event(tmp_db_path):
     scanner.fetch_thumbnail.return_value = white
     scanner.fetch_thumbnail_with_status.return_value = (white, None)
 
-    summary = _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    summary = _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
 
     # triggered=1（overexposed 觸發）— frozen 不單獨計入
     assert summary["triggered"] == 1, "overexposed 應觸 event"
@@ -187,12 +202,16 @@ def test_frozen_plus_overexposed_triggered_event_ids_backfilled(tmp_db_path):
     scanner.fetch_thumbnail.return_value = white
     scanner.fetch_thumbnail_with_status.return_value = (white, None)
 
-    _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
 
     conn = w._require_active()
-    triggered = json.loads(conn.execute(
-        "SELECT triggered_event_ids FROM image_health_checks"
-    ).fetchone()[0])
+    triggered = json.loads(
+        conn.execute("SELECT triggered_event_ids FROM image_health_checks").fetchone()[
+            0
+        ]
+    )
     assert len(triggered) == 1, "overexposed 觸發的 event_id 應回填"
 
 
@@ -209,7 +228,9 @@ def test_summary_triggered_count_excludes_frozen(tmp_db_path):
     scanner.fetch_thumbnail.return_value = structured
     scanner.fetch_thumbnail_with_status.return_value = (structured, None)
 
-    summary = _image_health_check_loop(scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0)
+    summary = _image_health_check_loop(
+        scanner, nvr_int, run_id, w, verbose=False, frozen_interval_sec=0
+    )
 
     # 兩台都 frozen → triggered = 0
     assert summary["checked"] == 2

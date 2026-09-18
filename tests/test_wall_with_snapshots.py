@@ -9,11 +9,11 @@ web.db.get_wall_cameras_with_snapshots()：8444 /wall 用的視覺化資料（�
   - snapshot_b64 為 base64 string；沒快照 → None
   - 預設排序：signal_lost > no_signal > online（同類反序）
 """
+
 from __future__ import annotations
 
 import base64
 import gc
-import sqlite3
 import tempfile
 from pathlib import Path
 
@@ -27,7 +27,10 @@ from web.db import get_wall_cameras_with_snapshots
 def _make_jpeg(seed: int) -> bytes:
     from PIL import Image
     import io
-    im = Image.new("RGB", (160, 120), (seed * 10 % 256, seed * 20 % 256, seed * 30 % 256))
+
+    im = Image.new(
+        "RGB", (160, 120), (seed * 10 % 256, seed * 20 % 256, seed * 30 % 256)
+    )
     buf = io.BytesIO()
     im.save(buf, format="JPEG", quality=85)
     return buf.getvalue()
@@ -39,30 +42,65 @@ def seeded_env():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     w.begin_scan_run("2026-07-29T00:00:00Z")
-    w.upsert_cameras(nvra, {
-        "c1": {"name": "cam1", "connection_state": "CONNECTED", "ip_address": "192.168.1.1"},
-        "c2": {"name": "cam2", "connection_state": "CONNECTED", "ip_address": "192.168.1.2"},
-        "c3": {"name": "cam3", "connection_state": "LONG_FAILED", "ip_address": "192.168.1.3"},
-    })
+    w.upsert_cameras(
+        nvra,
+        {
+            "c1": {
+                "name": "cam1",
+                "connection_state": "CONNECTED",
+                "ip_address": "192.168.1.1",
+            },
+            "c2": {
+                "name": "cam2",
+                "connection_state": "CONNECTED",
+                "ip_address": "192.168.1.2",
+            },
+            "c3": {
+                "name": "cam3",
+                "connection_state": "LONG_FAILED",
+                "ip_address": "192.168.1.3",
+            },
+        },
+    )
     # c2: 未解 DEVICE_VIDEO_SIGNAL_LOST
-    w.insert_events(w._current_scan_run_id, nvra, [{
-        "eventId": "e2", "deviceId": "c2",
-        "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
-        "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-        "occurred_at": "2026-07-29T01:00:00Z",
-    }])
+    w.insert_events(
+        w._current_scan_run_id,
+        nvra,
+        [
+            {
+                "eventId": "e2",
+                "deviceId": "c2",
+                "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                "occurred_at": "2026-07-29T01:00:00Z",
+            }
+        ],
+    )
     # c3: 未解 STATE_LONG_FAILED（DEVICE_LONG_FAILED 在 _NO_SIGNAL_TOPICS）
-    w.insert_events(w._current_scan_run_id, nvra, [{
-        "eventId": "e3", "deviceId": "c3",
-        "eventTopics": ["DEVICE_LONG_FAILED"],
-        "eventTopic": "DEVICE_LONG_FAILED",
-        "occurred_at": "2026-07-29T02:00:00Z",
-    }])
+    w.insert_events(
+        w._current_scan_run_id,
+        nvra,
+        [
+            {
+                "eventId": "e3",
+                "deviceId": "c3",
+                "eventTopics": ["DEVICE_LONG_FAILED"],
+                "eventTopic": "DEVICE_LONG_FAILED",
+                "occurred_at": "2026-07-29T02:00:00Z",
+            }
+        ],
+    )
     # c2 有快照、c3 沒快照
     w.upsert_snapshot(nvra, "c2", jpeg_bytes=_make_jpeg(1), width=160, height=120)
     w._get_conn().commit()
@@ -85,7 +123,14 @@ def test_returns_list_of_cameras(seeded_env):
 
 def test_each_row_has_required_keys(seeded_env):
     rows = get_wall_cameras_with_snapshots(seeded_env)
-    required = {"device_id", "camera_name", "nvr_name", "category", "snapshot_b64", "has_snapshot"}
+    required = {
+        "device_id",
+        "camera_name",
+        "nvr_name",
+        "category",
+        "snapshot_b64",
+        "has_snapshot",
+    }
     for r in rows:
         assert required.issubset(r.keys()), f"缺欄位：{required - r.keys()}"
 
@@ -178,19 +223,52 @@ def test_get_wall_cameras_with_snapshots_filters_by_nvr_id():
         db_path = f.name
 
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({"id": "A", "name": "A店", "host": "1.1.1.1", "port": 8443, "username": "u", "password": "p"})
-    nvrb = w.upsert_nvr({"id": "B", "name": "B店", "host": "2.2.2.2", "port": 8443, "username": "u", "password": "p"})
+    nvra = w.upsert_nvr(
+        {
+            "id": "A",
+            "name": "A店",
+            "host": "1.1.1.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
+    nvrb = w.upsert_nvr(
+        {
+            "id": "B",
+            "name": "B店",
+            "host": "2.2.2.2",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-29T00:00:00Z")
-    w.upsert_cameras(nvra, {
-        "d1": {"name": "A大門", "connection_state": "CONNECTED"},
-        "d2": {"name": "A後門", "connection_state": "CONNECTED"},
-    })
-    w.upsert_cameras(nvrb, {
-        "d10": {"name": "B大門", "connection_state": "CONNECTED"},
-    })
-    w.finish_scan_run(rid, finished_at="2026-07-29T00:01:00Z", status="success",
-                      stats={"total_cameras": 3, "abnormal_cameras": 0,
-                             "total_nvrs": 2, "ok_nvrs": 2, "failed_nvrs": 0})
+    w.upsert_cameras(
+        nvra,
+        {
+            "d1": {"name": "A大門", "connection_state": "CONNECTED"},
+            "d2": {"name": "A後門", "connection_state": "CONNECTED"},
+        },
+    )
+    w.upsert_cameras(
+        nvrb,
+        {
+            "d10": {"name": "B大門", "connection_state": "CONNECTED"},
+        },
+    )
+    w.finish_scan_run(
+        rid,
+        finished_at="2026-07-29T00:01:00Z",
+        status="success",
+        stats={
+            "total_cameras": 3,
+            "abnormal_cameras": 0,
+            "total_nvrs": 2,
+            "ok_nvrs": 2,
+            "failed_nvrs": 0,
+        },
+    )
     del w
     gc.collect()
 

@@ -10,6 +10,7 @@ tests/test_timeline.py
 
 這些函式純資料處理，不碰 NVR / DB / Flask — 純單元測試。
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -24,6 +25,7 @@ from web.timeline import (
 
 
 # === parse_timeline_response ===
+
 
 def test_parse_timeline_response_returns_empty_for_empty_data():
     """空輸入應回空 dict。"""
@@ -51,8 +53,10 @@ def test_parse_timeline_response_extracts_records_per_camera():
     result = parse_timeline_response(data)
     assert "cam-1" in result
     assert len(result["cam-1"]) == 2
-    assert result["cam-1"][0] == (datetime(2026, 7, 29, 0, 0, tzinfo=timezone.utc),
-                                  datetime(2026, 7, 29, 1, 0, tzinfo=timezone.utc))
+    assert result["cam-1"][0] == (
+        datetime(2026, 7, 29, 0, 0, tzinfo=timezone.utc),
+        datetime(2026, 7, 29, 1, 0, tzinfo=timezone.utc),
+    )
     assert result["cam-2"] == []
 
 
@@ -64,7 +68,10 @@ def test_parse_timeline_response_handles_results_wrapper():
                 {
                     "cameraId": "cam-1",
                     "record": [
-                        {"start": "2026-07-29T00:00:00Z", "end": "2026-07-29T01:00:00Z"},
+                        {
+                            "start": "2026-07-29T00:00:00Z",
+                            "end": "2026-07-29T01:00:00Z",
+                        },
                     ],
                 },
             ]
@@ -84,8 +91,8 @@ def test_parse_timeline_response_skips_malformed_records():
                 "record": [
                     {"start": "2026-07-29T00:00:00Z", "end": "2026-07-29T01:00:00Z"},
                     {"start": "2026-07-29T01:00:00Z"},  # 缺 end
-                    {"end": "2026-07-29T02:00:00Z"},     # 缺 start
-                    {},                                  # 全缺
+                    {"end": "2026-07-29T02:00:00Z"},  # 缺 start
+                    {},  # 全缺
                 ],
             },
         ]
@@ -98,7 +105,11 @@ def test_parse_timeline_response_skips_malformed_camera_ids():
     """沒 cameraId 的 timeline 應跳過。"""
     data = {
         "timelines": [
-            {"record": [{"start": "2026-07-29T00:00:00Z", "end": "2026-07-29T01:00:00Z"}]},
+            {
+                "record": [
+                    {"start": "2026-07-29T00:00:00Z", "end": "2026-07-29T01:00:00Z"}
+                ]
+            },
             {"cameraId": "cam-1", "record": []},
         ]
     }
@@ -108,6 +119,7 @@ def test_parse_timeline_response_skips_malformed_camera_ids():
 
 
 # === compute_completeness ===
+
 
 def test_compute_completeness_full_coverage_returns_1():
     """完全涵蓋 24h 視窗 → 完整率 1.0。"""
@@ -139,7 +151,9 @@ def test_compute_completeness_partial_overlap_clips_to_window():
     # record 從視窗前 1 小時開始，到視窗內 11 小時
     records = [(window_start - timedelta(hours=1), window_start + timedelta(hours=11))]
     # 完全在視窗內的秒數 = 11h, 視窗 24h → 11/24
-    assert compute_completeness(records, window_start, window_end) == pytest.approx(11 / 24)
+    assert compute_completeness(records, window_start, window_end) == pytest.approx(
+        11 / 24
+    )
 
 
 def test_compute_completeness_clips_record_extending_past_window():
@@ -148,7 +162,9 @@ def test_compute_completeness_clips_record_extending_past_window():
     window_end = window_start + timedelta(hours=24)
     records = [(window_start + timedelta(hours=20), window_end + timedelta(hours=10))]
     # 視窗內只有 4h（20h 到 24h）
-    assert compute_completeness(records, window_start, window_end) == pytest.approx(4 / 24)
+    assert compute_completeness(records, window_start, window_end) == pytest.approx(
+        4 / 24
+    )
 
 
 def test_compute_completeness_merges_overlapping_records():
@@ -170,6 +186,7 @@ def test_compute_completeness_zero_window_returns_zero():
 
 
 # === compute_missing_segments ===
+
 
 def test_compute_missing_segments_full_coverage_returns_empty():
     """完全沒缺口 → 空 list。"""

@@ -12,6 +12,7 @@ NVR 啟用狀態切換測試（v2.7+ 起 DB 為唯一 source of truth）。
     - UI 顯示啟用/停用 badge
     - batch_scan 讀 DB（整合測試）
 """
+
 from __future__ import annotations
 
 import gc
@@ -26,6 +27,7 @@ from web.app import create_app
 
 
 # === Fixtures ===
+
 
 @pytest.fixture
 def db_path():
@@ -53,10 +55,17 @@ def client(app):
     return app.test_client()
 
 
-def _seed_nvr(db_path: str, nvr_id: str = "NVR-A", name: str = "A 大樓",
-              host: str = "1.1.1.1", **kwargs) -> int:
+def _seed_nvr(
+    db_path: str,
+    nvr_id: str = "NVR-A",
+    name: str = "A 大樓",
+    host: str = "1.1.1.1",
+    **kwargs,
+) -> int:
     data = {
-        "nvr_id": nvr_id, "name": name, "host": host,
+        "nvr_id": nvr_id,
+        "name": name,
+        "host": host,
         "port": kwargs.get("port", 8443),
         "username": kwargs.get("username", "admin"),
         "password": kwargs.get("password", "pw"),
@@ -71,9 +80,11 @@ def _seed_nvr(db_path: str, nvr_id: str = "NVR-A", name: str = "A 大樓",
 
 # === Migration 測試 ===
 
+
 def test_migration_adds_enabled_column(db_path):
     """SqliteWriter 啟動時自動加 enabled 欄位（idempotent）。"""
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     try:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(nvr_servers)")]
@@ -87,6 +98,7 @@ def test_migration_idempotent(db_path):
     SqliteWriter(db_path)
     SqliteWriter(db_path)
     import sqlite3
+
     conn = sqlite3.connect(db_path)
     try:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(nvr_servers)")]
@@ -96,6 +108,7 @@ def test_migration_idempotent(db_path):
 
 
 # === list_enabled_nvrs ===
+
 
 def test_list_enabled_nvrs_only_returns_enabled(db_path):
     _seed_nvr(db_path, "NVR-A")
@@ -116,10 +129,17 @@ def test_list_enabled_nvrs_only_returns_enabled(db_path):
 
 def test_list_enabled_nvrs_format_matches_batch_scan(db_path):
     """回傳 dict 格式要跟 batch_scan 預期對得上（id/host/port/username/...）。"""
-    _seed_nvr(db_path, "NVR-A", name="A 大樓",
-              host="1.2.3.4", port=8443,
-              username="admin", password="secret",
-              site_id="BRANCH-A", tags=["branch", "taipei"])
+    _seed_nvr(
+        db_path,
+        "NVR-A",
+        name="A 大樓",
+        host="1.2.3.4",
+        port=8443,
+        username="admin",
+        password="secret",
+        site_id="BRANCH-A",
+        tags=["branch", "taipei"],
+    )
     enabled = webdb.list_enabled_nvrs(db_path)
     assert len(enabled) == 1
     nvr = enabled[0]
@@ -140,6 +160,7 @@ def test_list_enabled_nvrs_empty_db(db_path):
 
 # === set_nvr_enabled ===
 
+
 def test_set_nvr_enabled_toggle(db_path):
     nid = _seed_nvr(db_path, "NVR-A")
     # 預設 enabled
@@ -158,27 +179,54 @@ def test_set_nvr_enabled_missing_returns_false(db_path):
 
 # === bulk_upsert_nvrs 預設 enabled=1 ===
 
+
 def test_bulk_upsert_default_enabled(db_path):
-    webdb.bulk_upsert_nvrs(db_path, [
-        {"nvr_id": "X1", "name": "X1", "host": "1.1.1.1", "port": 8443,
-         "username": "u", "password": "p"},
-        {"nvr_id": "X2", "name": "X2", "host": "2.2.2.2", "port": 8443,
-         "username": "u", "password": "p"},
-    ])
+    webdb.bulk_upsert_nvrs(
+        db_path,
+        [
+            {
+                "nvr_id": "X1",
+                "name": "X1",
+                "host": "1.1.1.1",
+                "port": 8443,
+                "username": "u",
+                "password": "p",
+            },
+            {
+                "nvr_id": "X2",
+                "name": "X2",
+                "host": "2.2.2.2",
+                "port": 8443,
+                "username": "u",
+                "password": "p",
+            },
+        ],
+    )
     nvrs = webdb.get_nvrs(db_path)
     assert all(n["enabled"] == 1 for n in nvrs)
 
 
 def test_bulk_upsert_respects_explicit_enabled_false(db_path):
-    webdb.bulk_upsert_nvrs(db_path, [
-        {"nvr_id": "Y1", "name": "Y1", "host": "1.1.1.1", "port": 8443,
-         "username": "u", "password": "p", "enabled": False},
-    ])
+    webdb.bulk_upsert_nvrs(
+        db_path,
+        [
+            {
+                "nvr_id": "Y1",
+                "name": "Y1",
+                "host": "1.1.1.1",
+                "port": 8443,
+                "username": "u",
+                "password": "p",
+                "enabled": False,
+            },
+        ],
+    )
     n = next(n for n in webdb.get_nvrs(db_path) if n["nvr_id"] == "Y1")
     assert n["enabled"] == 0
 
 
 # === Web toggle route ===
+
 
 def test_nvr_toggle_enabled_route(client, db_path):
     nid = _seed_nvr(db_path, "NVR-A")
@@ -198,6 +246,7 @@ def test_nvr_toggle_missing_404(client):
 
 
 # === UI 顯示 ===
+
 
 def test_nvrs_list_shows_enabled_badge(client, db_path):
     _seed_nvr(db_path, "NVR-ON", name="啟用中")
@@ -221,17 +270,21 @@ def test_nvrs_list_shows_enabled_badge(client, db_path):
 
 # === 整合：batch_scan 讀 DB ===
 
+
 def test_batch_scan_uses_db_not_config(tmp_path, monkeypatch, db_path):
     """驗證 batch_scan main() 從 DB 讀 NVR，不再從 nvr_config.json 讀。"""
     # 寫一份假 nvr_config.json（含 2 台），但故意只 DB 內有 1 台
     cfg_path = tmp_path / "nvr_config.json"
-    cfg_path.write_text("""{
+    cfg_path.write_text(
+        """{
         "scan_settings": {"db_path": "./nvr_scan.db", "timeout_seconds": 5},
         "nvr_servers": [
             {"id": "CFG-1", "name": "CFG1", "host": "9.9.9.1",
              "port": 8443, "username": "u", "password": "p", "enabled": true}
         ]
-    }""", encoding="utf-8")
+    }""",
+        encoding="utf-8",
+    )
     # DB 內 1 台（不同 id）
     _seed_nvr(db_path, "DB-1", name="DB1", host="8.8.8.1")
 
@@ -251,12 +304,15 @@ def test_run_scan_in_background_cfg_has_scan_settings(monkeypatch, db_path):
 
     # 抓 _run_scan_in_background 組 cfg 的那一行（用動態 import 取 reference）
     import inspect
+
     src = inspect.getsource(webapp._run_scan_in_background)
     assert '"scan_settings"' in src, "_run_scan_in_background 沒組 scan_settings"
     assert "timeout_seconds" in src, "scan_settings 沒帶 timeout_seconds（會 KeyError）"
 
     # 動態驗證：DB 內 1 台啟用 NVR → 跑一次 batch_scan 確認 cfg 不會 KeyError
-    _seed_nvr(db_path, "DB-1", host="127.0.0.1", port=1)  # port=1 不會真連，預期 connection error
+    _seed_nvr(
+        db_path, "DB-1", host="127.0.0.1", port=1
+    )  # port=1 不會真連，預期 connection error
     enabled = webdb.list_enabled_nvrs(db_path)
     cfg = {"nvr_servers": enabled, "scan_settings": {"timeout_seconds": 10}}
     # 直接驗證 cfg 形狀正確（避免 mock 整個 batch_scan）
@@ -276,14 +332,14 @@ def test_web_default_does_not_auto_open_browser(monkeypatch):
 
     src = inspect.getsource(webapp.main)
     # 環境變數名稱
-    assert "NVR_WEB_OPEN_BROWSER" in src, (
-        "main() 沒讀 NVR_WEB_OPEN_BROWSER；退回舊邏輯會預設自動開瀏覽器"
-    )
+    assert (
+        "NVR_WEB_OPEN_BROWSER" in src
+    ), "main() 沒讀 NVR_WEB_OPEN_BROWSER；退回舊邏輯會預設自動開瀏覽器"
     # 預設必須是「不開」 — 用 in ("1","true") 才會 True，否則 False
-    assert '"true"' in src and '"1"' in src, (
-        "main() 沒把 auto_open 預設關閉（應為 opt-in 用 in ('1','true') 判斷）"
-    )
+    assert (
+        '"true"' in src and '"1"' in src
+    ), "main() 沒把 auto_open 預設關閉（應為 opt-in 用 in ('1','true') 判斷）"
     # 不能繼續用舊的 NVR_WEB_NO_BROWSER（會把語意顛倒）
-    assert "NVR_WEB_NO_BROWSER" not in src, (
-        "main() 還在讀舊的 NVR_WEB_NO_BROWSER；應改用 opt-in 的 NVR_WEB_OPEN_BROWSER"
-    )
+    assert (
+        "NVR_WEB_NO_BROWSER" not in src
+    ), "main() 還在讀舊的 NVR_WEB_NO_BROWSER；應改用 opt-in 的 NVR_WEB_OPEN_BROWSER"

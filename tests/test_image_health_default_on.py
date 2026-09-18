@@ -11,13 +11,11 @@ tests/test_image_health_default_on.py
 
 對齊 user 決策（option A 預設開啟）。
 """
+
 from __future__ import annotations
 
 import importlib
-import os
 import sys
-
-import pytest
 
 
 def _reload_batch_scan():
@@ -36,9 +34,9 @@ def test_image_health_enabled_default_true_when_env_unset(monkeypatch):
     """
     monkeypatch.delenv("NVR_IMAGE_HEALTH", raising=False)
     bs = _reload_batch_scan()
-    assert bs._IMAGE_HEALTH_ENABLED is True, (
-        "image_health 預設應為 True（/wall 縮圖需要）"
-    )
+    assert (
+        bs._IMAGE_HEALTH_ENABLED is True
+    ), "image_health 預設應為 True（/wall 縮圖需要）"
 
 
 def test_image_health_enabled_default_true_when_env_empty(monkeypatch):

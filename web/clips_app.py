@@ -16,10 +16,10 @@ Phase 2.7 — 機票回放調閱 Web UI（給其他部門用）。
 與 NVR 的通訊：使用 AvigilonScanner 拿 session token，再傳給 MediaApiClient
 （見 web/clip_retrieval.py）。
 """
+
 from __future__ import annotations
 
 import base64
-import io
 import logging
 import os
 import threading
@@ -27,19 +27,28 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable
 
 from flask import (
-    Flask, abort, jsonify, redirect, render_template, request, Response,
-    session as flask_session, stream_with_context, url_for,
+    Flask,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    Response,
+    session as flask_session,
+    url_for,
 )
 
 from web import db as webdb
 
 # Protocol + 兩個實作
 from web.clip_retrieval import (
-    MediaApiClient, MockMediaClient, MpdMediaClient,
-    NvrAuthError, NvrInternalError, NvrNoRecordingError,
+    MediaApiClient,
+    MockMediaClient,
+    MpdMediaClient,
+    NvrAuthError,
+    NvrInternalError,
+    NvrNoRecordingError,
 )
 
 # NVR CRUD Blueprint（Phase 2.7 補：讓 clips app 自帶 NVR 管理）
@@ -57,6 +66,7 @@ logger = logging.getLogger("nvr.clips")
 # frontend <video> 可播（partial mp4 is valid container）。
 _MAX_FETCH_WALL_SECONDS = 30.0  # default；可從 env NVR_MAX_FETCH_WALL_SECONDS 覆寫
 import os as _os_wall
+
 if _os_wall.environ.get("NVR_MAX_FETCH_WALL_SECONDS"):
     try:
         _MAX_FETCH_WALL_SECONDS = float(_os_wall.environ["NVR_MAX_FETCH_WALL_SECONDS"])
@@ -93,6 +103,7 @@ _bootstrap_env()
 # 存在 app.config["NO_STALE_TRUST"]（test 易隔離）；無 config 時 fallback module 級 dict。
 _NO_STALE_TRUST_DEFAULT: dict[int, float] = {}  # fallback for 8555 主 process
 _NO_STALE_TRUST_TTL = 600  # 10 分鐘
+
 
 class _SessionStore:
     """Avigilon session token 快取。Key = NVR 內部 id（int）。"""
@@ -196,7 +207,9 @@ def _login_nvr(nvr_row: dict) -> str:
     """
     from nvr_scanner import AvigilonScanner, get_credential
 
-    user_nonce = get_credential("AVIGILON_USER_NONCE", "AVIGILON_USER_NONCE", hide=False)
+    user_nonce = get_credential(
+        "AVIGILON_USER_NONCE", "AVIGILON_USER_NONCE", hide=False
+    )
     user_key = get_credential("AVIGILON_USER_KEY", "AVIGILON_USER_KEY", hide=True)
 
     # AvigilonScanner 需要 nvr_config dict + user_nonce/user_key
@@ -272,7 +285,8 @@ app.config["SESSION_STORE"] = _SessionStore()  # 測試可換成 in-memory 或 m
 
 # Dark Mode 需要的 SECRET_KEY（與 8444 區隔，確保 cookie 不互通）
 app.config["SECRET_KEY"] = os.environ.get(
-    "NVR_CLIPS_SECRET_KEY", "nvr-clips-dev-key-change-in-prod",
+    "NVR_CLIPS_SECRET_KEY",
+    "nvr-clips-dev-key-change-in-prod",
 )
 
 # NVR Blueprint 需要讀 DB_PATH；跟 _get_db_path() 同來源
@@ -319,9 +333,11 @@ def clips_coverage_data():
     user_nonce = os.environ.get("AVIGILON_USER_NONCE", "")
     user_key = os.environ.get("AVIGILON_USER_KEY", "")
     if not user_nonce or not user_key:
-        return jsonify({
-            "error": "伺服器未設定 AVIGILON_USER_NONCE / AVIGILON_USER_KEY（請檢查 .env）"
-        }), 500
+        return jsonify(
+            {
+                "error": "伺服器未設定 AVIGILON_USER_NONCE / AVIGILON_USER_KEY（請檢查 .env）"
+            }
+        ), 500
 
     # 2. parse nvr_id
     try:
@@ -363,8 +379,12 @@ def clips_coverage_data():
         # 2. 建 scanner 物件，手動塞 token（跳過第二次 login()）
         scanner = AvigilonScanner(
             _build_nvr_config(nvr_row),
-            user_nonce=get_credential("AVIGILON_USER_NONCE", "AVIGILON_USER_NONCE", hide=False),
-            user_key=get_credential("AVIGILON_USER_KEY", "AVIGILON_USER_KEY", hide=True),
+            user_nonce=get_credential(
+                "AVIGILON_USER_NONCE", "AVIGILON_USER_NONCE", hide=False
+            ),
+            user_key=get_credential(
+                "AVIGILON_USER_KEY", "AVIGILON_USER_KEY", hide=True
+            ),
             verify_ssl=bool(nvr_row.get("verify_ssl", 0)),
         )
         scanner._session_token = session_token
@@ -379,7 +399,10 @@ def clips_coverage_data():
                 "nvr_id": nvr_row.get("nvr_id", ""),
             },
             cameras=[
-                {"device_id": c["device_id"], "camera_name": c.get("name", c["device_id"])}
+                {
+                    "device_id": c["device_id"],
+                    "camera_name": c.get("name", c["device_id"]),
+                }
                 for c in cams
             ],
             start_iso=start_iso,
@@ -399,6 +422,7 @@ def _get_db_path() -> str:
 
 
 # === Dark Mode 支援 ===
+
 
 @app.context_processor
 def _inject_theme():
@@ -429,6 +453,7 @@ def dark_toggle():
 
 # === 路由 ===
 
+
 @app.route("/")
 def index():
     return render_template("clips.html")
@@ -443,16 +468,18 @@ def clips_page():
 def clips_nvrs():
     """JSON：所有 NVR 清單（給 dropdown 用）。"""
     rows = webdb.get_nvrs(_get_db_path())
-    return jsonify([
-        {
-            "internal_id": r["id"],
-            "nvr_id": r["nvr_id"],
-            "name": r["name"],
-            "host": r["host"],
-            "camera_count": r.get("camera_count", 0),
-        }
-        for r in rows
-    ])
+    return jsonify(
+        [
+            {
+                "internal_id": r["id"],
+                "nvr_id": r["nvr_id"],
+                "name": r["name"],
+                "host": r["host"],
+                "camera_count": r.get("camera_count", 0),
+            }
+            for r in rows
+        ]
+    )
 
 
 @app.route("/clips/cameras")
@@ -507,7 +534,9 @@ def clips_snapshots():
         session_token = "MOCK-SESSION"
     else:
         try:
-            session_token = get_session_for_nvr(internal_id, app.config["SESSION_STORE"])
+            session_token = get_session_for_nvr(
+                internal_id, app.config["SESSION_STORE"]
+            )
         except Exception as e:
             logger.error("login 失敗：%s", e)
             return jsonify({"error": f"login 失敗：{e}"}), 502
@@ -524,13 +553,17 @@ def clips_snapshots():
     snapshots = fetch_snapshots_parallel(client, camera_ids, at_time)
     # 把 camera_name 補進去（給 UI 顯示，不依賴前端自己 join）
     for s in snapshots:
-        s["camera_name"] = id_to_name.get(s.get("camera_id", ""), s.get("camera_id", ""))
-    return jsonify({
-        "nvr_id": internal_id,
-        "t": at_time.isoformat(),
-        "camera_count": len(camera_ids),
-        "snapshots": snapshots,
-    })
+        s["camera_name"] = id_to_name.get(
+            s.get("camera_id", ""), s.get("camera_id", "")
+        )
+    return jsonify(
+        {
+            "nvr_id": internal_id,
+            "t": at_time.isoformat(),
+            "camera_count": len(camera_ids),
+            "snapshots": snapshots,
+        }
+    )
 
 
 @app.route("/clips/fetch", methods=["POST"])
@@ -547,6 +580,7 @@ def clips_fetch():
     """
     from datetime import timedelta
     import time as _time_cf
+
     _t_cf = {"mpd": 0.0, "fetch": 0.0}
     _t_cf_total0 = _time_cf.monotonic()
     payload = request.get_json(silent=True) or {}
@@ -569,7 +603,9 @@ def clips_fetch():
         session_token = "MOCK-SESSION"
     else:
         try:
-            session_token = get_session_for_nvr(internal_id, app.config["SESSION_STORE"])
+            session_token = get_session_for_nvr(
+                internal_id, app.config["SESSION_STORE"]
+            )
         except Exception as e:
             logger.error("login 失敗：%s", e)
             return jsonify({"error": f"login 失敗：{e}"}), 502
@@ -579,7 +615,11 @@ def clips_fetch():
 
     logger.info(
         "[fetch] request: cam=%s nvr=%d req_start=%s req_end=%s target=%.1fs",
-        camera_id, internal_id, start.isoformat(), end.isoformat(), target_seconds,
+        camera_id,
+        internal_id,
+        start.isoformat(),
+        end.isoformat(),
+        target_seconds,
     )
 
     # === 擴搜：把 start 往前 / end 往後各 +5s，直到湊滿 target ===
@@ -611,17 +651,22 @@ def clips_fetch():
     actual_seconds = (actual_end - actual_start).total_seconds()
     logger.info(
         "[fetch] expanded: cam=%s actual_start=%s actual_end=%s actual_seconds=%.2f target=%.1fs",
-        camera_id, actual_start.isoformat(), actual_end.isoformat(),
-        actual_seconds, target_seconds,
+        camera_id,
+        actual_start.isoformat(),
+        actual_end.isoformat(),
+        actual_seconds,
+        target_seconds,
     )
     _t_cf["mpd"] = _time_cf.monotonic() - _t_cf_total0
     if actual_seconds <= 0.5:
-        return jsonify({
-            "error": "NO_RECORDING",
-            "message": f"此時段無錄影（{start.isoformat()} ~ {end.isoformat()}）",
-            "requested_start": start.isoformat(),
-            "requested_end": end.isoformat(),
-        }), 404
+        return jsonify(
+            {
+                "error": "NO_RECORDING",
+                "message": f"此時段無錄影（{start.isoformat()} ~ {end.isoformat()}）",
+                "requested_start": start.isoformat(),
+                "requested_end": end.isoformat(),
+            }
+        ), 404
 
     filename = f"{nvr_row['nvr_id']}_{camera_id}_{int(actual_start.timestamp())}.mp4"
 
@@ -633,81 +678,104 @@ def clips_fetch():
     # try/except 能正常 catch，回 JSON 給前端看得懂的錯誤訊息。
     # 30s clip ≈ 16MB → 進 memory 可接受。
     from web.clip_retrieval import (
-        NvrNoRecordingError, NvrAuthError, NvrInternalError,
+        NvrAuthError,
     )
+
     try:
         _t_fetch_start = _time_cf.monotonic()
-        body = b"".join(client.fetch_clip(camera_id, actual_start, actual_end, max_wall_seconds=_MAX_FETCH_WALL_SECONDS))
+        body = b"".join(
+            client.fetch_clip(
+                camera_id,
+                actual_start,
+                actual_end,
+                max_wall_seconds=_MAX_FETCH_WALL_SECONDS,
+            )
+        )
         _t_cf["fetch"] = _time_cf.monotonic() - _t_fetch_start
         logger.info(
             "[fetch] fetched: cam=%s bytes=%d actual_start=%s actual_end=%s",
-            camera_id, len(body), actual_start.isoformat(), actual_end.isoformat(),
+            camera_id,
+            len(body),
+            actual_start.isoformat(),
+            actual_end.isoformat(),
         )
     except NvrNoRecordingError as e:
         # NVR 404 → 該時段無錄影；友善灰色訊息（前端顯示「📭 此時段無錄影資料」）
         logger.info("/clips/fetch NO_RECORDING：%s", e)
-        return jsonify({
-            "error": "NO_RECORDING",
-            "message": "此時段無錄影資料",
-            "stage": "nvr_404",
-            "nvr_id": nvr_row["nvr_id"],
-            "camera_id": camera_id,
-            "actual_start": actual_start.isoformat(),
-            "actual_end": actual_end.isoformat(),
-        }), 404
+        return jsonify(
+            {
+                "error": "NO_RECORDING",
+                "message": "此時段無錄影資料",
+                "stage": "nvr_404",
+                "nvr_id": nvr_row["nvr_id"],
+                "camera_id": camera_id,
+                "actual_start": actual_start.isoformat(),
+                "actual_end": actual_end.isoformat(),
+            }
+        ), 404
     except NvrAuthError as e:
         # NVR 401/403 → session 過期（前端顯示 ⚠️「NVR 認證失敗」）
         logger.warning("/clips/fetch AUTH_FAILED：%s", e)
-        return jsonify({
-            "error": "AUTH_FAILED",
-            "message": "NVR 認證失敗（session 過期）",
-            "detail": str(e),
-            "stage": "nvr_auth",
-            "nvr_id": nvr_row["nvr_id"],
-            "camera_id": camera_id,
-        }), 502
+        return jsonify(
+            {
+                "error": "AUTH_FAILED",
+                "message": "NVR 認證失敗（session 過期）",
+                "detail": str(e),
+                "stage": "nvr_auth",
+                "nvr_id": nvr_row["nvr_id"],
+                "camera_id": camera_id,
+            }
+        ), 502
     except NvrInternalError as e:
         # NVR 5xx / 其他 → NVR 內部錯誤（前端顯示 ⚠️「NVR 連線失敗」）
         logger.error("/clips/fetch NVR_INTERNAL_ERROR：%s", e)
-        return jsonify({
-            "error": "NVR_INTERNAL_ERROR",
-            "message": "NVR 內部錯誤",
-            "detail": str(e),
-            "stage": "fetch_clip",
-            "nvr_id": nvr_row["nvr_id"],
-            "camera_id": camera_id,
-            "actual_start": actual_start.isoformat(),
-            "actual_end": actual_end.isoformat(),
-        }), 502
+        return jsonify(
+            {
+                "error": "NVR_INTERNAL_ERROR",
+                "message": "NVR 內部錯誤",
+                "detail": str(e),
+                "stage": "fetch_clip",
+                "nvr_id": nvr_row["nvr_id"],
+                "camera_id": camera_id,
+                "actual_start": actual_start.isoformat(),
+                "actual_end": actual_end.isoformat(),
+            }
+        ), 502
     except RuntimeError as e:
         # 2026-07-14：generic RuntimeError 不是新三種分類時，fallback 為 NVR_INTERNAL_ERROR
         # （保持與 fix07.txt 之前行為相容：500 HTML → 502 JSON 但都是 NVR 端問題）
         logger.error("/clips/fetch NVR_INTERNAL_ERROR (legacy RuntimeError)：%s", e)
-        return jsonify({
-            "error": "NVR_INTERNAL_ERROR",
-            "message": "NVR 內部錯誤",
-            "detail": str(e),
-            "stage": "fetch_clip_legacy",
-            "nvr_id": nvr_row["nvr_id"],
-            "camera_id": camera_id,
-        }), 502
+        return jsonify(
+            {
+                "error": "NVR_INTERNAL_ERROR",
+                "message": "NVR 內部錯誤",
+                "detail": str(e),
+                "stage": "fetch_clip_legacy",
+                "nvr_id": nvr_row["nvr_id"],
+                "camera_id": camera_id,
+            }
+        ), 502
     except Exception as e:  # 任何其他 IO/解碼問題（非 NVR 端錯誤）
         logger.exception("/clips/fetch 未預期錯誤")
-        return jsonify({
-            "error": "SERVER_ERROR",
-            "message": f"伺服器錯誤：{type(e).__name__}: {e}",
-            "stage": "fetch_clip",
-        }), 500
+        return jsonify(
+            {
+                "error": "SERVER_ERROR",
+                "message": f"伺服器錯誤：{type(e).__name__}: {e}",
+                "stage": "fetch_clip",
+            }
+        ), 500
 
     if not body:
         # 抓到 0 bytes（罕見但 NVR 健康但該時段真的沒資料會這樣）
-        return jsonify({
-            "error": "EMPTY_CLIP",
-            "message": "此時段無錄影資料",
-            "stage": "empty_body",
-            "actual_start": actual_start.isoformat(),
-            "actual_end": actual_end.isoformat(),
-        }), 404
+        return jsonify(
+            {
+                "error": "EMPTY_CLIP",
+                "message": "此時段無錄影資料",
+                "stage": "empty_body",
+                "actual_start": actual_start.isoformat(),
+                "actual_end": actual_end.isoformat(),
+            }
+        ), 404
 
     return Response(
         body,
@@ -724,16 +792,18 @@ def clips_fetch():
             "Content-Length": str(len(body)),
             # 2026-08-06 perf：分階段時序，瀏覽器 DevTools Network > Timing 直接讀
             "X-Server-Timing": ", ".join(
-                f"{phase};dur={t * 1000:.1f}"
-                for phase, t in _t_cf.items()
-            ) + f", total;dur={(_time_cf.monotonic() - _t_cf_total0) * 1000:.1f}",
+                f"{phase};dur={t * 1000:.1f}" for phase, t in _t_cf.items()
+            )
+            + f", total;dur={(_time_cf.monotonic() - _t_cf_total0) * 1000:.1f}",
         },
     )
     logger.info(
         "[fetch timing] total=%.2fs mpd=%.2fs fetch=%.2fs cam=%s bytes=%d",
         _time_cf.monotonic() - _t_cf_total0,
-        _t_cf["mpd"], _t_cf["fetch"],
-        camera_id, len(body),
+        _t_cf["mpd"],
+        _t_cf["fetch"],
+        camera_id,
+        len(body),
     )
 
 
@@ -769,13 +839,16 @@ def _probe_nvr_stale_cache(
     md5_by_anchor: dict[int, str] = {}
     error_anchors: list[int] = []
     import hashlib as _hashlib
+
     for off in anchor_offsets:
         probe_t = t_center + timedelta(seconds=off)
         try:
             dur = client.get_recording_duration(camera_id, probe_t)
         except Exception as e:
             error_anchors.append(off)
-            evidence.append(f"anchor {off:+d}s: MPD query error: {type(e).__name__}: {e}")
+            evidence.append(
+                f"anchor {off:+d}s: MPD query error: {type(e).__name__}: {e}"
+            )
             continue
         if dur <= 0.5:
             error_anchors.append(off)
@@ -784,7 +857,9 @@ def _probe_nvr_stale_cache(
         try:
             head = b""
             for chunk in client.fetch_clip(
-                camera_id, probe_t, probe_t + timedelta(seconds=1),
+                camera_id,
+                probe_t,
+                probe_t + timedelta(seconds=1),
                 target_seconds=1,
             ):
                 head += chunk
@@ -792,7 +867,9 @@ def _probe_nvr_stale_cache(
                     break
         except Exception as e:
             error_anchors.append(off)
-            evidence.append(f"anchor {off:+d}s: fetch_clip error: {type(e).__name__}: {e}")
+            evidence.append(
+                f"anchor {off:+d}s: fetch_clip error: {type(e).__name__}: {e}"
+            )
             continue
         head = head[:head_bytes]
         m = _hashlib.md5(head).hexdigest()[:10]
@@ -849,9 +926,10 @@ def clips_fetch_sync():
     或失敗：
         {error: "NO_COMMON_RECORDING", ...}
     """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from concurrent.futures import ThreadPoolExecutor
     import uuid as uuid_mod
     import time as _time
+
     # 2026-08-06 perf：分階段計時，讓 user 從 server log / browser DevTools
     # Network > Timing 直接看 MPD / probe / fetch / total 各耗時。
     _t_phase = {"mpd": 0.0, "probe": 0.0, "fetch": 0.0}
@@ -882,7 +960,9 @@ def clips_fetch_sync():
         session_token = "MOCK-SESSION"
     else:
         try:
-            session_token = get_session_for_nvr(internal_id, app.config["SESSION_STORE"])
+            session_token = get_session_for_nvr(
+                internal_id, app.config["SESSION_STORE"]
+            )
         except Exception as e:
             logger.error("login 失敗：%s", e)
             return jsonify({"error": f"login 失敗：{e}"}), 502
@@ -898,13 +978,18 @@ def clips_fetch_sync():
             dur = client.get_recording_duration(cam_id, request_start)
             logger.info(
                 "[fetch_sync] MPD query: cam=%s (%s) t_start=%s dur=%.2fs",
-                cam_name, cam_id, request_start.isoformat(), dur,
+                cam_name,
+                cam_id,
+                request_start.isoformat(),
+                dur,
             )
             return {
                 "camera_id": cam_id,
                 "name": cam_name,
                 "available_start": request_start,
-                "available_end": request_start + timedelta(seconds=dur) if dur > 0 else request_start,
+                "available_end": request_start + timedelta(seconds=dur)
+                if dur > 0
+                else request_start,
                 "duration": dur,
                 "error": None,
                 "auth_failed": False,
@@ -914,7 +999,9 @@ def clips_fetch_sync():
             # 讓 caller 偵測後 invalidate session 並 retry 一次。
             logger.warning(
                 "[fetch_sync] MPD query AUTH_FAILED（stale session）: cam=%s (%s) err=%s",
-                cam_name, cam_id, e,
+                cam_name,
+                cam_id,
+                e,
             )
             return {
                 "camera_id": cam_id,
@@ -928,7 +1015,10 @@ def clips_fetch_sync():
         except Exception as e:
             logger.warning(
                 "[fetch_sync] MPD query FAILED: cam=%s (%s) t_start=%s err=%s",
-                cam_name, cam_id, request_start.isoformat(), e,
+                cam_name,
+                cam_id,
+                request_start.isoformat(),
+                e,
             )
             return {
                 "camera_id": cam_id,
@@ -950,7 +1040,9 @@ def clips_fetch_sync():
     active_cams = [c for c in cam_results if c["duration"] > 0]
     logger.info(
         "[fetch_sync] MPD done: %.2fs cams=%d active=%d",
-        _t_phase["mpd"], len(cameras), len(active_cams),
+        _t_phase["mpd"],
+        len(cameras),
+        len(active_cams),
     )
     if not active_cams:
         # 2026-08-06 修：若所有 cam 都因 stale session（auth_failed=True）失敗，
@@ -962,7 +1054,8 @@ def clips_fetch_sync():
             app.config["SESSION_STORE"].clear(internal_id)
             try:
                 session_token = get_session_for_nvr(
-                    internal_id, app.config["SESSION_STORE"],
+                    internal_id,
+                    app.config["SESSION_STORE"],
                 )
             except Exception as e:
                 logger.error("[fetch_sync] retry login 失敗：%s", e)
@@ -975,43 +1068,60 @@ def clips_fetch_sync():
                 try:
                     dur = client.get_recording_duration(cam_id, request_start)
                     return {
-                        "camera_id": cam_id, "name": cam_name,
+                        "camera_id": cam_id,
+                        "name": cam_name,
                         "available_start": request_start,
-                        "available_end": request_start + timedelta(seconds=dur) if dur > 0 else request_start,
-                        "duration": dur, "error": None, "auth_failed": False,
+                        "available_end": request_start + timedelta(seconds=dur)
+                        if dur > 0
+                        else request_start,
+                        "duration": dur,
+                        "error": None,
+                        "auth_failed": False,
                     }
                 except NvrAuthError as e:
                     logger.warning(
                         "[fetch_sync] MPD query AUTH_FAILED（retry 仍失敗）: cam=%s err=%s",
-                        cam_name, e,
+                        cam_name,
+                        e,
                     )
                     return {
-                        "camera_id": cam_id, "name": cam_name,
-                        "available_start": request_start, "available_end": request_start,
-                        "duration": 0, "error": str(e), "auth_failed": True,
+                        "camera_id": cam_id,
+                        "name": cam_name,
+                        "available_start": request_start,
+                        "available_end": request_start,
+                        "duration": 0,
+                        "error": str(e),
+                        "auth_failed": True,
                     }
                 except Exception as e:
                     logger.warning(
                         "[fetch_sync] MPD query FAILED: cam=%s err=%s",
-                        cam_name, e,
+                        cam_name,
+                        e,
                     )
                     return {
-                        "camera_id": cam_id, "name": cam_name,
-                        "available_start": request_start, "available_end": request_start,
-                        "duration": 0, "error": str(e), "auth_failed": False,
+                        "camera_id": cam_id,
+                        "name": cam_name,
+                        "available_start": request_start,
+                        "available_end": request_start,
+                        "duration": 0,
+                        "error": str(e),
+                        "auth_failed": False,
                     }
 
             with ThreadPoolExecutor(max_workers=min(8, len(cameras))) as ex2:
                 cam_results = list(ex2.map(query_cam_availability_fresh, cameras))
             active_cams = [c for c in cam_results if c["duration"] > 0]
         if not active_cams:
-            return jsonify({
-                "error": "NO_COMMON_RECORDING",
-                "message": "無可用的錄影時段（所有 cam 都查無資料）",
-                "stage": "no_cam_available",
-                "intersection_start": request_start.isoformat(),
-                "intersection_end": request_end.isoformat(),
-            }), 404
+            return jsonify(
+                {
+                    "error": "NO_COMMON_RECORDING",
+                    "message": "無可用的錄影時段（所有 cam 都查無資料）",
+                    "stage": "no_cam_available",
+                    "intersection_start": request_start.isoformat(),
+                    "intersection_end": request_end.isoformat(),
+                }
+            ), 404
 
     # === Step 2.5：NVR stale cache 探測（2026-07-15 user bug） ===
     # NVR Media API 對某些 cam 在多個相鄰時段會回傳完全相同的 mp4 bytes
@@ -1038,29 +1148,36 @@ def clips_fetch_sync():
     # 2026-08-06 perf: trust TTL skip probe
     if not skip_stale_probe:
         import time as _time_trust
+
         _trust_dict = app.config.setdefault("NO_STALE_TRUST", {})
         _trust_expire = _trust_dict.get(internal_id, 0)
         if _trust_expire > _time_trust.time():
             skip_stale_probe = True
             logger.info(
                 "[fetch_sync] NVR %d trust TTL 內剩 %.0fs, skip probe",
-                internal_id, _trust_expire - _time_trust.time(),
+                internal_id,
+                _trust_expire - _time_trust.time(),
             )
     if not skip_stale_probe:
         _t_probe_start = _time.monotonic()
         from concurrent.futures import ThreadPoolExecutor as _TPE
+
         def _run_probe(cam_info):
             try:
                 is_stale, evidence = _probe_nvr_stale_cache(
-                    client, cam_info["camera_id"], request_start,
+                    client,
+                    cam_info["camera_id"],
+                    request_start,
                 )
                 return cam_info["camera_id"], is_stale, evidence
             except Exception as e:
                 logger.warning(
                     "[fetch_sync] stale probe exception: cam=%s err=%s",
-                    cam_info["camera_id"], e,
+                    cam_info["camera_id"],
+                    e,
                 )
                 return cam_info["camera_id"], False, []
+
         with _TPE(max_workers=min(8, len(active_cams))) as ex:
             for cid, is_stale, evidence in ex.map(_run_probe, active_cams):
                 if is_stale:
@@ -1068,12 +1185,14 @@ def clips_fetch_sync():
                     for line in evidence:
                         logger.warning(
                             "[fetch_sync] stale probe cam=%s: %s",
-                            cid, line,
+                            cid,
+                            line,
                         )
                     logger.warning(
                         "[fetch_sync] NVR_STALE_CACHE: cam=%s (%s) "
                         "被識別為 stale（多時段回相同 bytes），從 active_cams 排除",
-                        cid, next(
+                        cid,
+                        next(
                             (c["name"] for c in active_cams if c["camera_id"] == cid),
                             cid,
                         ),
@@ -1086,7 +1205,8 @@ def clips_fetch_sync():
             _trust_dict[internal_id] = _time_trust.time() + _NO_STALE_TRUST_TTL
             logger.info(
                 "[fetch_sync] NVR %d probe clean, trust %.0fs",
-                internal_id, _NO_STALE_TRUST_TTL,
+                internal_id,
+                _NO_STALE_TRUST_TTL,
             )
     if stale_cam_ids:
         # 從 active_cams 移除、記 error
@@ -1096,25 +1216,30 @@ def clips_fetch_sync():
             if c["camera_id"] in stale_cam_ids:
                 c["duration"] = 0
                 c["error"] = "NVR_STALE_CACHE"
-                excluded.append({
-                    "camera_id": c["camera_id"],
-                    "name": c["name"],
-                    "reason": "NVR_STALE_CACHE",  # 純 ASCII（HTTP header latin-1 限制）
-                                               # 詳細原因見 server log「NVR_STALE_CACHE」警告行
-                })
+                excluded.append(
+                    {
+                        "camera_id": c["camera_id"],
+                        "name": c["name"],
+                        "reason": "NVR_STALE_CACHE",  # 純 ASCII（HTTP header latin-1 限制）
+                        # 詳細原因見 server log「NVR_STALE_CACHE」警告行
+                    }
+                )
         active_cams = [c for c in active_cams if c["duration"] > 0]
         if not active_cams:
-            return jsonify({
-                "error": "NO_COMMON_RECORDING",
-                "message": "所有 cam 的 NVR fmp4 都回 stale bytes（多時段相同），可能是 NVR Media API 異常",
-                "stage": "all_cams_stale",
-                "intersection_start": request_start.isoformat(),
-                "intersection_end": request_end.isoformat(),
-                "excluded_cams": excluded,
-            }), 502
+            return jsonify(
+                {
+                    "error": "NO_COMMON_RECORDING",
+                    "message": "所有 cam 的 NVR fmp4 都回 stale bytes（多時段相同），可能是 NVR Media API 異常",
+                    "stage": "all_cams_stale",
+                    "intersection_start": request_start.isoformat(),
+                    "intersection_end": request_end.isoformat(),
+                    "excluded_cams": excluded,
+                }
+            ), 502
         logger.warning(
             "[fetch_sync] %d 台 cam 被識別為 stale，剩餘 %d 台可用",
-            len(stale_cam_ids), len(active_cams),
+            len(stale_cam_ids),
+            len(active_cams),
         )
 
     # intersection range：start 固定，length 用 target_seconds（不再用 min(MPD durations)）
@@ -1132,8 +1257,10 @@ def clips_fetch_sync():
 
     logger.info(
         "[fetch_sync] intersection: start=%s end=%s length=%.1fs (active_cams=%d)",
-        intersection_start.isoformat(), intersection_end.isoformat(),
-        intersection_length, len(active_cams),
+        intersection_start.isoformat(),
+        intersection_end.isoformat(),
+        intersection_length,
+        len(active_cams),
     )
 
     # === Step 3: 太短直接 NO_COMMON_RECORDING（user 決定：不自動擴搜）===
@@ -1151,15 +1278,17 @@ def clips_fetch_sync():
             }
             for c in cam_results
         ]
-        return jsonify({
-            "error": "NO_COMMON_RECORDING",
-            "message": f"無共同錄影時段（交集只 {intersection_length:.1f} 秒，建議換時段）",
-            "stage": "intersection_too_short",
-            "intersection_length_sec": intersection_length,
-            "intersection_start": intersection_start.isoformat(),
-            "intersection_end": intersection_end.isoformat(),
-            "cam_ranges": cam_ranges,
-        }), 404
+        return jsonify(
+            {
+                "error": "NO_COMMON_RECORDING",
+                "message": f"無共同錄影時段（交集只 {intersection_length:.1f} 秒，建議換時段）",
+                "stage": "intersection_too_short",
+                "intersection_length_sec": intersection_length,
+                "intersection_start": intersection_start.isoformat(),
+                "intersection_end": intersection_end.isoformat(),
+                "cam_ranges": cam_ranges,
+            }
+        ), 404
 
     # === Step 4: 並行抓 4 個 fmp4（從 intersection_start 開始）===
     # 為保留『同步長度 = 交集長度』，每段 clip 在 client 端會被限制播到交集長度。
@@ -1188,7 +1317,9 @@ def clips_fetch_sync():
         try:
             body = b"".join(
                 client.fetch_clip(
-                    cam_id, intersection_start, intersection_end,
+                    cam_id,
+                    intersection_start,
+                    intersection_end,
                     target_seconds=intersection_length,
                     max_wall_seconds=_MAX_FETCH_WALL_SECONDS,
                 )
@@ -1196,36 +1327,55 @@ def clips_fetch_sync():
             if not body:
                 logger.warning(
                     "[fetch_sync] fetch EMPTY: cam=%s (%s) start=%s target=%.1fs",
-                    cam_name, cam_id, intersection_start.isoformat(), intersection_length,
+                    cam_name,
+                    cam_id,
+                    intersection_start.isoformat(),
+                    intersection_length,
                 )
-                return (slot_idx, {
+                return (
+                    slot_idx,
+                    {
+                        "slot_id": slot_idx,
+                        "camera_id": cam_id,
+                        "name": cam_name,
+                        "error": "EMPTY_CLIP",
+                    },
+                    None,
+                )
+            logger.info(
+                "[fetch_sync] fetch OK: cam=%s (%s) start=%s target=%.1fs bytes=%d",
+                cam_name,
+                cam_id,
+                intersection_start.isoformat(),
+                intersection_length,
+                len(body),
+            )
+            return (
+                slot_idx,
+                {
                     "slot_id": slot_idx,
                     "camera_id": cam_id,
                     "name": cam_name,
-                    "error": "EMPTY_CLIP",
-                }, None)
-            logger.info(
-                "[fetch_sync] fetch OK: cam=%s (%s) start=%s target=%.1fs bytes=%d",
-                cam_name, cam_id, intersection_start.isoformat(),
-                intersection_length, len(body),
+                    "actual_start": intersection_start.isoformat(),
+                    "actual_end": intersection_end.isoformat(),
+                    "actual_duration": f"{intersection_length:.2f}",
+                    "intersection_truncated": cam_info["duration"]
+                    > intersection_length,
+                    "cam_available_duration": f"{cam_info['duration']:.2f}",
+                },
+                body,
             )
-            return (slot_idx, {
-                "slot_id": slot_idx,
-                "camera_id": cam_id,
-                "name": cam_name,
-                "actual_start": intersection_start.isoformat(),
-                "actual_end": intersection_end.isoformat(),
-                "actual_duration": f"{intersection_length:.2f}",
-                "intersection_truncated": cam_info["duration"] > intersection_length,
-                "cam_available_duration": f"{cam_info['duration']:.2f}",
-            }, body)
         except Exception as e:
-            return (slot_idx, {
-                "slot_id": slot_idx,
-                "camera_id": cam_id,
-                "name": cam_name,
-                "error": str(e),
-            }, None)
+            return (
+                slot_idx,
+                {
+                    "slot_id": slot_idx,
+                    "camera_id": cam_id,
+                    "name": cam_name,
+                    "error": str(e),
+                },
+                None,
+            )
 
     # 修飾 active_cams 給 fetch（2026-07-15 fix：原本用 cam_results，但 stale probe
     # 排除過的 cam 仍會被 fetch，造成 fetch 對被排除 cam 又 fetch 一次）
@@ -1237,16 +1387,16 @@ def clips_fetch_sync():
         )
 
     _t_fetch_start = _time.monotonic()
-    cam_with_idx = [
-        {**r, "slot_idx": i} for i, r in enumerate(active_cams)
-    ]
+    cam_with_idx = [{**r, "slot_idx": i} for i, r in enumerate(active_cams)]
     with ThreadPoolExecutor(max_workers=min(8, len(cam_with_idx))) as ex:
         futures = [ex.submit(fetch_one_cam, c) for c in cam_with_idx]
         fetch_results = [f.result() for f in futures]
     _t_phase["fetch"] = _time.monotonic() - _t_fetch_start
     logger.info(
         "[fetch_sync] fetch done: %.2fs cams=%d active=%d",
-        _t_phase["fetch"], len(cameras), len(active_cams),
+        _t_phase["fetch"],
+        len(cameras),
+        len(active_cams),
     )
     # === Step 5: 串成 multipart response ===
     # 統一格式：每段都是 video/mp4 Content-Type，metadata 全在 X-* headers。
@@ -1255,8 +1405,12 @@ def clips_fetch_sync():
     _t_total = _time.monotonic() - _t_total0
     logger.info(
         "[fetch_sync timing] total=%.2fs mpd=%.2fs probe=%.2fs fetch=%.2fs cams=%d stale=%d",
-        _t_total, _t_phase["mpd"], _t_phase["probe"], _t_phase["fetch"],
-        len(cameras), len(stale_cam_ids),
+        _t_total,
+        _t_phase["mpd"],
+        _t_phase["probe"],
+        _t_phase["fetch"],
+        len(cameras),
+        len(stale_cam_ids),
     )
     # 摘要放在一個副作用：g object 上掛 X-Server-Timing header（user 可瀏覽 DevTools 看）
 
@@ -1267,7 +1421,11 @@ def clips_fetch_sync():
             yield b"--" + boundary.encode("ascii") + crlf
             yield b"X-Slot-Id: " + str(slot_idx).encode("ascii") + crlf
             yield b"X-Camera-Id: " + meta["camera_id"].encode("utf-8") + crlf
-            yield b"X-Camera-Name: " + meta.get("name", meta["camera_id"]).encode("utf-8") + crlf
+            yield (
+                b"X-Camera-Name: "
+                + meta.get("name", meta["camera_id"]).encode("utf-8")
+                + crlf
+            )
             if "error" in meta and meta["error"]:
                 # 失敗 cam：0-byte body + error header
                 yield b"X-Slot-Error: " + meta["error"][:200].encode("utf-8") + crlf
@@ -1280,8 +1438,16 @@ def clips_fetch_sync():
                 # 成功 cam：full body + metadata headers
                 yield b"X-Actual-Start: " + meta["actual_start"].encode("ascii") + crlf
                 yield b"X-Actual-End: " + meta["actual_end"].encode("ascii") + crlf
-                yield b"X-Actual-Duration: " + meta["actual_duration"].encode("ascii") + crlf
-                yield b"X-Cam-Available-Duration: " + meta.get("cam_available_duration", "0").encode("ascii") + crlf
+                yield (
+                    b"X-Actual-Duration: "
+                    + meta["actual_duration"].encode("ascii")
+                    + crlf
+                )
+                yield (
+                    b"X-Cam-Available-Duration: "
+                    + meta.get("cam_available_duration", "0").encode("ascii")
+                    + crlf
+                )
                 yield b"Content-Type: video/mp4" + crlf
                 yield crlf  # headers 結束空行
                 yield body
@@ -1303,9 +1469,9 @@ def clips_fetch_sync():
             # 2026-08-06 perf：分階段時序 (W3C Server-Timing 格式 + 自定單位)
             # 例：X-Server-Timing: mpd;dur=120.5, probe;dur=1850.0, fetch;dur=3200.0, total;dur=5170.5
             "X-Server-Timing": ", ".join(
-                f"{phase};dur={t * 1000:.1f}"
-                for phase, t in _t_phase.items()
-            ) + f", total;dur={_t_total * 1000:.1f}",
+                f"{phase};dur={t * 1000:.1f}" for phase, t in _t_phase.items()
+            )
+            + f", total;dur={_t_total * 1000:.1f}",
         },
     )
 
@@ -1318,14 +1484,17 @@ def _format_excluded_cams(stale_ids: set[str], cam_results: list[dict]) -> str:
     前端 JSON.parse 再 decode 也沒問題。
     """
     import json as _json
+
     payload = []
     for c in cam_results:
         if c["camera_id"] in stale_ids:
-            payload.append({
-                "device_id": c["camera_id"],
-                "name": c.get("name", c["camera_id"]),
-                "reason": c.get("error", "NVR_STALE_CACHE"),
-            })
+            payload.append(
+                {
+                    "device_id": c["camera_id"],
+                    "name": c.get("name", c["camera_id"]),
+                    "reason": c.get("error", "NVR_STALE_CACHE"),
+                }
+            )
     return _json.dumps(payload, ensure_ascii=True)
 
 

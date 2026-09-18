@@ -5,6 +5,7 @@ web/timeline.py
 
 不碰 NVR session / DB / Flask，純資料處理（時間區間運算）。
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -21,7 +22,9 @@ def _parse_iso_utc(s: str) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
-def parse_timeline_response(data: dict | None) -> dict[str, list[tuple[datetime, datetime]]]:
+def parse_timeline_response(
+    data: dict | None,
+) -> dict[str, list[tuple[datetime, datetime]]]:
     """
     從 NVR `/timeline` 回傳抽出 {camera_id: [(start, end), ...]}。
 

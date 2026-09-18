@@ -7,6 +7,7 @@ tests/test_helpers.py
     - unwrap_response
     - _extract_list
 """
+
 from __future__ import annotations
 
 import time
@@ -38,8 +39,10 @@ def test_compute_authorization_token_format():
 
 def test_compute_authorization_token_with_integration_id():
     tok = compute_authorization_token(
-        user_nonce="n", user_key="k",
-        timestamp=1700000000, integration_id="integ-1",
+        user_nonce="n",
+        user_key="k",
+        timestamp=1700000000,
+        integration_id="integ-1",
     )
     parts = tok.split(":")
     assert parts[3] == "integ-1"
@@ -66,9 +69,7 @@ def test_compute_authorization_token_sha256_correctness():
     """hex = SHA-256(str(timestamp) + userKey).hexdigest()。"""
     tok = compute_authorization_token("n", "k", timestamp=1234567890)
     parts = tok.split(":")
-    expected = (
-        __import__("hashlib").sha256(b"1234567890k").hexdigest()
-    )
+    expected = __import__("hashlib").sha256(b"1234567890k").hexdigest()
     assert parts[2] == expected
 
 
@@ -95,6 +96,7 @@ def test_load_env_file_basic(tmp_path: Path):
         encoding="utf-8",
     )
     import os
+
     for k in ("FOO", "BAZ", "EMPTY"):
         os.environ.pop(k, None)
     n = load_env_file(p)
@@ -110,6 +112,7 @@ def test_load_env_file_basic(tmp_path: Path):
 # === 4. load_env_file 不覆蓋既有環境變數 ===
 def test_load_env_file_does_not_override_existing(tmp_path: Path):
     import os
+
     p = tmp_path / ".env"
     p.write_text("EXISTING_VAR=from_file\n", encoding="utf-8")
     os.environ["EXISTING_VAR"] = "from_shell"
@@ -123,12 +126,11 @@ def test_load_env_file_does_not_override_existing(tmp_path: Path):
 def test_load_env_file_unquotes(tmp_path: Path):
     p = tmp_path / ".env"
     p.write_text(
-        'DOUBLE="double quoted"\n'
-        "SINGLE='single quoted'\n"
-        "PLAIN=no quotes\n",
+        'DOUBLE="double quoted"\n' "SINGLE='single quoted'\n" "PLAIN=no quotes\n",
         encoding="utf-8",
     )
     import os
+
     n = load_env_file(p)
     assert n == 3
     assert os.environ["DOUBLE"] == "double quoted"
@@ -148,12 +150,11 @@ def test_load_env_file_missing_returns_zero(tmp_path: Path):
 def test_load_env_file_skips_no_equals(tmp_path: Path):
     p = tmp_path / ".env"
     p.write_text(
-        "VALID=1\n"
-        "INVALID_NO_EQUALS\n"
-        "ALSO_VALID=2\n",
+        "VALID=1\n" "INVALID_NO_EQUALS\n" "ALSO_VALID=2\n",
         encoding="utf-8",
     )
     import os
+
     n = load_env_file(p)
     assert n == 2
     assert "INVALID_NO_EQUALS" not in os.environ

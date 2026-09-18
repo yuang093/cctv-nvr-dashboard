@@ -5,6 +5,7 @@ Phase 2.8（Arisan）Phase #5：/devices 跨 NVR 設備總覽表 + 分頁 filter
 
 路由：GET /devices?nvr=&status=&page=
 """
+
 from __future__ import annotations
 
 import gc
@@ -22,35 +23,70 @@ def devices_app():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A 分店", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
-    nvrb = w.upsert_nvr({
-        "id": "NVR-B", "name": "B 分店", "host": "10.0.0.2",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A 分店",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
+    nvrb = w.upsert_nvr(
+        {
+            "id": "NVR-B",
+            "name": "B 分店",
+            "host": "10.0.0.2",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-17T00:00:00Z")
-    w.upsert_cameras(nvra, {
-        "d1": {"name": "大門", "connection_state": "CONNECTED"},
-        "d2": {"name": "停車場", "connection_state": "LONG_FAILED"},
-        "d3": {"name": "後門", "connection_state": "CONNECTED"},
-    })
-    w.upsert_cameras(nvrb, {
-        "d10": {"name": "倉庫大門", "connection_state": "CONNECTED"},
-    })
-    w.insert_events(rid, nvra, [{
-        "eventId": "e1", "deviceId": "d2",
-        "eventTopics": ["STATE_LONG_FAILED"], "eventTopic": "STATE_LONG_FAILED",
-        "occurred_at": "2026-07-17T00:00:00Z",
-    }])
-    w.insert_events(rid, nvra, [{
-        "eventId": "e2", "deviceId": "d3",
-        "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"], "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-        "occurred_at": "2026-07-17T00:00:00Z",
-    }])
-    w.finish_scan_run(rid, finished_at="2026-07-17T00:01:00Z", status="partial",
-                      stats={})
+    w.upsert_cameras(
+        nvra,
+        {
+            "d1": {"name": "大門", "connection_state": "CONNECTED"},
+            "d2": {"name": "停車場", "connection_state": "LONG_FAILED"},
+            "d3": {"name": "後門", "connection_state": "CONNECTED"},
+        },
+    )
+    w.upsert_cameras(
+        nvrb,
+        {
+            "d10": {"name": "倉庫大門", "connection_state": "CONNECTED"},
+        },
+    )
+    w.insert_events(
+        rid,
+        nvra,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "d2",
+                "eventTopics": ["STATE_LONG_FAILED"],
+                "eventTopic": "STATE_LONG_FAILED",
+                "occurred_at": "2026-07-17T00:00:00Z",
+            }
+        ],
+    )
+    w.insert_events(
+        rid,
+        nvra,
+        [
+            {
+                "eventId": "e2",
+                "deviceId": "d3",
+                "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                "occurred_at": "2026-07-17T00:00:00Z",
+            }
+        ],
+    )
+    w.finish_scan_run(
+        rid, finished_at="2026-07-17T00:01:00Z", status="partial", stats={}
+    )
 
     app = create_app(db_path=db_path)
     app.config["TESTING"] = True
@@ -87,6 +123,7 @@ def test_devices_filter_by_nvr(client, devices_app):
     """?nvr=NVR-A 內部 id → 只顯示 A 分店的 cam。"""
     app, db_path = devices_app
     from web import db as webdb
+
     nvrs = webdb.get_nvrs(db_path)
     nvr_a_id = next(n["id"] for n in nvrs if n["nvr_id"] == "NVR-A")
     body = client.get(f"/devices?nvr={nvr_a_id}").get_data(as_text=True)
@@ -99,23 +136,23 @@ def test_devices_filter_by_nvr(client, devices_app):
 # === 3. status filter ===
 def test_devices_filter_status_signal_lost(client):
     body = client.get("/devices?status=signal_lost").get_data(as_text=True)
-    assert 'device_id: <code>d3</code>' in body
-    assert 'device_id: <code>d2</code>' not in body
+    assert "device_id: <code>d3</code>" in body
+    assert "device_id: <code>d2</code>" not in body
 
 
 def test_devices_filter_status_no_signal(client):
     body = client.get("/devices?status=no_signal").get_data(as_text=True)
-    assert 'device_id: <code>d2</code>' in body
-    assert 'device_id: <code>d3</code>' not in body
+    assert "device_id: <code>d2</code>" in body
+    assert "device_id: <code>d3</code>" not in body
 
 
 def test_devices_filter_status_online(client):
     body = client.get("/devices?status=online").get_data(as_text=True)
     # d1 (A), d3 (A), d10 (B) 都 online，但 d3 因 DEVICE_VIDEO_SIGNAL_LOST 不在
-    assert 'device_id: <code>d1</code>' in body
-    assert 'device_id: <code>d10</code>' in body
-    assert 'device_id: <code>d2</code>' not in body
-    assert 'device_id: <code>d3</code>' not in body
+    assert "device_id: <code>d1</code>" in body
+    assert "device_id: <code>d10</code>" in body
+    assert "device_id: <code>d2</code>" not in body
+    assert "device_id: <code>d3</code>" not in body
 
 
 # === 4. 分頁 ===
@@ -129,7 +166,7 @@ def test_devices_pagination_page_size_50(client):
 # === 5. 中文事件顯示 ===
 def test_devices_shows_chinese_event_label(client):
     body = client.get("/devices").get_data(as_text=True)
-    assert "長期失敗（拔網路線）" in body   # d2 STATE_LONG_FAILED
+    assert "長期失敗（拔網路線）" in body  # d2 STATE_LONG_FAILED
 
 
 # === 6. NVR 名稱下拉選單 ===

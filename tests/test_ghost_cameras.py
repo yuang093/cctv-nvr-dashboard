@@ -15,6 +15,7 @@ DB 內 `cameras.last_seen_at` 停在消失前的時間，
   3. `get_wall_cameras` 與 `get_wall_cameras_with_snapshots` 預設過濾 `is_ghost = 0`
   4. /abnormal 也要過濾 ghost
 """
+
 from __future__ import annotations
 
 import tempfile
@@ -33,21 +34,37 @@ def ghost_app():
         db_path = f.name
 
     w = SqliteWriter(db_path)
-    nvr = w.upsert_nvr({
-        "id": "NVR-A", "name": "A 分店", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvr = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A 分店",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-30T06:00:00Z")
     # 第一次 scan：3 台全看到
-    w.upsert_cameras(nvr, {
-        "d1": {"name": "大門", "ip_address": "10.0.0.10:443"},
-        "d2": {"name": "後門", "ip_address": "10.0.0.11:443"},
-        "d3": {"name": "ghost cam"},
-    })
+    w.upsert_cameras(
+        nvr,
+        {
+            "d1": {"name": "大門", "ip_address": "10.0.0.10:443"},
+            "d2": {"name": "後門", "ip_address": "10.0.0.11:443"},
+            "d3": {"name": "ghost cam"},
+        },
+    )
     w.finish_scan_run(
-        rid, finished_at="2026-07-30T06:00:01Z", status="success",
-        stats={"total_cameras": 3, "abnormal_cameras": 0,
-               "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0},
+        rid,
+        finished_at="2026-07-30T06:00:01Z",
+        status="success",
+        stats={
+            "total_cameras": 3,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
     )
 
     yield db_path, w, nvr
@@ -70,17 +87,28 @@ def test_mark_ghost_cameras_marks_missing_as_ghost(ghost_app):
     w.upsert_cameras(nvr, {"d1": {"name": "大門"}, "d2": {"name": "後門"}})
     w.mark_ghost_cameras(nvr, ["d1", "d2"])
     w.finish_scan_run(
-        rid2, finished_at="2026-07-30T06:01:01Z", status="success",
-        stats={"total_cameras": 2, "abnormal_cameras": 0,
-               "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0},
+        rid2,
+        finished_at="2026-07-30T06:01:01Z",
+        status="success",
+        stats={
+            "total_cameras": 2,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
     )
 
     import sqlite3
+
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
-    rows = {r["device_id"]: r["is_ghost"] for r in con.execute(
-        "SELECT device_id, is_ghost FROM cameras WHERE nvr_id = ?", (nvr,)
-    )}
+    rows = {
+        r["device_id"]: r["is_ghost"]
+        for r in con.execute(
+            "SELECT device_id, is_ghost FROM cameras WHERE nvr_id = ?", (nvr,)
+        )
+    }
     con.close()
     assert rows["d1"] == 0
     assert rows["d2"] == 0
@@ -96,9 +124,16 @@ def test_wall_filter_ghost_cameras(ghost_app):
     w.upsert_cameras(nvr, {"d1": {"name": "大門"}, "d2": {"name": "後門"}})
     w.mark_ghost_cameras(nvr, ["d1", "d2"])
     w.finish_scan_run(
-        rid2, finished_at="2026-07-30T06:01:01Z", status="success",
-        stats={"total_cameras": 2, "abnormal_cameras": 0,
-               "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0},
+        rid2,
+        finished_at="2026-07-30T06:01:01Z",
+        status="success",
+        stats={
+            "total_cameras": 2,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
     )
 
     cams = get_wall_cameras(db_path, filter_kind="all")
@@ -117,23 +152,43 @@ def test_ghost_camera_reappears_clears_flag(ghost_app):
     w.upsert_cameras(nvr, {"d1": {"name": "大門"}, "d2": {"name": "後門"}})
     w.mark_ghost_cameras(nvr, ["d1", "d2"])
     w.finish_scan_run(
-        rid2, finished_at="2026-07-30T06:01:01Z", status="success",
-        stats={"total_cameras": 2, "abnormal_cameras": 0,
-               "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0},
+        rid2,
+        finished_at="2026-07-30T06:01:01Z",
+        status="success",
+        stats={
+            "total_cameras": 2,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
     )
     # 第 3 次 scan：d3 又回來
     rid3 = w.begin_scan_run("2026-07-30T06:02:00Z")
-    w.upsert_cameras(nvr, {
-        "d1": {"name": "大門"}, "d2": {"name": "後門"}, "d3": {"name": "ghost cam"},
-    })
+    w.upsert_cameras(
+        nvr,
+        {
+            "d1": {"name": "大門"},
+            "d2": {"name": "後門"},
+            "d3": {"name": "ghost cam"},
+        },
+    )
     w.mark_ghost_cameras(nvr, ["d1", "d2", "d3"])
     w.finish_scan_run(
-        rid3, finished_at="2026-07-30T06:02:01Z", status="success",
-        stats={"total_cameras": 3, "abnormal_cameras": 0,
-               "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0},
+        rid3,
+        finished_at="2026-07-30T06:02:01Z",
+        status="success",
+        stats={
+            "total_cameras": 3,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
     )
 
     import sqlite3
+
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     row = con.execute(
@@ -152,9 +207,16 @@ def test_wall_with_snapshots_filter_ghost(ghost_app):
     w.upsert_cameras(nvr, {"d1": {"name": "大門"}, "d2": {"name": "後門"}})
     w.mark_ghost_cameras(nvr, ["d1", "d2"])
     w.finish_scan_run(
-        rid2, finished_at="2026-07-30T06:01:01Z", status="success",
-        stats={"total_cameras": 2, "abnormal_cameras": 0,
-               "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0},
+        rid2,
+        finished_at="2026-07-30T06:01:01Z",
+        status="success",
+        stats={
+            "total_cameras": 2,
+            "abnormal_cameras": 0,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
     )
 
     cams = get_wall_cameras_with_snapshots(db_path, filter_kind="all")

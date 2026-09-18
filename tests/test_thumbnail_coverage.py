@@ -10,6 +10,7 @@ tests/test_thumbnail_coverage.py
 注意：image_health_checks.camera_id 是 TEXT（沒有 FK 連 cameras 表），
 需要 LEFT JOIN 用 cameras.device_id 對應。
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -26,37 +27,69 @@ from web.fleet import get_thumbnail_coverage
 def _seed_app(db_path: str) -> None:
     """Seed：2 NVR、5 真 cam、1 ghost cam，2 台有縮圖。"""
     w = SqliteWriter(db_path)
-    nvr_a = w.upsert_nvr({
-        "id": "NVR-A", "name": "A 分店", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
-    nvr_b = w.upsert_nvr({
-        "id": "NVR-B", "name": "B 分店", "host": "10.0.0.2",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvr_a = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A 分店",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
+    nvr_b = w.upsert_nvr(
+        {
+            "id": "NVR-B",
+            "name": "B 分店",
+            "host": "10.0.0.2",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     # NVR-A 3 cam
     rid = w.begin_scan_run("2026-07-31T06:00:00Z")
-    w.upsert_cameras(nvr_a, {
-        "d1": {"name": "大門"},
-        "d2": {"name": "後門"},
-        "d3": {"name": "倉庫"},
-    })
+    w.upsert_cameras(
+        nvr_a,
+        {
+            "d1": {"name": "大門"},
+            "d2": {"name": "後門"},
+            "d3": {"name": "倉庫"},
+        },
+    )
     w.finish_scan_run(
-        rid, finished_at="2026-07-31T06:00:01Z", status="success",
-        stats={"total_cameras": 3, "abnormal_cameras": 0,
-               "total_nvrs": 2, "ok_nvrs": 2, "failed_nvrs": 0},
+        rid,
+        finished_at="2026-07-31T06:00:01Z",
+        status="success",
+        stats={
+            "total_cameras": 3,
+            "abnormal_cameras": 0,
+            "total_nvrs": 2,
+            "ok_nvrs": 2,
+            "failed_nvrs": 0,
+        },
     )
     # NVR-B 2 cam + ghost d99
     rid2 = w.begin_scan_run("2026-07-31T06:01:00Z")
-    w.upsert_cameras(nvr_b, {
-        "d4": {"name": "B 大門"},
-        "d5": {"name": "B 後門"},
-        "d99": {"name": "ghost B"},
-    })
+    w.upsert_cameras(
+        nvr_b,
+        {
+            "d4": {"name": "B 大門"},
+            "d5": {"name": "B 後門"},
+            "d99": {"name": "ghost B"},
+        },
+    )
     w.finish_scan_run(
-        rid2, finished_at="2026-07-31T06:01:01Z", status="success",
-        stats={"total_cameras": 3, "abnormal_cameras": 0,
-               "total_nvrs": 2, "ok_nvrs": 2, "failed_nvrs": 0},
+        rid2,
+        finished_at="2026-07-31T06:01:01Z",
+        status="success",
+        stats={
+            "total_cameras": 3,
+            "abnormal_cameras": 0,
+            "total_nvrs": 2,
+            "ok_nvrs": 2,
+            "failed_nvrs": 0,
+        },
     )
     del w  # 關閉，讓 sqlite3 直接寫入
 

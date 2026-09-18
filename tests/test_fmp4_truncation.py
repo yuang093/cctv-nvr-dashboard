@@ -15,6 +15,7 @@ decode time ≥ target 時切掉 prefix。讓所有 cam 拿到的 mp4 都是交�
 4. 沒 moov / 沒 tfdt → 退回 byte-budget fallback
 5. target 超過全部 fragment 總和 → 完整 yield
 """
+
 from __future__ import annotations
 
 import struct
@@ -29,15 +30,17 @@ if PROJECT_ROOT not in sys.path:
 # 設定 env vars 在 import 前
 os.environ.setdefault("NVR_CLIPS_CLIENT", "mock")
 
-import pytest  # noqa: E402
 
 from web.clip_retrieval import (  # noqa: E402
-    _find_fmp4_cut_point, _truncate_fmp4_chunks,
-    _extract_moov_timescale, _extract_moof_tfdt,
+    _find_fmp4_cut_point,
+    _truncate_fmp4_chunks,
+    _extract_moov_timescale,
+    _extract_moof_tfdt,
 )
 
 
 # === Helpers：構造假 fmp4 bytes ===
+
 
 def _make_box(box_type: bytes, payload: bytes) -> bytes:
     """Construct a complete ISO BMFF box."""
@@ -92,7 +95,9 @@ def _make_mdat(payload_size: int = 32) -> bytes:
     return _make_box(b"mdat", b"\x00" * payload_size)
 
 
-def _make_fmp4(timescale: int, moof_ticks_list: list[int], mdat_size: int = 32) -> bytes:
+def _make_fmp4(
+    timescale: int, moof_ticks_list: list[int], mdat_size: int = 32
+) -> bytes:
     """Construct full fmp4: moov + (moof + mdat)* for each ticks."""
     parts = [_make_moov(timescale)]
     for ticks in moof_ticks_list:
@@ -103,17 +108,17 @@ def _make_fmp4(timescale: int, moof_ticks_list: list[int], mdat_size: int = 32) 
 
 # === Unit tests for box parsers ===
 
+
 def test_extract_moov_timescale_simple():
     """moov/trak/mdia/mdhd.timescale 正確抽出。"""
     timescale = 90000  # common mp4 timescale (90kHz)
     buf = _make_fmp4(timescale, [0, 90000])  # 1 fragment at t=0, 1 fragment at t=1s
     # Find the moov
-    import io
     pos = 0
     moov_off = None
     while pos + 8 <= len(buf):
-        size = struct.unpack(">I", buf[pos:pos+4])[0]
-        btype = buf[pos+4:pos+8]
+        size = struct.unpack(">I", buf[pos : pos + 4])[0]
+        btype = buf[pos + 4 : pos + 8]
         if btype == b"moov":
             moov_off = pos
             moov_size = size
@@ -132,8 +137,8 @@ def test_extract_moof_tfdt_correct():
     pos = 0
     moofs_found = []
     while pos + 8 <= len(buf):
-        size = struct.unpack(">I", buf[pos:pos+4])[0]
-        btype = buf[pos+4:pos+8]
+        size = struct.unpack(">I", buf[pos : pos + 4])[0]
+        btype = buf[pos + 4 : pos + 8]
         if btype == b"moof":
             moofs_found.append((pos, size))
         pos += size
@@ -141,10 +146,13 @@ def test_extract_moof_tfdt_correct():
     # 1st moof tfdt should be 0
     assert _extract_moof_tfdt(buf, moofs_found[0][0], moofs_found[0][1]) == 0
     # 2nd moof tfdt should be 90000 (1s * 90kHz)
-    assert _extract_moof_tfdt(buf, moofs_found[1][0], moofs_found[1][1]) == ticks_per_sec
+    assert (
+        _extract_moof_tfdt(buf, moofs_found[1][0], moofs_found[1][1]) == ticks_per_sec
+    )
 
 
 # === Integration tests for cut-point finder ===
+
 
 def test_cut_point_middle_of_fragments():
     """5 個 fragments (1s each, timescale=1000)，target=2.5s → cut @ frag 2 end。"""
@@ -177,8 +185,8 @@ def test_cut_point_returns_full_when_target_exceeds_total():
     pos = 0
     moof_count_in_cut = 0
     while pos + 8 <= cut:
-        size = struct.unpack(">I", buf[pos:pos+4])[0]
-        btype = buf[pos+4:pos+8]
+        size = struct.unpack(">I", buf[pos : pos + 4])[0]
+        btype = buf[pos + 4 : pos + 8]
         if btype == b"moof":
             moof_count_in_cut += 1
         pos += size
@@ -199,13 +207,13 @@ def test_cut_point_first_fragment_already_past_target():
     pos = 0
     moof_count = 0
     while pos + 8 <= cut:
-        size = struct.unpack(">I", buf[pos:pos+4])[0]
-        btype = buf[pos+4:pos+8]
+        size = struct.unpack(">I", buf[pos : pos + 4])[0]
+        btype = buf[pos + 4 : pos + 8]
         if btype == b"moof":
             moof_count += 1
         pos += size
     assert moof_count == 1  # 只留第一個 moof
-    assert cut < len(buf)   # 後面還有第二個 fragment 沒切進來
+    assert cut < len(buf)  # 後面還有第二個 fragment 沒切進來
 
 
 def test_cut_point_no_mov_returns_none():
@@ -221,6 +229,7 @@ def test_cut_point_no_mov_returns_none():
 
 
 # === End-to-end: truncate_chunks wrapper ===
+
 
 def test_truncate_chunks_returns_prefix():
     """drain source → cut → yield prefix。"""

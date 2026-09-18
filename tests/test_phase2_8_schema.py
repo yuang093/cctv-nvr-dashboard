@@ -10,6 +10,7 @@ Phase 2.8（Arisan DB schema）：驗證 3 新表 + 1 改欄位 + 17 seed + idem
   - cameras.last_health_check_id 欄位存在
   - Idempotent：重跑 _init_schema 不爆（CREATE IF NOT EXISTS + ALTER 跳過已存在）
 """
+
 from __future__ import annotations
 
 import gc
@@ -38,6 +39,7 @@ def test_image_health_checks_table_exists(fresh_db_path):
     """image_health_checks 表 + 索引 應被自動建立。"""
     SqliteWriter(fresh_db_path)
     import sqlite3
+
     conn = sqlite3.connect(fresh_db_path)
     try:
         tables = {
@@ -63,6 +65,7 @@ def test_discover_sessions_table_exists(fresh_db_path):
     """discover_sessions 表應被自動建立。"""
     SqliteWriter(fresh_db_path)
     import sqlite3
+
     conn = sqlite3.connect(fresh_db_path)
     try:
         tables = {
@@ -80,6 +83,7 @@ def test_event_kind_catalog_table_exists(fresh_db_path):
     """event_kind_catalog 表應被自動建立。"""
     SqliteWriter(fresh_db_path)
     import sqlite3
+
     conn = sqlite3.connect(fresh_db_path)
     try:
         tables = {
@@ -98,11 +102,10 @@ def test_event_kind_catalog_has_17_seeds(fresh_db_path):
     """Phase 2.8 seed：17 筆（8 DEVICE_* + 9 STATE_*）+ STATE_CONNECTING is_fault=0。"""
     SqliteWriter(fresh_db_path)
     import sqlite3
+
     conn = sqlite3.connect(fresh_db_path)
     try:
-        count = conn.execute(
-            "SELECT COUNT(*) FROM event_kind_catalog"
-        ).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM event_kind_catalog").fetchone()[0]
         assert count == 17, f"預期 17 筆，實際 {count}"
 
         # 類別分布
@@ -138,6 +141,7 @@ def test_event_kind_catalog_chinese_names_present(fresh_db_path):
     """name_zh 不可為空，且至少包含預期關鍵字。"""
     SqliteWriter(fresh_db_path)
     import sqlite3
+
     conn = sqlite3.connect(fresh_db_path)
     try:
         rows = conn.execute(
@@ -145,7 +149,9 @@ def test_event_kind_catalog_chinese_names_present(fresh_db_path):
         ).fetchall()
         topics = {r[0] for r in rows}
         # 抽查幾個關鍵翻譯
-        assert "影像訊號斷線" in next(r[1] for r in rows if r[0] == "DEVICE_VIDEO_SIGNAL_LOST")
+        assert "影像訊號斷線" in next(
+            r[1] for r in rows if r[0] == "DEVICE_VIDEO_SIGNAL_LOST"
+        )
         assert "破壞" in next(r[1] for r in rows if r[0] == "DEVICE_TAMPERING")
         assert "場景改變" in next(r[1] for r in rows if r[0] == "DEVICE_TAMPERING")
         assert "連線中" in next(r[1] for r in rows if r[0] == "STATE_CONNECTING")
@@ -157,6 +163,7 @@ def test_event_kind_catalog_sort_order_unique(fresh_db_path):
     """sort_order 應互不重複（UI 顯示順序穩定）。"""
     SqliteWriter(fresh_db_path)
     import sqlite3
+
     conn = sqlite3.connect(fresh_db_path)
     try:
         orders = [
@@ -175,12 +182,10 @@ def test_cameras_last_health_check_id_column(fresh_db_path):
     """cameras 表應有 last_health_check_id 欄位（nullable）。"""
     SqliteWriter(fresh_db_path)
     import sqlite3
+
     conn = sqlite3.connect(fresh_db_path)
     try:
-        cols = {
-            r[1]
-            for r in conn.execute("PRAGMA table_info(cameras)").fetchall()
-        }
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(cameras)").fetchall()}
         assert "last_health_check_id" in cols
     finally:
         conn.close()
@@ -194,12 +199,11 @@ def test_init_schema_idempotent(fresh_db_path):
     SqliteWriter(fresh_db_path)  # 第 3 次
 
     import sqlite3
+
     conn = sqlite3.connect(fresh_db_path)
     try:
         # 17 seed 不應被 INSERT OR IGNORE 重複新增（仍是 17）
-        count = conn.execute(
-            "SELECT COUNT(*) FROM event_kind_catalog"
-        ).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM event_kind_catalog").fetchone()[0]
         assert count == 17
         # last_health_check_id 仍只有一個（不應被 ALTER 加上第二個）
         col_count = conn.execute(
@@ -214,27 +218,49 @@ def test_init_schema_idempotent(fresh_db_path):
 def test_init_schema_does_not_drop_existing_data(fresh_db_path):
     """重跑 _init_schema 不應清空既有 NVR / cameras / events 資料。"""
     w = SqliteWriter(fresh_db_path)
-    nvr_int = w.upsert_nvr({
-        "id": "n1", "name": "N1", "host": "1.1.1.1",
-        "username": "u", "password": "p",
-    })
+    nvr_int = w.upsert_nvr(
+        {
+            "id": "n1",
+            "name": "N1",
+            "host": "1.1.1.1",
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-06-23T00:00:00Z")
     w.upsert_cameras(nvr_int, {"d1": "cam1"})
-    w.insert_events(rid, nvr_int, [{
-        "eventId": "e1", "deviceId": "d1",
-        "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
-        "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-        "occurred_at": "2026-06-23T00:00:00Z",
-    }])
-    w.finish_scan_run(rid, finished_at="2026-06-23T00:01:00Z", status="success",
-                      stats={"total_cameras": 1, "abnormal_cameras": 1,
-                             "total_nvrs": 1, "ok_nvrs": 1, "failed_nvrs": 0})
+    w.insert_events(
+        rid,
+        nvr_int,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "d1",
+                "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                "occurred_at": "2026-06-23T00:00:00Z",
+            }
+        ],
+    )
+    w.finish_scan_run(
+        rid,
+        finished_at="2026-06-23T00:01:00Z",
+        status="success",
+        stats={
+            "total_cameras": 1,
+            "abnormal_cameras": 1,
+            "total_nvrs": 1,
+            "ok_nvrs": 1,
+            "failed_nvrs": 0,
+        },
+    )
 
     # 重跑 init
     SqliteWriter(fresh_db_path)
 
     # 既有資料仍存在
     import sqlite3
+
     conn = sqlite3.connect(fresh_db_path)
     try:
         assert conn.execute("SELECT COUNT(*) FROM nvr_servers").fetchone()[0] == 1

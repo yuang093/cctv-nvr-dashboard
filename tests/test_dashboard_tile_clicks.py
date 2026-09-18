@@ -12,6 +12,7 @@ Phase 2.8（Arisan 磁磚點擊跳轉）：Dashboard 4 個計數磁磚變 anchor
 
 用自建 fixture（不依賴 test_web.py）以免 conftest fixture 命名衝突。
 """
+
 from __future__ import annotations
 
 import gc
@@ -31,37 +32,70 @@ def dashboard_app():
         db_path = f.name
 
     w = SqliteWriter(db_path)
-    w.upsert_nvr({
-        "id": "NVR-A", "name": "A 分店", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-        "tags": ["branch", "taipei"],
-    })
-    w.upsert_nvr({
-        "id": "NVR-B", "name": "B 分店", "host": "10.0.0.2",
-        "port": 8443, "username": "u", "password": "p",
-        "tags": ["branch", "taichung"],
-    })
+    w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A 分店",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "tags": ["branch", "taipei"],
+        }
+    )
+    w.upsert_nvr(
+        {
+            "id": "NVR-B",
+            "name": "B 分店",
+            "host": "10.0.0.2",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+            "tags": ["branch", "taichung"],
+        }
+    )
     nvra_id, nvrb_id = 1, 2
     rid = w.begin_scan_run("2026-06-23T00:00:00Z")
-    w.upsert_cameras(nvra_id, {
-        "d1": {"name": "大門", "connection_state": "CONNECTED", "available": True},
-        "d2": {"name": "停車場", "connection_state": "LONG_FAILED", "available": False},
-    })
-    w.upsert_cameras(nvrb_id, {
-        "d10": {"name": "後門", "connection_state": "CONNECTED", "available": True},
-    })
-    w.insert_events(rid, nvra_id, [{
-        "eventId": "e1", "deviceId": "d2",
-        "eventTopics": ["STATE_LONG_FAILED"],
-        "eventTopic": "STATE_LONG_FAILED",
-        "occurred_at": "2026-06-23T00:00:00Z",
-    }])
+    w.upsert_cameras(
+        nvra_id,
+        {
+            "d1": {"name": "大門", "connection_state": "CONNECTED", "available": True},
+            "d2": {
+                "name": "停車場",
+                "connection_state": "LONG_FAILED",
+                "available": False,
+            },
+        },
+    )
+    w.upsert_cameras(
+        nvrb_id,
+        {
+            "d10": {"name": "後門", "connection_state": "CONNECTED", "available": True},
+        },
+    )
+    w.insert_events(
+        rid,
+        nvra_id,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "d2",
+                "eventTopics": ["STATE_LONG_FAILED"],
+                "eventTopic": "STATE_LONG_FAILED",
+                "occurred_at": "2026-06-23T00:00:00Z",
+            }
+        ],
+    )
     w.finish_scan_run(
-        rid, finished_at="2026-06-23T00:01:00Z",
+        rid,
+        finished_at="2026-06-23T00:01:00Z",
         status="partial",
         stats={
-            "total_cameras": 3, "abnormal_cameras": 1,
-            "total_nvrs": 2, "ok_nvrs": 1, "failed_nvrs": 1,
+            "total_cameras": 3,
+            "abnormal_cameras": 1,
+            "total_nvrs": 2,
+            "ok_nvrs": 1,
+            "failed_nvrs": 1,
         },
     )
 
@@ -102,9 +136,9 @@ def test_dashboard_returns_200(client):
 def test_dashboard_tile_anchor_href(client, expected_href, label):
     """每個計數磁磚的 <a href> 應含預期 query string。"""
     body = client.get("/").get_data(as_text=True)
-    assert f'href="{expected_href}"' in body, (
-        f"找不到 href={expected_href!r}（label={label!r}）"
-    )
+    assert (
+        f'href="{expected_href}"' in body
+    ), f"找不到 href={expected_href!r}（label={label!r}）"
     assert label in body
 
 
@@ -115,13 +149,13 @@ def test_dashboard_status_card_not_anchor(client):
     idx = body.find("最新掃描狀態")
     assert idx > 0
     # 取前 200 字元切片（同一個 div 內），驗證沒有未閉合 <a
-    segment = body[max(0, idx - 200): idx + 50]
+    segment = body[max(0, idx - 200) : idx + 50]
     # 一段 div 內若 <a 開頭但 </a> 沒在同一段 → 表示「最新掃描狀態」被包進 anchor
     open_count = segment.count("<a href=")
     close_count = segment.count("</a>")
-    assert open_count == close_count, (
-        f"最新掃描狀態卡不應是 anchor，但發現 open={open_count} close={close_count} 不一致"
-    )
+    assert (
+        open_count == close_count
+    ), f"最新掃描狀態卡不應是 anchor，但發現 open={open_count} close={close_count} 不一致"
 
 
 # === 4. stats 新欄位有注入（label 存在）===

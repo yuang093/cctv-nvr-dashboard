@@ -13,6 +13,7 @@ Phase 2.8（Arisan）Phase #5：/wall 相機牆 route + template。
 - 用每台 cam 最新的「未解事件 topic」決定分類
 - 沒事件的 cam 視為 online（最新一次 scan 沒抓到 fault → CONNECTED）
 """
+
 from __future__ import annotations
 
 import gc
@@ -32,45 +33,93 @@ def wall_app():
         db_path = f.name
 
     w = SqliteWriter(db_path)
-    nvra = w.upsert_nvr({
-        "id": "NVR-A", "name": "A 分店", "host": "10.0.0.1",
-        "port": 8443, "username": "u", "password": "p",
-    })
-    nvrb = w.upsert_nvr({
-        "id": "NVR-B", "name": "B 分店", "host": "10.0.0.2",
-        "port": 8443, "username": "u", "password": "p",
-    })
+    nvra = w.upsert_nvr(
+        {
+            "id": "NVR-A",
+            "name": "A 分店",
+            "host": "10.0.0.1",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
+    nvrb = w.upsert_nvr(
+        {
+            "id": "NVR-B",
+            "name": "B 分店",
+            "host": "10.0.0.2",
+            "port": 8443,
+            "username": "u",
+            "password": "p",
+        }
+    )
     rid = w.begin_scan_run("2026-07-17T00:00:00Z")
-    w.upsert_cameras(nvra, {
-        "d1": {"name": "大門", "connection_state": "CONNECTED",
-               "ip_address": "192.168.133.103:443"},
-        "d2": {"name": "停車場", "connection_state": "LONG_FAILED",
-               "ip_address": "192.168.133.105:443"},
-        "d3": {"name": "後門", "connection_state": "CONNECTED",
-               "ip_address": "192.168.133.110:443"},
-    })
-    w.upsert_cameras(nvrb, {
-        "d10": {"name": "倉庫大門", "connection_state": "CONNECTED"},
-        "d11": {"name": "倉庫後門", "connection_state": "CONNECTED"},
-    })
+    w.upsert_cameras(
+        nvra,
+        {
+            "d1": {
+                "name": "大門",
+                "connection_state": "CONNECTED",
+                "ip_address": "192.168.133.103:443",
+            },
+            "d2": {
+                "name": "停車場",
+                "connection_state": "LONG_FAILED",
+                "ip_address": "192.168.133.105:443",
+            },
+            "d3": {
+                "name": "後門",
+                "connection_state": "CONNECTED",
+                "ip_address": "192.168.133.110:443",
+            },
+        },
+    )
+    w.upsert_cameras(
+        nvrb,
+        {
+            "d10": {"name": "倉庫大門", "connection_state": "CONNECTED"},
+            "d11": {"name": "倉庫後門", "connection_state": "CONNECTED"},
+        },
+    )
     # d2 → STATE_LONG_FAILED（長期失敗，no_signal 分類）
-    w.insert_events(rid, nvra, [{
-        "eventId": "e1", "deviceId": "d2",
-        "eventTopics": ["STATE_LONG_FAILED"],
-        "eventTopic": "STATE_LONG_FAILED",
-        "occurred_at": "2026-07-17T00:00:00Z",
-    }])
+    w.insert_events(
+        rid,
+        nvra,
+        [
+            {
+                "eventId": "e1",
+                "deviceId": "d2",
+                "eventTopics": ["STATE_LONG_FAILED"],
+                "eventTopic": "STATE_LONG_FAILED",
+                "occurred_at": "2026-07-17T00:00:00Z",
+            }
+        ],
+    )
     # d3 → DEVICE_VIDEO_SIGNAL_LOST（影像訊號斷線 → signal_lost）
-    w.insert_events(rid, nvra, [{
-        "eventId": "e2", "deviceId": "d3",
-        "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
-        "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
-        "occurred_at": "2026-07-17T00:00:00Z",
-    }])
+    w.insert_events(
+        rid,
+        nvra,
+        [
+            {
+                "eventId": "e2",
+                "deviceId": "d3",
+                "eventTopics": ["DEVICE_VIDEO_SIGNAL_LOST"],
+                "eventTopic": "DEVICE_VIDEO_SIGNAL_LOST",
+                "occurred_at": "2026-07-17T00:00:00Z",
+            }
+        ],
+    )
     w.finish_scan_run(
-        rid, finished_at="2026-07-17T00:01:00Z", status="partial",
-        stats={"total_cameras": 5, "abnormal_cameras": 2,
-               "total_nvrs": 2, "ok_nvrs": 2, "failed_nvrs": 0},
+        rid,
+        finished_at="2026-07-17T00:01:00Z",
+        status="partial",
+        stats={
+            "total_cameras": 5,
+            "abnormal_cameras": 2,
+            "total_nvrs": 2,
+            "ok_nvrs": 2,
+            "failed_nvrs": 0,
+        },
     )
 
     app = create_app(db_path=db_path)
@@ -127,13 +176,13 @@ def test_wall_has_rescan_button(client):
 def test_wall_filter_online(client):
     """filter=online → 只顯示沒未解事件的 cam（d1, d10, d11）。"""
     body = client.get("/wall?filter=online").get_data(as_text=True)
-    assert "大門" in body         # d1
-    assert "倉庫大門" in body     # d10
-    assert "倉庫後門" in body     # d11
-    assert "停車場" not in body   # d2 STATE_LONG_FAILED
+    assert "大門" in body  # d1
+    assert "倉庫大門" in body  # d10
+    assert "倉庫後門" in body  # d11
+    assert "停車場" not in body  # d2 STATE_LONG_FAILED
     # d3 是「後門」訊號斷線不應出現；用 device_id 標記精確比對避免 substring 衝突
-    assert 'device_id: <code>d3</code>' not in body
-    assert 'device_id: <code>d2</code>' not in body
+    assert "device_id: <code>d3</code>" not in body
+    assert "device_id: <code>d2</code>" not in body
 
 
 # === 4. /wall?filter=signal_lost 只顯示訊號問題 ===
@@ -142,10 +191,10 @@ def test_wall_filter_signal_lost(client):
     body = client.get("/wall?filter=signal_lost").get_data(as_text=True)
     # d3 訊號斷線：顯示「停車場」「後門」其一 + 「訊號中斷」badge
     # d2（停車場）歸 no_signal 不應出現
-    assert "大門" not in body        # d1 online
-    assert "停車場" not in body      # d2 no_signal
-    assert "倉庫大門" not in body    # d10 online
-    assert "後門" in body            # d3 signal_lost → 顯示
+    assert "大門" not in body  # d1 online
+    assert "停車場" not in body  # d2 no_signal
+    assert "倉庫大門" not in body  # d10 online
+    assert "後門" in body  # d3 signal_lost → 顯示
     assert "訊號中斷" in body
 
 
@@ -153,9 +202,9 @@ def test_wall_filter_signal_lost(client):
 def test_wall_filter_no_signal(client):
     """filter=no_signal → STATE_LONG_FAILED / STATE_DISCONNECTED / DEVICE_DISCONNECTED 類。"""
     body = client.get("/wall?filter=no_signal").get_data(as_text=True)
-    assert "停車場" in body          # d2 STATE_LONG_FAILED
-    assert "後門" not in body         # d3 訊號斷線不歸此類
-    assert "大門" not in body         # d1 online
+    assert "停車場" in body  # d2 STATE_LONG_FAILED
+    assert "後門" not in body  # d3 訊號斷線不歸此類
+    assert "大門" not in body  # d1 online
     assert "無訊號" in body
 
 
@@ -168,9 +217,9 @@ def test_wall_renders_category_dot(client):
     """
     body = client.get("/wall").get_data(as_text=True)
     # 圓點用 Bootstrap bg-* class
-    assert "bg-success" in body     # online 綠圓點
-    assert "bg-danger" in body      # signal_lost 紅圓點
-    assert "bg-warning" in body     # no_signal 琥珀圓點
+    assert "bg-success" in body  # online 綠圓點
+    assert "bg-danger" in body  # signal_lost 紅圓點
+    assert "bg-warning" in body  # no_signal 琥珀圓點
     assert "wall-status-dot" in body  # 自訂 class
     # 篩選 tab label 仍出現（給計數 + 篩選用）
     assert "在線" in body
