@@ -21,7 +21,7 @@ Files generated
 - build_all.bat     — wraps build_web.bat (convenience entrypoint)
 - run_web.bat       — launch dev Flask on Windows (cmd)
 - run_worker.bat    — Task Scheduler entry for `nvr_scanner.py`
-- run_clips.bat     — Phase 2.7 影片片段調閱 Flask（port 8555，給其他部門用）
+- run_clips.bat     — Phase 2.7 錄影回放調閱 Flask（port 8555，給其他部門用）
 
 8555 vs 8444 打包差異
 ---------------------
@@ -279,7 +279,7 @@ RUN_WORKER = [
 
 
 # ---------------------------------------------------------------------------
-# run_clips.bat — Phase 2.7 影片片段調閱 Flask（port 8555，給另一部門用）
+# run_clips.bat — Phase 2.7 錄影回放調閱 Flask（port 8555，給另一部門用）
 # ---------------------------------------------------------------------------
 RUN_CLIPS = [
     b"@echo off",

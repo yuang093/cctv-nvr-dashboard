@@ -27,6 +27,10 @@ def clips_app(monkeypatch, tmp_path):
     """
     db_path = str(tmp_path / "coverage_endpoint_test.db")
     monkeypatch.setenv("NVR_DB_PATH", db_path)
+    # 補 env vars：coverage endpoint 在 line 319-324 第一步就檢查
+    # AVIGILON_USER_NONCE/KEY，缺就回 500，測試就到不了「找不到 NVR → 404」。
+    monkeypatch.setenv("AVIGILON_USER_NONCE", "test-nonce")
+    monkeypatch.setenv("AVIGILON_USER_KEY", "test-key")
     _init_db(db_path)
     app.config["DB_PATH"] = db_path
     app.config["TESTING"] = True

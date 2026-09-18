@@ -1,7 +1,7 @@
 """
 web/clips_app.py
 ================
-Phase 2.7 — 機票回放調閱 Web UI（給其他部門用）。
+Phase 2.7 — 錄影回放調閱 Web UI（給其他部門用）。
 
 啟動：python -m web.clips_app
 預設：http://127.0.0.1:8555（與 v2 Web UI 8444 分開）
