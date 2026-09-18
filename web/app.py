@@ -512,9 +512,9 @@ def _register_routes(app: Flask) -> None:
         """
         example_csv = (
             "id,name,host,port,username,password,verify_ssl,site_id,tags\r\n"
-            "ACC8-P4,WIN-OPA34I3TCL5,192.168.133.141,8443,administrator,SECRET,0,,branch;taipei\r\n"
-            "BRANCH-B,B 分店,192.168.2.100,8443,api_reader,SECRET,0,,branch;taichung\r\n"
-            "HQ-MAIN,總部主 NVR,10.0.0.50,8443,api_reader,SECRET,0,HQ,hq;production\r\n"
+            "ACC8-P4,WIN-OPA34I3TCL5,192.168.133.141,8443,administrator,<CHANGE_ME>,0,,branch;taipei\r\n"
+            "BRANCH-B,B 分店,192.168.2.100,8443,api_reader,<CHANGE_ME>,0,,branch;taichung\r\n"
+            "HQ-MAIN,總部主 NVR,10.0.0.50,8443,api_reader,<CHANGE_ME>,0,HQ,hq;production\r\n"
         )
         # 加 UTF-8 BOM + 確保 CRLF
         body = "﻿" + example_csv.replace("\r\n", "\n").replace("\n", "\r\n")
@@ -536,7 +536,7 @@ def _register_routes(app: Flask) -> None:
                 "host": "192.168.133.141",
                 "port": 8443,
                 "username": "administrator",
-                "password": "SECRET",
+                "password": "<CHANGE_ME>",
                 "verify_ssl": False,
                 "site_id": None,
                 "tags": ["branch", "taipei"],
@@ -547,7 +547,7 @@ def _register_routes(app: Flask) -> None:
                 "host": "192.168.2.100",
                 "port": 8443,
                 "username": "api_reader",
-                "password": "SECRET",
+                "password": "<CHANGE_ME>",
                 "verify_ssl": False,
                 "site_id": None,
                 "tags": ["branch", "taichung"],
@@ -1033,22 +1033,28 @@ def _make_flask_app() -> Flask:
     return app
 
 
-def create_app(db_path: str | None = None) -> Flask:
+def create_app(db_path: str | None = None, secret_key: str | None = None) -> Flask:
     """
     Flask app factory。
 
     Args:
         db_path: SQLite 路徑。None 時從 NVR_DB_PATH env var 或預設 ./nvr_scan.db 讀。
+        secret_key: 測試用注入；正式呼叫不傳，強制走 env var 檢查（Day-0 修補 #1）。
     """
     app = _make_flask_app()
     app.config["DB_PATH"] = db_path or os.environ.get(
         "NVR_DB_PATH", "./nvr_scan.db"
     )
-    # flash() 需要 SECRET_KEY；v2 雛形階段用固定字串足夠
-    # （正式部署應從 env var 注入；不在 v2 範圍）
-    app.config["SECRET_KEY"] = os.environ.get(
-        "NVR_WEB_SECRET_KEY", "nvr-scanner-dev-key-change-in-prod"
-    )
+    # flash() 需要 SECRET_KEY；強制要求從 env var 注入，無 fallback（Day-0 修補 #1）
+    # 沒設 NVR_WEB_SECRET_KEY 就 raise，避免 session forgery
+    if secret_key is None:
+        secret_key = os.environ.get("NVR_WEB_SECRET_KEY")
+    if not secret_key:
+        raise RuntimeError(
+            "NVR_WEB_SECRET_KEY 環境變數未設定。"
+            "請參考 .env.example 並設定後重啟。"
+        )
+    app.config["SECRET_KEY"] = secret_key
     # 確認 DB 存在（避免啟動後第一個 request 才 500）
     if app.config["DB_PATH"] != ":memory:" and not Path(
         app.config["DB_PATH"]
@@ -1623,7 +1629,20 @@ def _run_timeline_refresh(app: Flask, db_path: str) -> None:
 
 
 # === 預設 app（給 flask run / python -m web.app 用）===
-app = create_app()
+# Day-0 修補 #1 延伸：create_app() 現在會 raise（沒設 SECRET_KEY），
+# module-level 直接呼叫會讓測試 import 時爆炸。改用 lazy proxy：
+# 第一次存取才建，main() 內已先設好 NVR_WEB_SECRET_KEY。
+_app_singleton: Flask | None = None
+
+
+def __getattr__(name: str):
+    """PEP 562 lazy attribute：讓 `from web.app import app` 不在 import 時就建 app。"""
+    global _app_singleton
+    if name == "app":
+        if _app_singleton is None:
+            _app_singleton = create_app()
+        return _app_singleton
+    raise AttributeError(f"module 'web.app' has no attribute {name!r}")
 
 
 # === CLI 入口 ===
@@ -1698,7 +1717,7 @@ def _maybe_open_browser(host: str, port: int, auto_open: bool) -> None:
 
 
 def main() -> None:
-    host = os.environ.get("NVR_WEB_HOST", "0.0.0.0")
+    host = os.environ.get("NVR_WEB_HOST", "127.0.0.1")   # Day-0: 預設只綁本機
     port = int(os.environ.get("NVR_WEB_PORT", "8444"))
     debug = os.environ.get("NVR_WEB_DEBUG", "").lower() in ("1", "true")
     # 預設不自動開瀏覽器（避免開發 / 重啟時一直跳分頁干擾）。

@@ -5,6 +5,7 @@ pytest 共用 fixtures。
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -17,6 +18,21 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from db.sqlite_writer import SqliteWriter  # noqa: E402
+
+
+# === Day-0 資安：設測試預設 SECRET_KEY ===
+# 必須在 collection time 之前設好，否則 `from web.app import app`（在 module-level）
+# 會在 import 期間觸發 create_app()，沒 SECRET_KEY 就 raise。
+# 用 pytest_configure（collection 前）確保所有 test_*.py 的 import 都看到 env。
+def pytest_configure(config):
+    os.environ.setdefault("NVR_WEB_SECRET_KEY", "test-default-secret-for-pytest")
+
+
+# autouse fixture 保險用：個別測試若 monkeypatch.delenv 後又想在該測試內建 app，
+# 仍會有這個 fixture 先幫忙設回去。function scope，不會洩漏。
+@pytest.fixture(autouse=True)
+def _set_test_secret_key(monkeypatch):
+    monkeypatch.setenv("NVR_WEB_SECRET_KEY", "test-default-secret-for-pytest")
 
 
 # === DB fixture ===
