@@ -73,7 +73,8 @@ def test_clips_page_renders(seeded_clips_app):
         r = c.get("/clips")
         assert r.status_code == 200
         body = r.data.decode("utf-8")
-        assert "影片片段調閱" in body
+        # 8555 clips 對外顯示為「機票回放調閱」（另一部門用語）
+        assert "機票回放調閱" in body
         assert "id=\"nvrSel\"" in body
         assert "id=\"tIn\"" in body
         assert "id=\"syncPlayBtn\"" in body
@@ -85,7 +86,8 @@ def test_root_redirects_or_renders(seeded_clips_app):
     with app.test_client() as c:
         r = c.get("/")
         assert r.status_code == 200
-        assert "影片片段調閱" in r.data.decode("utf-8")
+        # 8555 clips 對外顯示為「機票回放調閱」
+        assert "機票回放調閱" in r.data.decode("utf-8")
 
 
 # === 路由：GET /clips/nvrs ===
