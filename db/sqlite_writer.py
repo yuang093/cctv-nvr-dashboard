@@ -85,9 +85,10 @@ CREATE TABLE IF NOT EXISTS events (
     raw_json TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_events_scan_run_id ON events(scan_run_id);
-CREATE INDEX IF NOT EXISTS idx_events_nvr_occurred ON events(nvr_id, occurred_at);
-CREATE INDEX IF NOT EXISTS idx_events_detected_at ON events(detected_at);
+-- Week 3 Issue #008：原本這裡有 3 個 CREATE INDEX ON events(...)，
+-- 但 events 已被 migration 轉為 view（SQLite 不支援 view 上的 index）。
+-- 索引已改由 db.sqlite_writer._migrate_add_events_partition 建在當月 monthly table。
+-- 既有 legacy DB 的索引會留在 events_legacy 上（orphaned but harmless，純 rollback 用途）。
 
 -- Phase 2.8（Arisan 影像健康巡檢）：每張 cam 縮圖分析紀錄。
 CREATE TABLE IF NOT EXISTS image_health_checks (
@@ -227,15 +228,172 @@ class SqliteWriter:
         self._migrate_add_discover_sessions_port(conn)
         self._migrate_seed_event_kind_catalog(conn)
         self._migrate_add_cameras_is_ghost(conn)
+        # Week 3 Issue #008：events 月分區。必須在以下兩個條件都滿足之後：
+        #   1. _migrate_add_resolved_at 已跑完（補 resolved_at 欄位到 events 表），
+        #      否則 partition migration 的 `INSERT INTO new SELECT * FROM legacy`
+        #      會因欄位數不一致（legacy 11 / new 12）而違反 raw_json NOT NULL。
+        #   2. uq_events_open_per_topic index 之前（SQLite 不支援 view 上的 index，
+        #      要等 migration 把 events 轉成 view + monthly table 後才能建在 monthly）。
+        self._migrate_add_events_partition(conn)
         # Partial UNIQUE index：跨 process 避免重複寫入 open event。
-        # 必須在 migration 之後，因為需要 resolved_at 欄位存在。
+        # 若 events 已被 migration 轉成 view（SQLite 不支援 view 上的 index），
+        # index 已由 migration 建在當月 monthly table 上；此處跳過。
+        if not self._is_events_view(conn):
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_events_open_per_topic
+                ON events(nvr_id, device_id, event_topic) WHERE resolved_at IS NULL
+                """
+            )
+        conn.commit()
+
+    @staticmethod
+    def _is_events_view(conn: sqlite3.Connection) -> bool:
+        """Week 3 Issue #008：偵測 events 是否已被 migration 轉為 view。"""
+        row = conn.execute(
+            "SELECT type FROM sqlite_master WHERE name='events'"
+        ).fetchone()
+        return row is not None and row["type"] == "view"
+
+    @staticmethod
+    def _migrate_add_events_partition(conn: sqlite3.Connection) -> None:
+        """Week 3 Issue #008：events 表 → 月分區 + view + INSTEAD OF triggers（idempotent）。
+
+        策略：
+          a. 偵測 events 是否已是 view（已是 → skip）
+          b. 偵測是否已有當月 events_YYYY_MM 表（已是 → skip）
+          c. 既有 events 表 → rename 為 events_legacy（資料保留供 rollback）
+          d. 建立當月 events_YYYY_MM 表 + 複製 legacy 資料
+          e. 建立 events view = 只看當月表
+          f. INSTEAD OF INSERT / UPDATE triggers 自動路由寫入
+          g. Partial UNIQUE INDEX（綁 monthly table）
+
+        對應獨立 offline 腳本：db/migrations/migrate_add_events_partition.py
+        """
+        row = conn.execute(
+            "SELECT type FROM sqlite_master WHERE name='events'"
+        ).fetchone()
+        if row is None:
+            return  # 沒有 events 表（還沒初始化；SCHEMA_SQL 會建）
+        if row["type"] == "view":
+            return  # 已是 view，重跑略過
+
+        # 計算當月分區表名（與 offline 腳本邏輯一致）
+        now = datetime.now(timezone.utc)
+        current_month = f"events_{now.year:04d}_{now.month:02d}"
+
+        # 檢查當月表是否已存在（保守起見）
+        existing = conn.execute(
+            "SELECT name FROM sqlite_master WHERE name=?", (current_month,)
+        ).fetchone()
+        if existing:
+            return
+
+        # c. rename 既有 events → events_legacy
+        conn.execute("ALTER TABLE events RENAME TO events_legacy")
+
+        # d. 建立當月表（同 schema，含 camera_id；對應 database_schema.md §4 共 12 欄）
         conn.execute(
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS uq_events_open_per_topic
-            ON events(nvr_id, device_id, event_topic) WHERE resolved_at IS NULL
+            f"""
+            CREATE TABLE {current_month} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                scan_run_id INTEGER NOT NULL,
+                nvr_id INTEGER NOT NULL,
+                camera_id INTEGER NULL,
+                event_id TEXT NOT NULL,
+                device_id TEXT NOT NULL,
+                event_topic TEXT NOT NULL,
+                event_topics_json TEXT NOT NULL,
+                occurred_at TEXT NOT NULL,
+                detected_at TEXT NOT NULL,
+                resolved_at TEXT NULL,
+                raw_json TEXT NOT NULL
+            )
             """
         )
-        conn.commit()
+
+        # 複製 legacy 資料進當月表（用顯式欄位名，避免 ALTER TABLE ADD COLUMN
+        # 把欄位加到尾端造成的 position mismatch）。
+        # 舊 v1 events 表可能缺 resolved_at；用 COALESCE 容錯（沒欄位時 SELECT 對
+        # resolved_at 拋錯，但這種情況已被 _migrate_add_resolved_at 提前處理過）。
+        conn.execute(
+            f"""
+            INSERT INTO {current_month} (
+                id, scan_run_id, nvr_id, camera_id, event_id, device_id,
+                event_topic, event_topics_json, occurred_at, detected_at,
+                resolved_at, raw_json
+            )
+            SELECT
+                id, scan_run_id, nvr_id, camera_id, event_id, device_id,
+                event_topic, event_topics_json, occurred_at, detected_at,
+                resolved_at, raw_json
+            FROM events_legacy
+            """
+        )
+
+        # e. 建立 events view（只看當月表；legacy 保留資料供 emergency rollback）
+        conn.execute(
+            f"CREATE VIEW events AS SELECT * FROM {current_month}"
+        )
+
+        # f. INSTEAD OF INSERT trigger（簡化版寫死當月表；12 欄對應 schema）
+        conn.execute(
+            f"""
+            CREATE TRIGGER events_insert_router
+            INSTEAD OF INSERT ON events
+            FOR EACH ROW
+            BEGIN
+                INSERT INTO {current_month}
+                VALUES (NEW.id, NEW.scan_run_id, NEW.nvr_id, NEW.camera_id,
+                        NEW.event_id, NEW.device_id, NEW.event_topic,
+                        NEW.event_topics_json, NEW.occurred_at, NEW.detected_at,
+                        NEW.resolved_at, NEW.raw_json);
+            END
+            """
+        )
+
+        # INSTEAD OF UPDATE trigger（依 id 找對應月份表更新；含 bulk UPDATE）
+        conn.execute(
+            f"""
+            CREATE TRIGGER events_update_router
+            INSTEAD OF UPDATE ON events
+            FOR EACH ROW
+            BEGIN
+                UPDATE {current_month}
+                SET scan_run_id = NEW.scan_run_id,
+                    nvr_id = NEW.nvr_id,
+                    event_id = NEW.event_id,
+                    device_id = NEW.device_id,
+                    event_topic = NEW.event_topic,
+                    event_topics_json = NEW.event_topics_json,
+                    occurred_at = NEW.occurred_at,
+                    detected_at = NEW.detected_at,
+                    resolved_at = NEW.resolved_at,
+                    raw_json = NEW.raw_json
+                WHERE id = OLD.id;
+            END
+            """
+        )
+
+        # g. Partial UNIQUE INDEX（綁 monthly table；SQLite 不支援 view 上的 index）
+        conn.execute(
+            f"""
+            CREATE UNIQUE INDEX uq_events_open_per_topic
+            ON {current_month}(nvr_id, device_id, event_topic)
+            WHERE resolved_at IS NULL
+            """
+        )
+
+        # h. 對應原本 SCHEMA_SQL 的 3 個 events 索引（Week 3 Issue #008 移到 migration 內）
+        conn.execute(
+            f"CREATE INDEX idx_events_scan_run_id ON {current_month}(scan_run_id)"
+        )
+        conn.execute(
+            f"CREATE INDEX idx_events_nvr_occurred ON {current_month}(nvr_id, occurred_at)"
+        )
+        conn.execute(
+            f"CREATE INDEX idx_events_detected_at ON {current_month}(detected_at)"
+        )
 
     @staticmethod
     def _migrate_add_resolved_at(conn: sqlite3.Connection) -> None:
@@ -885,7 +1043,26 @@ class SqliteWriter:
                 f"傳入={scan_run_id}"
             )
         when = resolved_at or _now_utc_iso()
-        cur = conn.execute(
+
+        # Week 3 Issue #008：先 SELECT COUNT 拿到實際匹配數。
+        # 原因：events 是 view，UPDATE 透過 INSTEAD OF trigger 執行，
+        # 但 cur.rowcount 在 INSTEAD OF trigger 下永遠回傳 0（SQLite 已知限制）。
+        # 用 SELECT COUNT 預先算好（view 可正常查詢），UPDATE 仍透過 trigger 改資料。
+        count_row = conn.execute(
+            """
+            SELECT COUNT(*) FROM events
+            WHERE resolved_at IS NULL
+              AND nvr_id = ?
+              AND device_id NOT IN (
+                SELECT device_id FROM events
+                WHERE scan_run_id = ? AND nvr_id = ?
+              )
+            """,
+            (nvr_id, scan_run_id, nvr_id),
+        ).fetchone()
+        count = count_row[0] if count_row else 0
+
+        conn.execute(
             """
             UPDATE events
             SET resolved_at = ?
@@ -898,7 +1075,7 @@ class SqliteWriter:
             """,
             (when, nvr_id, scan_run_id, nvr_id),
         )
-        return cur.rowcount
+        return count
 
     def finish_scan_run(
         self,

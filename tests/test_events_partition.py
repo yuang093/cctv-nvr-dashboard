@@ -33,6 +33,7 @@ def fresh_db(tmp_path: Path) -> str:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             scan_run_id INTEGER NOT NULL,
             nvr_id INTEGER NOT NULL,
+            camera_id INTEGER NULL,
             event_id TEXT NOT NULL,
             device_id TEXT NOT NULL,
             event_topic TEXT NOT NULL,

@@ -15,9 +15,10 @@ Week 3 Issue #008：events 表改為月分區 + view。
      a. 把現有 events 改名為 `events_legacy`
      b. 建立當月 `events_YYYY_MM` 表（與 legacy 同 schema）
      c. 把 legacy 資料 INSERT 進當月表
-     d. 建立 `events` view = UNION ALL 當月表（+ legacy）
+     d. 建立 `events` view = 當月表（events_legacy 保留資料但不進 view，純粹 rollback 用途）
      e. 建立 INSTEAD OF INSERT trigger → 依 occurred_at 路由
      f. 建立 INSTEAD OF UPDATE trigger → 依 id 找對應月份表更新
+     g. Partial UNIQUE INDEX（跨 process 防重複寫入 open event，必須在 monthly table）
 """
 
 from __future__ import annotations
@@ -35,14 +36,18 @@ def _current_month_table_name() -> str:
 
 
 def _events_table_schema_sql() -> str:
-    """既有 events 表的完整 CREATE TABLE SQL。
-    用於建當月表（與 legacy 同 schema）。
+    """既有 events 表的完整 CREATE TABLE SQL（與 database_schema.md §4 完全一致）。
+
+    欄位順序：id, scan_run_id, nvr_id, camera_id, event_id, device_id,
+              event_topic, event_topics_json, occurred_at, detected_at,
+              resolved_at, raw_json（共 12 欄）
     """
     return """
     CREATE TABLE IF NOT EXISTS {table} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         scan_run_id INTEGER NOT NULL,
         nvr_id INTEGER NOT NULL,
+        camera_id INTEGER NULL,
         event_id TEXT NOT NULL,
         device_id TEXT NOT NULL,
         event_topic TEXT NOT NULL,
@@ -88,9 +93,21 @@ def run(db_path: str) -> int:
         # b. 建立當月表
         conn.execute(_events_table_schema_sql().format(table=current_month))
 
-        # c. 把 legacy 資料 INSERT 進當月表（簡化版：全部塞當月）
+        # c. 把 legacy 資料 INSERT 進當月表（用顯式欄位名以避免 ALTER TABLE ADD COLUMN
+        #    把欄位加到尾端造成的 position mismatch）
         conn.execute(
-            f"INSERT INTO {current_month} SELECT * FROM events_legacy"
+            f"""
+            INSERT INTO {current_month} (
+                id, scan_run_id, nvr_id, camera_id, event_id, device_id,
+                event_topic, event_topics_json, occurred_at, detected_at,
+                resolved_at, raw_json
+            )
+            SELECT
+                id, scan_run_id, nvr_id, camera_id, event_id, device_id,
+                event_topic, event_topics_json, occurred_at, detected_at,
+                resolved_at, raw_json
+            FROM events_legacy
+            """
         )
 
         # d. 建立 events view = 只看當月表（events_legacy 保留資料但不進 view，
@@ -103,7 +120,7 @@ def run(db_path: str) -> int:
             """
         )
 
-        # e. INSTEAD OF INSERT trigger — 簡化版寫死當月表
+        # e. INSTEAD OF INSERT trigger — 簡化版寫死當月表（12 欄對應 schema）
         conn.execute(
             f"""
             CREATE TRIGGER events_insert_router
@@ -111,10 +128,10 @@ def run(db_path: str) -> int:
             FOR EACH ROW
             BEGIN
                 INSERT INTO {current_month}
-                VALUES (NEW.id, NEW.scan_run_id, NEW.nvr_id, NEW.event_id,
-                        NEW.device_id, NEW.event_topic, NEW.event_topics_json,
-                        NEW.occurred_at, NEW.detected_at, NEW.resolved_at,
-                        NEW.raw_json);
+                VALUES (NEW.id, NEW.scan_run_id, NEW.nvr_id, NEW.camera_id,
+                        NEW.event_id, NEW.device_id, NEW.event_topic,
+                        NEW.event_topics_json, NEW.occurred_at, NEW.detected_at,
+                        NEW.resolved_at, NEW.raw_json);
             END
             """
         )
@@ -142,8 +159,19 @@ def run(db_path: str) -> int:
             """
         )
 
+        # g. Partial UNIQUE INDEX：綁定在當月實體表（SQLite 不支援 view 上的 index）
+        #    對應原本 _init_schema 內的 uq_events_open_per_topic；移到這裡確保
+        #    既能涵蓋 legacy INSERT 也能涵蓋 trigger 轉發的 INSERT。
+        conn.execute(
+            f"""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_events_open_per_topic
+            ON {current_month}(nvr_id, device_id, event_topic)
+            WHERE resolved_at IS NULL
+            """
+        )
+
         conn.commit()
-        print(f"[ok] {db_path} events 已轉為 view + {current_month} 表 + triggers")
+        print(f"[ok] {db_path} events 已轉為 view + {current_month} 表 + triggers + index")
         return 0
     except Exception as exc:
         print(f"[fail] {exc}", file=sys.stderr)
