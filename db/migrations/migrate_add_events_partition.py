@@ -82,7 +82,7 @@ def run(db_path: str) -> int:
             print(f"[skip] {db_path} {current_month} 已存在")
             return 0
 
-        # a. 把現有 events 改名為 events_legacy
+        # a. 把現有 events 改名為 events_legacy（資料保留供 rollback 用）
         conn.execute("ALTER TABLE events RENAME TO events_legacy")
 
         # b. 建立當月表
@@ -93,13 +93,13 @@ def run(db_path: str) -> int:
             f"INSERT INTO {current_month} SELECT * FROM events_legacy"
         )
 
-        # d. 建立 events view = UNION ALL
+        # d. 建立 events view = 只看當月表（events_legacy 保留資料但不進 view，
+        #    純粹作為 emergency rollback 用途：
+        #    `DROP VIEW events; ALTER TABLE events_legacy RENAME TO events;`）
         conn.execute(
             f"""
             CREATE VIEW events AS
                 SELECT * FROM {current_month}
-                UNION ALL
-                SELECT * FROM events_legacy
             """
         )
 
