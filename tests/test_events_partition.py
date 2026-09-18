@@ -117,3 +117,37 @@ def test_insert_into_view_routes_to_monthly_table(fresh_db: str) -> None:
 
     assert len(rows) == 1
     assert rows[0][0] == "evt-new"
+
+
+def test_next_month_table_name_handles_december() -> None:
+    """12 月的下月應該是隔年 1 月。"""
+    from db.event_partition import next_month_table_name
+    from datetime import datetime, timezone
+
+    dec = datetime(2026, 12, 15, tzinfo=timezone.utc)
+    assert next_month_table_name(dec) == "events_2027_01"
+
+    jun = datetime(2026, 6, 15, tzinfo=timezone.utc)
+    assert next_month_table_name(jun) == "events_2026_07"
+
+
+def test_ensure_next_month_partition_creates_table(tmp_path) -> None:
+    """呼叫後下月表應存在。"""
+    from db.event_partition import (
+        ensure_next_month_partition,
+        next_month_table_name,
+    )
+
+    db_path = str(tmp_path / "test.db")
+    conn = sqlite3.connect(db_path)
+
+    table = ensure_next_month_partition(conn)
+    expected = next_month_table_name()
+    assert table == expected
+
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        (expected,),
+    ).fetchall()
+    assert len(rows) == 1
+    conn.close()
