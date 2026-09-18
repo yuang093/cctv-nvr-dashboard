@@ -5,7 +5,7 @@ REM Windows 啟動 v2 Web UI（Flask）。
 REM
 REM 用法：直接雙擊，或在 cmd 執行 run_web.bat
 REM 環境變數（可選）：
-REM   NVR_WEB_HOST  預設 0.0.0.0（LAN 友善；設 127.0.0.1 = 只本機可連）
+REM   NVR_WEB_HOST  預設 127.0.0.1（Day-0 修補：只本機可連；設 0.0.0.0 = 內網 IP ，必需 reverse proxy）
 REM   NVR_WEB_PORT  預設 8444（避開 NVR 8443）
 REM   NVR_DB_PATH   預設 .\nvr_scan.db
 REM
@@ -14,7 +14,7 @@ REM 對外暴露時務必加 reverse proxy (nginx / caddy) + HTTPS
 set "PROJECT_DIR=%~dp0"
 set "VENV_PY=%PROJECT_DIR%venv\Scripts\python.exe"
 if not "%NVR_WEB_HOST%"=="" goto host_set
-    set "NVR_WEB_HOST=0.0.0.0"
+    set "NVR_WEB_HOST=127.0.0.1"
 :host_set
 if not "%NVR_WEB_PORT%"=="" goto port_set
     set "NVR_WEB_PORT=8444"

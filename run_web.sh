@@ -18,7 +18,7 @@ set -u
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_PY="${PROJECT_DIR}/venv/bin/python"
-HOST="${NVR_WEB_HOST:-0.0.0.0}"
+HOST="${NVR_WEB_HOST:-127.0.0.1}"   # Day-0: 預設只綁本機,避免公網意外暴露
 PORT="${NVR_WEB_PORT:-5000}"
 DB_PATH="${NVR_DB_PATH:-${PROJECT_DIR}/nvr_scan.db}"
 

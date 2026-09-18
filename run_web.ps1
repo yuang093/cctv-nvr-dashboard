@@ -22,7 +22,7 @@ $ErrorActionPreference = "Continue"
 $PROJECT_DIR = (Split-Path -Parent $MyInvocation.MyCommand.Definition)
 $VENV_PY     = Join-Path $PROJECT_DIR "venv\Scripts\python.exe"
 
-$WebHost = if ($env:NVR_WEB_HOST) { $env:NVR_WEB_HOST } else { "0.0.0.0" }
+$WebHost = if ($env:NVR_WEB_HOST) { $env:NVR_WEB_HOST } else { "127.0.0.1" }   # Day-0: 預設只綁本機,避免公網意外暴露
 $WebPort = if ($env:NVR_WEB_PORT) { $env:NVR_WEB_PORT } else { "8444" }
 $DbPath  = if ($env:NVR_DB_PATH)  { $env:NVR_DB_PATH  } else { Join-Path $PROJECT_DIR "nvr_scan.db" }
 
