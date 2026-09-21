@@ -37,8 +37,20 @@ export NVR_WEB_HOST="$HOST"
 export NVR_WEB_PORT="$PORT"
 export NVR_DB_PATH="$DB_PATH"
 
-echo "[INFO] Starting NVR Web UI at http://${HOST}:${PORT}"
+# Week 5 #013：HTTPS 模式（NVR_HTTPS_ENABLED=1 → Werkzeug adhoc SSL）
+HTTPS_FLAG=""
+if [ "${NVR_HTTPS_ENABLED:-0}" == "1" ]; then
+    HTTPS_FLAG="--https=adhoc"
+    echo "[INFO] HTTPS mode: Werkzeug adhoc SSL（瀏覽器會警告自簽憑證）"
+    echo "[INFO] Starting NVR Web UI at https://${HOST}:${PORT}"
+else
+    echo "[INFO] Starting NVR Web UI at http://${HOST}:${PORT}"
+fi
 echo "[INFO] DB: ${DB_PATH}"
 echo "[INFO] 按 Ctrl+C 停止"
 
-exec "$VENV_PY" -m web.app
+if [ -n "$HTTPS_FLAG" ]; then
+    exec "$VENV_PY" -m web.app $HTTPS_FLAG
+else
+    exec "$VENV_PY" -m web.app
+fi

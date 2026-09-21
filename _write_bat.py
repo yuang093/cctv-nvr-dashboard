@@ -221,7 +221,13 @@ RUN_WEB = [
     b"echo [INFO] DB: %NVR_DB_PATH%",
     b"echo \xe6\x8c\x89 Ctrl+C \xe5\x81\x9c\xe6\xad\xa2",
     b"",
-    b'"%VENV_PY%" -m web.app',
+    b"REM === Week 5 #013 HTTPS mode ===",
+    b'if "%NVR_HTTPS_ENABLED%"=="1" (',
+    b"    echo [INFO] HTTPS mode: Werkzeug adhoc SSL",
+    b'    "%VENV_PY%" -m web.app --https=adhoc',
+    b") else (",
+    b'    "%VENV_PY%" -m web.app',
+    b")",
 ]
 
 

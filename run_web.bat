@@ -39,4 +39,10 @@ echo [INFO] Starting NVR Web UI at http://%NVR_WEB_HOST%:%NVR_WEB_PORT%
 echo [INFO] DB: %NVR_DB_PATH%
 echo 按 Ctrl+C 停止
 
-"%VENV_PY%" -m web.app
+REM === Week 5 #013 HTTPS mode ===
+if "%NVR_HTTPS_ENABLED%"=="1" (
+    echo [INFO] HTTPS mode: Werkzeug adhoc SSL
+    "%VENV_PY%" -m web.app --https=adhoc
+) else (
+    "%VENV_PY%" -m web.app
+)

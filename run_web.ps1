@@ -60,10 +60,22 @@ $env:NVR_WEB_HOST = $WebHost
 $env:NVR_WEB_PORT = $WebPort
 $env:NVR_DB_PATH  = $DbPath
 
-Write-Host "[INFO] Starting NVR Web UI at http://${WebHost}:${WebPort}"
+# Week 5 #013：HTTPS 模式（NVR_HTTPS_ENABLED=1 → Werkzeug adhoc SSL）
+$HttpsFlag = ""
+if ($env:NVR_HTTPS_ENABLED -eq "1") {
+    $HttpsFlag = "--https=adhoc"
+    Write-Host "[INFO] HTTPS mode: Werkzeug adhoc SSL"
+    Write-Host "[INFO] Starting NVR Web UI at https://${WebHost}:${WebPort}"
+} else {
+    Write-Host "[INFO] Starting NVR Web UI at http://${WebHost}:${WebPort}"
+}
 Write-Host "[INFO] DB: $DbPath"
 Write-Host "[INFO] Press Ctrl+C to stop"
 
 # Foreground run; ctrl+c kills the Flask process
-& $VENV_PY -m web.app
+if ($HttpsFlag -ne "") {
+    & $VENV_PY -m web.app $HttpsFlag
+} else {
+    & $VENV_PY -m web.app
+}
 exit $LASTEXITCODE
