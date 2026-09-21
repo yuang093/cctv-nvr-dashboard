@@ -25,7 +25,14 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
+
+# Week 6 #017 — 共用 helpers（從本檔抽出到 web/helpers.py）
+# 別名兼容：既有程式碼（含測試）仍可從 web.app import _safe_int / _to_taipei_str / TAIPEI_TZ
+from web.helpers import (
+    TAIPEI_TZ as _TAIPEI_TZ,
+    safe_int as _safe_int,
+    to_taipei_str as _to_taipei_str,
+)
 
 # Module-level logger (server-side, 寫 stderr)
 logging.basicConfig(
@@ -210,886 +217,33 @@ def _count_online_cameras(db_path: str, *, timeout_per_nvr: int = 5) -> int:
     return total
 
 
-def _register_routes(app: Flask) -> None:
-    """把所有 routes 註冊到 app（在 create_app 內呼叫，方便測試換 db_path）。"""
-    # 註冊 Jinja filter：{{ e.detected_at | taipei }} 自動轉台灣時間
-    app.jinja_env.filters["taipei"] = _to_taipei_str
-
-    @app.context_processor
-    def _inject_theme():
-        """把 session theme 注入所有 template，讓 base.html 能讀到。"""
-        return dict(
-            theme=flask_session.get("theme", ""), dark=flask_session.get("dark", False)
-        )
-
-    @app.route("/dark/toggle", methods=["POST"])
-    def dark_toggle():
-        """切換深色模式。"""
-        flask_session["dark"] = not flask_session.get("dark", False)
-        return redirect(request.referrer or url_for("dashboard"))
-
-    @app.route("/")
-    def dashboard():
-        stats = webdb.get_overall_stats(_get_db_path(app))
-        # Phase 2.8（Arisan 磁磚點擊跳轉）：即時算線上 cam 數（GET 每台 NVR /cameras）。
-        stats["online_cameras"] = _count_online_cameras(
-            _get_db_path(app), timeout_per_nvr=5
-        )
-        recent = webdb.get_recent_runs(_get_db_path(app), limit=5)
-        # Phase 2.8（Arisan 缺錄排名）：取 24h 缺錄最多的前 5 台 cam
-        top_missing = webdb.get_top_missing_cameras(_get_db_path(app), limit=5)
-        # Phase 2.8 補：給 dashboard 顯示「最後更新 X 小時前」
-        recording_latest_at = webdb.get_latest_recording_check_at(_get_db_path(app))
-        return render_template(
-            "dashboard.html",
-            stats=stats,
-            recent=recent,
-            top_missing=top_missing,
-            recording_latest_at=recording_latest_at,
-        )
-
-    @app.route("/theme")
-    def theme_preview():
-        """主題選擇頁面（六種風格預覽）。"""
-        current = flask_session.get("theme", "")
-        return render_template("theme_preview.html", current=current)
-
-    @app.route("/theme/apply", methods=["POST"])
-    def theme_apply():
-        """套用選擇的主題（寫入 session）。"""
-        theme = request.form.get("theme", "")
-        flask_session["theme"] = theme
-        flash(f"主題已套用：{theme}", "success")
-        return redirect(url_for("dashboard"))
-
-    @app.route("/fleet")
-    def fleet():
-        """2026-07-29 新功能：跨 NVR 伺服器概覽（總計 / 健康 / 異常 分類）。"""
-        nvrs = get_fleet_view(_get_db_path(app))
-        total_cams = sum(n["total"] for n in nvrs)
-        return render_template(
-            "fleet.html",
-            nvrs=nvrs,
-            total_cams=total_cams,
-            health_dist=get_camera_health_distribution(_get_db_path(app)),
-            thumb_cov=get_thumbnail_coverage(_get_db_path(app)),
-            sys_health=get_system_health(),
-        )
-
-    @app.route("/runs")
-    def runs_list():
-        page = _safe_int(request.args.get("page"), 1, min_val=1)
-        data = webdb.get_paginated_runs(_get_db_path(app), page=page, per_page=20)
-        return render_template("runs_list.html", **data)
-
-    @app.route("/runs/<int:run_id>")
-    def run_detail(run_id: int):
-        run = webdb.get_run(_get_db_path(app), run_id)
-        if not run:
-            abort(404, f"找不到 scan_run_id={run_id}")
-        events = webdb.get_run_events(_get_db_path(app), run_id)
-        cameras = webdb.get_run_cameras(_get_db_path(app), run_id)
-        # 個別 NVR 連線失敗清單（v2.7+ 起）
-        nvr_failures = webdb.get_nvr_failures_for_run(_get_db_path(app), run_id)
-        # 從這次 run 的 events 聚合故障相機（給「故障相機彙總」section 用）
-        grouped = _group_run_events_by_camera(events)
-        return render_template(
-            "run_detail.html",
-            run=run,
-            events=events,
-            cameras=cameras,
-            grouped=grouped,
-            topic_zh=webdb.get_topic_zh,
-            nvr_failures=nvr_failures,
-        )
-
-    @app.route("/nvrs")
-    def nvrs_list():
-        page = _safe_int(request.args.get("page"), 1, min_val=1)
-        q = (request.args.get("q") or "").strip() or None
-        data = webdb.get_nvrs_paginated(
-            _get_db_path(app),
-            page=page,
-            per_page=20,
-            q=q,
-        )
-        return render_template(
-            "nvrs_list.html",
-            nvrs=data["nvrs"],
-            total=data["total"],
-            page=data["page"],
-            per_page=data["per_page"],
-            total_pages=data["total_pages"],
-            q=q or "",
-        )
-
-    @app.route("/nvrs/<int:internal_id>/toggle", methods=["POST"])
-    def nvr_toggle_enabled(internal_id: int):
-        """Phase 2.7+：切換單台 NVR 的啟用狀態（不刪除資料）。
-
-        啟用 = 1 會被背景掃描；啟用 = 0 跳過。
-        從哪裡來就回哪裡（支援從 NVR 清單頁觸發）。
-        """
-        nvr = webdb.get_nvr(_get_db_path(app), internal_id)
-        if nvr is None:
-            abort(404, f"找不到 internal_id={internal_id}")
-        new_enabled = not bool(nvr.get("enabled", 1))
-        webdb.set_nvr_enabled(_get_db_path(app), internal_id, new_enabled)
-        flash(
-            f"NVR「{nvr['name']}」已{'啟用' if new_enabled else '停用'}",
-            "success" if new_enabled else "warning",
-        )
-        # 從哪裡來就回哪裡（referer）；fallback 為 /nvrs
-        return redirect(request.referrer or url_for("nvrs_list"))
-
-    @app.route("/nvrs/new", methods=["GET", "POST"])
-    def nvr_new():
-        """Phase 2.5a：新增 NVR。"""
-        if request.method == "POST":
-            try:
-                nvr_data = _parse_nvr_form(request.form)
-                nvr_data["password"] = request.form.get("password") or ""
-                if not nvr_data["password"]:
-                    raise ValueError("密碼必填（新增時）")
-                new_id = webdb.create_nvr(_get_db_path(app), nvr_data)
-                flash(f"已建立 NVR「{nvr_data['nvr_id']}」", "success")
-                return redirect(url_for("nvrs_list"))
-            except ValueError as e:
-                # 保留使用者輸入以便修正
-                return render_template(
-                    "nvr_form.html",
-                    mode="new",
-                    nvr=request.form.to_dict(),
-                    error=str(e),
-                )
-        return render_template("nvr_form.html", mode="new", nvr={}, error=None)
-
-    @app.route("/nvrs/<int:nvr_id>/edit", methods=["GET", "POST"])
-    def nvr_edit(nvr_id):
-        """Phase 2.5a：編輯 NVR。密碼留空=不變更。"""
-        if request.method == "POST":
-            try:
-                nvr_data = _parse_nvr_form(request.form)
-                password = request.form.get("password") or ""
-                password_changed = bool(password)
-                if password_changed:
-                    nvr_data["password"] = password
-                webdb.update_nvr(
-                    _get_db_path(app),
-                    nvr_id,
-                    nvr_data,
-                    password_changed=password_changed,
-                )
-                flash(f"已更新 NVR「{nvr_data['nvr_id']}」", "success")
-                return redirect(url_for("nvrs_list"))
-            except ValueError as e:
-                nvr = webdb.get_nvr(_get_db_path(app), nvr_id) or {}
-                return render_template(
-                    "nvr_form.html",
-                    mode="edit",
-                    nvr=nvr,
-                    error=str(e),
-                )
-        nvr = webdb.get_nvr(_get_db_path(app), nvr_id)
-        if not nvr:
-            abort(404, f"找不到 NVR id={nvr_id}")
-        # 清空密碼欄位（永遠不在 UI 顯示舊密碼）
-        nvr["password"] = ""
-        return render_template("nvr_form.html", mode="edit", nvr=nvr, error=None)
-
-    @app.route("/nvrs/<int:nvr_id>/delete", methods=["POST"])
-    def nvr_delete(nvr_id):
-        """Phase 2.5a：刪除 NVR（連同 cameras；保留 scan_runs/events）。"""
-        try:
-            result = webdb.delete_nvr(_get_db_path(app), nvr_id)
-            flash(
-                f"已刪除 NVR（同時移除 {result['cameras_deleted']} 台 cameras）",
-                "success",
-            )
-        except ValueError as e:
-            flash(str(e), "danger")
-        return redirect(url_for("nvrs_list"))
-
-    @app.route("/nvrs/test-connection", methods=["POST"])
-    def nvr_test_connection():
-        """Phase 2.5a+：AJAX 測試 NVR 連線（不寫入 DB）。
-
-        接受 JSON: {host, port, username, password, verify_ssl}
-        回傳 JSON: {ok: bool, message: str, latency_ms: int}
-
-        需要 .env 已設定 AVIGILON_USER_NONCE / AVIGILON_USER_KEY
-        （worker 也用同一組；NVR API 認證強制要求）。
-        """
-        if not _HAS_SCANNER:
-            return jsonify(
-                {
-                    "ok": False,
-                    "message": "伺服器缺少 nvr_scanner 模組（pip install -r requirements.txt）",
-                }
-            ), 500
-
-        try:
-            data = request.get_json(force=True, silent=False)
-        except Exception:
-            return jsonify({"ok": False, "message": "無效的 JSON body"}), 400
-
-        for field in ("host", "port", "username", "password"):
-            if not data.get(field):
-                return jsonify({"ok": False, "message": f"{field} 必填"}), 400
-
-        user_nonce = os.environ.get("AVIGILON_USER_NONCE", "")
-        user_key = os.environ.get("AVIGILON_USER_KEY", "")
-        if not user_nonce or not user_key:
-            return jsonify(
-                {
-                    "ok": False,
-                    "message": "伺服器未設定 AVIGILON_USER_NONCE / AVIGILON_USER_KEY（檢查 .env）",
-                }
-            ), 500
-
-        nvr_cfg = {
-            "host": data["host"],
-            "port": int(data["port"]),
-            "username": data["username"],
-            "password": data["password"],
-            "verify_ssl": bool(data.get("verify_ssl", False)),
-        }
-        scanner = AvigilonScanner(
-            nvr_cfg,
-            user_nonce=user_nonce,
-            user_key=user_key,
-            timeout=5,  # 測試用，縮短 timeout
-            verify_ssl=nvr_cfg["verify_ssl"],
-        )
-        start = time.time()
-        try:
-            scanner.login()
-            latency_ms = int((time.time() - start) * 1000)
-            return jsonify(
-                {
-                    "ok": True,
-                    "message": f"連線成功（latency {latency_ms}ms）",
-                    "latency_ms": latency_ms,
-                }
-            )
-        except Exception as e:
-            latency_ms = int((time.time() - start) * 1000)
-            return jsonify(
-                {
-                    "ok": False,
-                    "message": f"連線失敗：{type(e).__name__}: {e}",
-                    "latency_ms": latency_ms,
-                }
-            )
-        finally:
-            try:
-                scanner.session.close()
-            except Exception:
-                pass
-
-    @app.route("/nvrs/import", methods=["GET", "POST"])
-    def nvr_import():
-        """Phase 2.5b：CSV / JSON 批次匯入（80+ NVR 用）。"""
-        if request.method == "POST":
-            file = request.files.get("file")
-            if not file or not file.filename:
-                flash("請選擇檔案", "danger")
-                return redirect(url_for("nvr_import"))
-            try:
-                raw = file.read().decode("utf-8-sig")  # 容忍 BOM
-            except UnicodeDecodeError:
-                flash("檔案編碼錯誤（請用 UTF-8）", "danger")
-                return redirect(url_for("nvr_import"))
-
-            fmt = _detect_format(file.filename, raw)
-            if fmt == "csv":
-                parsed, errors = _parse_csv(raw)
-            else:
-                parsed, errors = _parse_json(raw)
-
-            if errors:
-                return render_template(
-                    "nvr_import.html",
-                    errors=errors,
-                    preview_count=0,
-                    filename=file.filename,
-                )
-            if not parsed:
-                flash("檔案沒有有效資料", "warning")
-                return redirect(url_for("nvr_import"))
-
-            # 整批寫入（all-or-nothing transaction）
-            # Phase 2.5c 起改用 upsert：id 已存在 → 更新；不存在 → 新增
-            # （支援 round-trip workflow：匯出 → 修改 → 匯入）
-            try:
-                result = webdb.bulk_upsert_nvrs(
-                    _get_db_path(app),
-                    parsed,
-                )
-                flash(
-                    f"匯入完成：新增 {result['inserted']} 台、更新 {result['updated']} 台"
-                    f"（共 {result['total']} 筆）",
-                    "success",
-                )
-                return redirect(url_for("nvrs_list"))
-            except Exception as e:
-                logger.exception("bulk import failed: %s", e)
-                return render_template(
-                    "nvr_import.html",
-                    errors=[f"DB 錯誤（已 rollback）：{e}"],
-                    preview_count=len(parsed),
-                    filename=file.filename,
-                )
-
-        return render_template(
-            "nvr_import.html",
-            errors=None,
-            preview_count=0,
-            filename=None,
-        )
-
-    @app.route("/nvrs/import/template.csv")
-    def nvr_import_template_csv():
-        """下載 CSV 範本（含 UTF-8 BOM + CRLF 換行）。
-
-        Excel 雙擊 CSV 時傾向用系統 codepage（cp950）解碼 → 中文亂碼。
-        兩個措施提高 Excel 相容性：
-        1. UTF-8 BOM (﻿) — Excel 365 通常會認得
-        2. CRLF 換行 — Windows 風格，Excel 更友善
-        若仍亂碼：用「資料 → 從文字檔 → 編碼選 UTF-8」匯入精靈。
-        """
-        example_csv = (
-            "id,name,host,port,username,password,verify_ssl,site_id,tags\r\n"
-            "ACC8-P4,WIN-OPA34I3TCL5,192.168.133.141,8443,administrator,<CHANGE_ME>,0,,branch;taipei\r\n"
-            "BRANCH-B,B 分店,192.168.2.100,8443,api_reader,<CHANGE_ME>,0,,branch;taichung\r\n"
-            "HQ-MAIN,總部主 NVR,10.0.0.50,8443,api_reader,<CHANGE_ME>,0,HQ,hq;production\r\n"
-        )
-        # 加 UTF-8 BOM + 確保 CRLF
-        body = "﻿" + example_csv.replace("\r\n", "\n").replace("\n", "\r\n")
-        return Response(
-            body.encode("utf-8"),
-            mimetype="text/csv; charset=utf-8",
-            headers={
-                "Content-Disposition": 'attachment; filename="nvr_template.csv"',
-            },
-        )
-
-    @app.route("/nvrs/import/template.json")
-    def nvr_import_template_json():
-        """下載 JSON 範本。"""
-        example = [
-            {
-                "id": "ACC8-P4",
-                "name": "WIN-OPA34I3TCL5",
-                "host": "192.168.133.141",
-                "port": 8443,
-                "username": "administrator",
-                "password": "<CHANGE_ME>",
-                "verify_ssl": False,
-                "site_id": None,
-                "tags": ["branch", "taipei"],
-            },
-            {
-                "id": "BRANCH-B",
-                "name": "B 分店",
-                "host": "192.168.2.100",
-                "port": 8443,
-                "username": "api_reader",
-                "password": "<CHANGE_ME>",
-                "verify_ssl": False,
-                "site_id": None,
-                "tags": ["branch", "taichung"],
-            },
-        ]
-        return Response(
-            json.dumps(example, ensure_ascii=False, indent=2),
-            mimetype="application/json; charset=utf-8",
-            headers={
-                "Content-Disposition": 'attachment; filename="nvr_template.json"',
-            },
-        )
-
-    # === Phase 2.5c：匯出目前 NVR 清單（round-trip 匯出 → 修改 → 匯入） ===
-
-    @app.route("/nvrs/export.csv")
-    def nvr_export_csv():
-        """匯出目前 DB 內所有 NVR 為 CSV。
-
-        格式與 `nvr_import_template_csv` 對稱，可直接編輯後再匯入。
-        含 UTF-8 BOM + CRLF（Excel 相容性）。
-        filename 含時間戳：`nvr_export_YYYYMMDD_HHMMSS.csv`
-        """
-        nvrs = webdb.get_all_nvrs_for_export(_get_db_path(app))
-        # 用 csv 模組產生內容（處理 quote 跳脫）
-        buf = io.StringIO()
-        writer = csv.DictWriter(
-            buf,
-            fieldnames=_CSV_FIELDS,
-            quoting=csv.QUOTE_MINIMAL,
-            lineterminator="\r\n",
-        )
-        writer.writeheader()
-        for nvr in nvrs:
-            # tags: list → "a;b;c"
-            row = dict(nvr)
-            row["tags"] = ";".join(row.get("tags") or [])
-            # verify_ssl: bool → 0/1（跟範本一致）
-            row["verify_ssl"] = 1 if row["verify_ssl"] else 0
-            # site_id None → 空字串（CSV 友善）
-            if row.get("site_id") is None:
-                row["site_id"] = ""
-            writer.writerow(row)
-        body = "﻿" + buf.getvalue()  # 加 UTF-8 BOM
-        ts = time.strftime("%Y%m%d_%H%M%S")
-        return Response(
-            body.encode("utf-8"),
-            mimetype="text/csv; charset=utf-8",
-            headers={
-                "Content-Disposition": (f'attachment; filename="nvr_export_{ts}.csv"'),
-            },
-        )
-
-    @app.route("/nvrs/export.json")
-    def nvr_export_json():
-        """匯出目前 DB 內所有 NVR 為 JSON array。
-
-        格式與 `nvr_import_template_json` 對稱。
-        filename 含時間戳：`nvr_export_YYYYMMDD_HHMMSS.json`
-        """
-        nvrs = webdb.get_all_nvrs_for_export(_get_db_path(app))
-        ts = time.strftime("%Y%m%d_%H%M%S")
-        return Response(
-            json.dumps(nvrs, ensure_ascii=False, indent=2),
-            mimetype="application/json; charset=utf-8",
-            headers={
-                "Content-Disposition": (f'attachment; filename="nvr_export_{ts}.json"'),
-            },
-        )
-
-    # === Phase 2.6：背景掃描 + 故障總覽 ===
-
-    @app.route("/scan", methods=["POST"])
-    def scan_trigger():
-        """啟動背景 thread 跑 batch_scan。
-
-        若已在跑，回 409 conflict。
-        同步回 202 + scan 起始資訊；前端輪詢 /scan/status 看進度。
-        """
-        with _scan_lock:
-            if _scan_state["running"]:
-                return jsonify(
-                    {
-                        "ok": False,
-                        "error": "已有掃描在進行中",
-                        "started_at": _scan_state["started_at"],
-                    }
-                ), 409
-
-            db_path = _get_db_path(app)
-            # 2026-07-13 Phase 2.3：DB-level lock 檢查（避免外部 cron 同時跑）
-            from db.sqlite_writer import acquire_scan_lock
-
-            if not acquire_scan_lock(db_path, timeout=0):
-                logger.warning("scan_trigger: DB 內已有 status='running' 的 scan_run")
-                return jsonify(
-                    {
-                        "ok": False,
-                        "error": "已有掃描在進行中（DB 內 status='running'，可能是 cron 或其他 process）",
-                    }
-                ), 409
-
-            # 2026-07-13 Phase 2.1：DB-as-source-of-truth，從 DB 撈 enabled NVR
-            try:
-                enabled_nvrs = webdb.list_enabled_nvrs(db_path)
-                enabled_count = len(enabled_nvrs)
-            except Exception as e:
-                logger.warning("scan_trigger: 從 DB 撈 enabled NVR 失敗: %s", e)
-                enabled_count = 0
-            _reset_scan_state(total_nvrs=enabled_count)
-
-            # 啟動 background thread（仍在 lock 內避免 TOCTOU）
-            thread = threading.Thread(
-                target=_run_scan_in_background,
-                args=(app, db_path),
-                daemon=True,
-                name="nvr-scan",
-            )
-            thread.start()
-
-        return jsonify(
-            {
-                "ok": True,
-                "started_at": _scan_state["started_at"],
-                "total_nvrs": enabled_count,
-            }
-        ), 202
-
-    @app.route("/scan/status")
-    def scan_status():
-        """查目前 scan 狀態（給前端 polling）。"""
-        with _scan_lock:
-            return jsonify(dict(_scan_state))
-
-    # === Phase 2.8 補：Dashboard 「🔄 重整完整率」按鈕 ===
-    # 不依賴 NVR_TIMELINE env（直接呼叫 _timeline_check_loop），
-    # 跟 scan 走獨立 state 互不干擾。
-
-    @app.route("/dashboard/refresh-completeness", methods=["POST"])
-    def refresh_completeness_trigger():
-        """啟動 background thread 跑 24h timeline 收集（每台 NVR 逐台）。
-
-        已在跑 → 409 conflict。同步回 202 + 啟動時間。
-        """
-        with _timeline_lock:
-            if _timeline_state["running"]:
-                return jsonify(
-                    {
-                        "ok": False,
-                        "error": "已有完整率重整在進行中",
-                        "started_at": _timeline_state["started_at"],
-                    }
-                ), 409
-            _reset_timeline_state()
-
-        db_path = _get_db_path(app)
-        thread = threading.Thread(
-            target=_run_timeline_refresh,
-            args=(app, db_path),
-            daemon=True,
-            name="timeline-refresh",
-        )
-        thread.start()
-
-        return jsonify(
-            {
-                "ok": True,
-                "started_at": _timeline_state["started_at"],
-            }
-        ), 202
-
-    @app.route("/dashboard/refresh-completeness/status")
-    def refresh_completeness_status():
-        """查目前 timeline refresh 進度（給前端 polling）。"""
-        with _timeline_lock:
-            return jsonify(dict(_timeline_state))
-
-    @app.route("/abnormal")
-    def abnormal_list():
-        """故障攝影機總覽（按相機分組）。"""
-        groups = webdb.get_abnormal_cameras_grouped(_get_db_path(app))
-        # 統計
-        total_open = sum(g["open_count"] for g in groups)
-        affected_nvrs = len({g["nvr_id"] for g in groups})
-        return render_template(
-            "abnormal.html",
-            groups=groups,
-            total_cameras=len(groups),
-            total_open=total_open,
-            affected_nvrs=affected_nvrs,
-            topic_zh=webdb.get_topic_zh,
-            topic_zh_map=webdb.ABNORMAL_TOPIC_ZH,
-            last_run=webdb.get_last_scan_run(_get_db_path(app)),
-        )
-
-    @app.route("/abnormal/export.pdf")
-    def abnormal_export_pdf():
-        """故障報告 PDF（繁體中文，reportlab 內嵌字型）。
-
-        版面：
-            - 標題 + 生成時間
-            - 總覽：受影響 NVR 數 / 相機數 / 總事件數
-            - 每台 NVR 一段：相機清單（名稱 + 故障類型中文 + 首次/最新）
-
-        注意：此端點每次都即時生成「最新」PDF，不存檔。
-              歷史歸檔請改用 /reports 列表 → 點選下載。
-        """
-        groups = webdb.get_abnormal_cameras_grouped(_get_db_path(app))
-        topic_zh = webdb.get_topic_zh
-        last_run = webdb.get_last_scan_run(_get_db_path(app))
-
-        pdf_bytes = _build_abnormal_pdf(groups, topic_zh, last_run)
-        ts = time.strftime("%Y%m%d_%H%M%S")
-        return Response(
-            pdf_bytes,
-            mimetype="application/pdf",
-            headers={
-                "Content-Disposition": (
-                    f'attachment; filename="nvr_abnormal_report_{ts}.pdf"'
-                ),
-            },
-        )
-
-    @app.route("/reports")
-    def reports_list():
-        """歷史 PDF 報告列表（每次掃描自動歸檔一份）。"""
-        from web import report_archive
-
-        db_path = _get_db_path(app)
-        items = report_archive.list_reports(db_path)
-        return render_template("reports_list.html", items=items)
-
-    @app.route("/reports/download/<int:run_id>")
-    def reports_download(run_id: int):
-        """下載指定 run_id 的歷史 PDF。"""
-        from web import report_archive
-
-        db_path = _get_db_path(app)
-        fpath = report_archive.find_report(db_path, run_id)
-        if fpath is None or not fpath.exists():
-            abort(404, description=f"找不到 run_id={run_id} 的歸檔報告")
-        # send_file 會自動處理 mime + Content-Disposition
-        return send_file(
-            fpath,
-            mimetype="application/pdf",
-            as_attachment=True,
-            download_name=fpath.name,
-        )
-
-    @app.route("/events")
-    def events_list():
-        hours = _safe_int(request.args.get("hours"), 24, min_val=1, max_val=8760)
-        nvr_id = request.args.get("nvr_id", type=int)
-        topic = request.args.get("topic") or None
-        status = request.args.get("status", "all")
-        # 防止無效值 fallback 到 all
-        if status not in ("all", "open", "resolved"):
-            status = "all"
-        events = webdb.get_events_filtered(
-            _get_db_path(app),
-            hours=hours,
-            nvr_id=nvr_id,
-            topic=topic,
-            status=status,
-            limit=200,
-        )
-        all_topics = webdb.get_all_topics(_get_db_path(app))
-        all_nvrs = webdb.get_nvrs(_get_db_path(app))
-        return render_template(
-            "events_list.html",
-            events=events,
-            hours=hours,
-            nvr_id=nvr_id,
-            topic=topic or "",
-            status=status,
-            all_topics=all_topics,
-            all_nvrs=all_nvrs,
-            topic_zh=webdb.get_topic_zh,
-        )
-
-    @app.route("/query", methods=["GET", "POST"])
-    def adhoc_query():
-        """Phase 1 Step 3b：ad-hoc 唯讀 SELECT 頁。
-
-        GET：顯示表單 + 範例 SQL
-        POST：執行並顯示結果
-        """
-        result = None
-        error = None
-        sql = ""
-        # 預設範例
-        example_sql = (
-            "SELECT e.id, e.event_topic, e.device_id, "
-            "datetime(e.occurred_at) AS occurred,\n"
-            "       datetime(e.resolved_at) AS resolved\n"
-            "FROM events e\n"
-            "ORDER BY e.id DESC\n"
-            "LIMIT 20;"
-        )
-        if request.method == "POST":
-            sql = request.form.get("sql", "").strip()
-            if not sql:
-                error = "請輸入 SQL 查詢"
-            else:
-                try:
-                    result = webdb.run_readonly_query(
-                        _get_db_path(app),
-                        sql,
-                        max_rows=500,
-                    )
-                except ValueError as exc:
-                    error = str(exc)
-        return render_template(
-            "query.html",
-            sql=sql,
-            example_sql=example_sql,
-            result=result,
-            error=error,
-        )
-
-    @app.route("/wall")
-    def wall():
-        """2026-07-29 重構：相機牆視覺化 grid（含縮圖 + status 圓點 + 計數 tab）。
-
-        ?filter=all|online|signal_lost|no_signal（預設 all）
-        """
-        filter_kind = request.args.get("filter", "all")
-        if filter_kind not in ("all", "online", "signal_lost", "no_signal"):
-            filter_kind = "all"
-        cams = webdb.get_wall_cameras_with_snapshots(
-            _get_db_path(app), filter_kind=filter_kind
-        )
-        counts = webdb.get_wall_filter_counts(_get_db_path(app))
-        return render_template(
-            "wall.html",
-            cams=cams,
-            filter_kind=filter_kind,
-            counts=counts,
-        )
-
-    @app.route("/devices")
-    def devices_list():
-        """Phase 2.8（Arisan）Phase #5：跨 NVR 設備總覽表。"""
-        nvr_filter = request.args.get("nvr", "").strip()
-        status_filter = request.args.get("status", "").strip()
-        page = max(1, int(request.args.get("page", "1") or "1"))
-        per_page = 50
-        rows, total = webdb.get_devices_paginated(
-            _get_db_path(app),
-            page=page,
-            per_page=per_page,
-            nvr_filter=nvr_filter,
-            status_filter=status_filter,
-        )
-        total_pages = max(1, (total + per_page - 1) // per_page)
-        nvrs = webdb.get_nvrs(_get_db_path(app))
-        return render_template(
-            "devices_list.html",
-            rows=rows,
-            total=total,
-            page=page,
-            per_page=per_page,
-            total_pages=total_pages,
-            nvr_filter=nvr_filter,
-            status_filter=status_filter,
-            nvrs=nvrs,
-        )
-
-    @app.route("/devices/discover", methods=["GET", "POST"])
-    def devices_discover():
-        """Phase 2.8（Arisan）Phase #5 介面 + Phase #6 探索網段執行。"""
-        if request.method == "POST":
-            cidr = (request.form.get("cidr") or "").strip()
-            port = int(request.form.get("port") or "8443")
-            if not cidr:
-                return render_template(
-                    "discover.html",
-                    error="請輸入 CIDR（例如 192.168.0.0/24）",
-                    cidr=cidr,
-                    port=port,
-                ), 400
-            # 先 validate CIDR 格式（fail fast）
-            from web.discover import expand_cidr
-
-            try:
-                expand_cidr(cidr)
-            except ValueError as e:
-                return render_template(
-                    "discover.html",
-                    error=str(e),
-                    cidr=cidr,
-                    port=port,
-                ), 400
-            # 建 session（status='pending'）
-            try:
-                session_id = webdb.create_discover_session(
-                    _get_db_path(app),
-                    cidr=cidr,
-                    port=port,
-                )
-            except Exception as e:
-                return render_template(
-                    "discover.html",
-                    error=str(e),
-                    cidr=cidr,
-                    port=port,
-                ), 400
-            # Phase #6：背景執行 CIDR probe（避免 /24 等 96s 阻塞 HTTP）
-            # 抽成 _start_probe_thread helper，方便測試 monkeypatch 掉背景 thread
-            _start_probe_thread(_get_db_path(app), session_id)
-            return redirect(url_for("devices_discover_result", session_id=session_id))
-        return render_template("discover.html", cidr="192.168.0.0/24", port=8443)
-
-    @app.route("/devices/discover/<int:session_id>")
-    def devices_discover_result(session_id: int):
-        """Phase #5 補：顯示單次探索 session 結果（Phase #6 探索邏輯未做，先回空殼頁）。"""
-        sess = webdb.get_discover_session(_get_db_path(app), session_id)
-        if not sess:
-            abort(404)
-        return render_template("discover_result.html", session=sess)
-
-    @app.route("/devices/<device_id>")
-    def device_detail(device_id: str):
-        """Phase 2.8（Arisan）Phase #5：單台 cam 詳情 + 影像健康卡。"""
-        info = webdb.get_device_detail(_get_db_path(app), device_id)
-        if not info:
-            abort(404)
-        return render_template("device_detail.html", cam=info)
-
-    @app.route("/health/cameras/<device_id>")
-    def camera_health_history(device_id: str):
-        """Phase 2.8（Arisan）Phase #5：單台 cam 健康歷史（image_health_checks）。"""
-        info = webdb.get_device_detail(_get_db_path(app), device_id)
-        if not info:
-            abort(404)
-        history = webdb.get_camera_health_history(
-            _get_db_path(app), device_id, limit=50
-        )
-        return render_template(
-            "camera_health.html",
-            cam=info,
-            history=history,
-        )
-
-    @app.route("/trends")
-    def trends():
-        """Spec G: Cam 健康趨勢總覽（mini sparkline grid）。
-
-        Query params:
-            range: 24h | 7d（預設 24h；其他值 fallback 24h，不 500）
-            nvr_id: 限定單一 NVR（可選）
-            status: any | abnormal_only（預設 any；其他值 route 端寬鬆 fallback 'any'，
-                    避免炸 500；函式 get_all_cams_health_summary 內部仍 strict raise）
-            cam_id: deep-link 目標 cam（Spec G Batch C Task 12；不存在時仍 200，
-                   template JS 找不到對應 card 而 silent no-op）
-        """
-        from web.trends import get_all_cams_health_summary
-        from web.db import list_enabled_nvrs
-
-        range_str = request.args.get("range", "24h")
-        range_hours = 24 if range_str == "24h" else (168 if range_str == "7d" else 24)
-        nvr_filter = request.args.get("nvr_id") or None
-        # status_filter 寬鬆 normalization（無效值 fallback 'any'，避免炸 500）
-        # 對齊 range 行為一致。函式 get_all_cams_health_summary 內部仍 strict（raise ValueError）。
-        status_filter = request.args.get("status", "any")
-        if status_filter not in ("any", "abnormal_only"):
-            status_filter = "any"
-        # Spec G Batch C Task 12：deep-link 目標 cam（純字串傳遞，template JS 端
-        # 用 querySelector 找對應 .cam-card[data-cam-id] 並 auto-expand + scrollIntoView）。
-        # 不存在 / 亂打也沒關係 — JS 找不到對應 card 是 silent no-op。
-        focus_cam_id = request.args.get("cam_id") or None
-
-        db_path = _get_db_path(app)
-        summaries = get_all_cams_health_summary(
-            db_path,
-            range_hours=range_hours,
-            nvr_filter=nvr_filter,
-            status_filter=status_filter,
-        )
-        # 給 dropdown 的 NVR 清單（沿用 web.db.list_enabled_nvrs 既有 helper）
-        try:
-            nvrs = list_enabled_nvrs(db_path)
-        except Exception:
-            nvrs = []
-
-        return render_template(
-            "trends.html",
-            summaries=summaries,
-            range_hours=range_hours,
-            nvrs=nvrs,
-            current_nvr=nvr_filter,
-            current_status=status_filter,
-            focus_cam_id=focus_cam_id,
-        )
+def _register_blueprints(app: Flask) -> None:
+    """Week 6 #017 — register 5 個業務領域 blueprint（取代原 _register_routes）。
+
+    Stage B：35 條 URL 全部改由 blueprint 提供；app 內不再 inline @app.route。
+    Errorhandler（404/500）仍註冊在 factory 主幹（跨 bp 共用）。
+
+    重要：template 內仍用扁平 endpoint 名稱（`url_for('dashboard')`、
+    `url_for('runs_list')` 等 30+ 處）。Blueprint 預設 endpoint 為
+    `bp_name.func_name`（如 `dashboard.dashboard`），會炸既有 templates。
+    解法：register 後用 `_alias_legacy_endpoints` 把核心 endpoint 攤平。
+
+    註冊順序本身不影響功能；列出順序對應人類閱讀：
+        dashboard → runs → nvrs → scan → devices
+    """
+    from web.blueprints.dashboard_bp import dashboard_bp
+    from web.blueprints.runs_bp import runs_bp
+    from web.blueprints.nvrs_bp import nvrs_bp
+    from web.blueprints.scan_bp import scan_bp
+    from web.blueprints.devices_bp import devices_bp
+
+    app.register_blueprint(dashboard_bp)
+    app.register_blueprint(runs_bp)
+    app.register_blueprint(nvrs_bp)
+    app.register_blueprint(scan_bp)
+    app.register_blueprint(devices_bp)
+
+    _alias_legacy_endpoints(app)
 
     @app.errorhandler(404)
     def not_found(e):
@@ -1098,6 +252,85 @@ def _register_routes(app: Flask) -> None:
     @app.errorhandler(500)
     def server_error(e):
         return render_template("error.html", code=500, message=str(e)), 500
+
+
+# 既有 templates 內 url_for() 仍用扁平 endpoint 名稱（30+ 處）。
+# 為避免一次改 30 個 template（容易引入 XSS / typo），
+# 在 factory 內把 bp 內函式 endpoint alias 為扁平名稱。
+_LEGACY_ENDPOINT_ALIAS: dict[str, str] = {
+    # dashboard_bp
+    "dashboard": "dashboard.dashboard",
+    "theme_preview": "dashboard.theme_preview",
+    "theme_apply": "dashboard.theme_apply",
+    "fleet": "dashboard.fleet",
+    "dark_toggle": "dashboard.dark_toggle",
+    # runs_bp
+    "runs_list": "runs.runs_list",
+    "run_detail": "runs.run_detail",
+    "reports_list": "runs.reports_list",
+    "reports_download": "runs.reports_download",
+    "adhoc_query": "runs.adhoc_query",
+    # nvrs_bp
+    "nvrs_list": "nvrs.list_",
+    "nvr_toggle_enabled": "nvrs.toggle",
+    "nvr_new": "nvrs.new",
+    "nvr_edit": "nvrs.edit",
+    "nvr_delete": "nvrs.delete",
+    "nvr_test_connection": "nvrs.test_connection",
+    "nvr_import": "nvrs.import_",
+    "nvr_import_template_csv": "nvrs.import_template_csv",
+    "nvr_import_template_json": "nvrs.import_template_json",
+    "nvr_export_csv": "nvrs.export_csv",
+    "nvr_export_json": "nvrs.export_json",
+    # scan_bp
+    "scan_trigger": "scan.scan_trigger",
+    "scan_status": "scan.scan_status",
+    "refresh_completeness_trigger": "scan.refresh_completeness_trigger",
+    "refresh_completeness_status": "scan.refresh_completeness_status",
+    # devices_bp
+    "wall": "devices.wall",
+    "devices_list": "devices.devices_list",
+    "devices_discover": "devices.devices_discover",
+    "devices_discover_result": "devices.devices_discover_result",
+    "device_detail": "devices.device_detail",
+    "camera_health_history": "devices.camera_health_history",
+    "trends": "devices.trends",
+    "events_list": "devices.events_list",
+    "abnormal_list": "devices.abnormal_list",
+    "abnormal_export_pdf": "devices.abnormal_export_pdf",
+}
+
+
+def _alias_legacy_endpoints(app: Flask) -> None:
+    """給每個 bp 既有 endpoint 加扁平 alias（給既有 templates 用）。
+
+    Flask 內 url_for(endpoint) 是查 url_map 內的 rule.endpoint；
+    只塞 view_functions 不夠。所以用 add_url_rule 重複註冊一個同 URL、
+    同 view function 的 rule，但 endpoint 用扁平名稱。
+
+    注意：每個 alias rule 不能跟現有 rule endpoint 衝突，所以檢查
+    app.view_functions[flat_ep] 是否已存在於既有 rules。
+    """
+    for flat_ep, qualified_ep in _LEGACY_ENDPOINT_ALIAS.items():
+        # 找既有 rule
+        target_rule = None
+        for rule in app.url_map.iter_rules():
+            if rule.endpoint == qualified_ep:
+                target_rule = rule
+                break
+        if target_rule is None:
+            raise RuntimeError(
+                f"_alias_legacy_endpoints: qualified endpoint {qualified_ep!r} not in url_map"
+            )
+        view = app.view_functions[qualified_ep]
+        # 加 alias rule（如 endpoint 已存在則跳過重複註冊）
+        if flat_ep not in app.view_functions:
+            app.add_url_rule(
+                target_rule.rule,
+                endpoint=flat_ep,
+                view_func=view,
+                methods=list(target_rule.methods - {"HEAD", "OPTIONS"}),
+            )
 
 
 def _make_flask_app() -> Flask:
@@ -1159,7 +392,16 @@ def create_app(db_path: str | None = None, secret_key: str | None = None) -> Fla
             SqliteWriter(app.config["DB_PATH"]).close()
         except Exception as e:
             print(f"[WARN] schema init 失敗：{e}")
-    _register_routes(app)
+    _register_blueprints(app)
+
+    # === Week 5 middleware 註冊點（#012-#016，待 PR #3 merge 後啟用）===
+    # 5 個 middleware 必須集中在 factory 主幹註冊，不可進入任何 bp。
+    # 待 Week 6 主線合併 Week 5 後，由 Plan §D2「保留 module-level」覆寫：
+    #   - from web.auth.middleware import register_auth_middleware  # #012
+    #   - from web.ratelimit import make_exempt_when_trusted_ip      # #014
+    #   - from audit.middleware import register_audit_middleware      # #015
+    # 註冊位置選擇：路由前面（讓 before_request 早攔截）但 SECRET_KEY 已設完。
+    # 條件：全部以「feature flag 預設關 → pass-through」架構，不影響既有測試。
     return app
 
 
@@ -1200,46 +442,9 @@ def _group_run_events_by_camera(events: list[dict]) -> list[dict]:
     )
 
 
-# === Query string 安全轉 int ===
-def _safe_int(
-    value: str | None, default: int, *, min_val: int = 0, max_val: int = 2**31
-) -> int:
-    """把 query string 轉 int，無效時退回 default。
-
-    防止 `?page=abc` 噴 ValueError → 500。
-    """
-    if value is None or value == "":
-        return default
-    try:
-        n = int(value)
-    except (ValueError, TypeError):
-        return default
-    if n < min_val or n > max_val:
-        return default
-    return n
-
-
-# === 時區：DB 存 UTC，UI / PDF 顯示為 Asia/Taipei ===
-TAIPEI_TZ = ZoneInfo("Asia/Taipei")
-
-
-def _to_taipei_str(iso_utc: str | None) -> str:
-    """把 ISO 8601 UTC 字串轉成 Asia/Taipei（顯示用）。
-
-    輸入：'2026-07-03T05:39:02Z' 或 '2026-07-03T05:39:02+00:00'
-    輸出：'2026-07-03 13:39:02'
-    None / 空字串 → 原文回傳。
-    """
-    if not iso_utc:
-        return iso_utc or ""
-    try:
-        s = iso_utc.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(s)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(TAIPEI_TZ).strftime("%Y-%m-%d %H:%M:%S")
-    except (ValueError, TypeError):
-        return iso_utc
+# === Query string 安全轉 int / 時區 UTC→Taipei 字串 ===
+# Week 6 #017：定義已抽至 web/helpers.py；上方 import 區塊以別名 import 確保
+# 既有 import `from web.app import _safe_int, _to_taipei_str, TAIPEI_TZ` 仍運作。
 
 
 def _build_abnormal_pdf(

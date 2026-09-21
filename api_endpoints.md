@@ -104,11 +104,14 @@ GET .../media?format=fmp4&t=<ISO8601 start> → 回 H.264 fragmented MP4 stream
 
 | Method | Path | 用途 | 來源 |
 |---|---|---|---|
-| GET | `/` / `/clips` | 兩段式 UI 頁（NVR + 時間 → 縮圖 grid → 點擊載 30s 影片）| `web/templates/clips.html` |
-| GET | `/clips/nvrs` | JSON：所有 NVR 清單（給下拉用）| `web/db.py::get_nvrs` |
-| GET | `/clips/cameras` | ?nvr_id= → JSON cameras list | `web/db.py::list_cameras_for_nvr` |
-| GET | `/clips/snapshots` | ?nvr_id=&t= → 並行抓 N 台相機 jpeg，縮圖後 JSON | `web/clips_app.py::fetch_snapshots_parallel` |
-| POST | `/clips/fetch` | {nvr_id, camera_id, start, end} → stream mp4 bytes | `web/clips_app.py::clips_fetch` |
+| GET | `/` / `/clips` | 兩段式 UI 頁（NVR + 時間 → 縮圖 grid → 點擊載 30s 影片）| `web/templates/clips.html`（Week 6 #018 改由 `web/blueprints_clips/pages_bp.py` 提供） |
+| GET | `/clips/nvrs` | JSON：所有 NVR 清單（給下拉用）| `web/db.py::get_nvrs`（Week 6 #018 → `web/blueprints_clips/media_bp.py::nvrs`）|
+| GET | `/clips/cameras` | ?nvr_id= → JSON cameras list | `web/db.py::list_cameras_for_nvr`（Week 6 #018 → `web/blueprints_clips/media_bp.py::cameras`）|
+| GET | `/clips/snapshots` | ?nvr_id=&t= → 並行抓 N 台相機 jpeg，縮圖後 JSON | `web/clips_helpers.fetch_snapshots_parallel`（Week 6 #018 → `web/blueprints_clips/media_bp.py::snapshots`）|
+| POST | `/clips/fetch` | {nvr_id, camera_id, start, end} → stream mp4 bytes | `web/blueprints_clips/media_bp.py::fetch_clip`（Week 6 #018）|
+| POST | `/clips/fetch_sync` | 多 cam 同步 multipart（含 stale probe）| `web/blueprints_clips/media_bp.py::fetch_sync`（Week 6 #018）|
+| GET | `/clips/coverage` | 錄影覆蓋熱區頁（Spec F）| `web/blueprints_clips/coverage_bp.py::coverage`（Week 6 #018）|
+| GET | `/clips/coverage/data` | 熱區 JSON（Spec F）| `web/blueprints_clips/coverage_bp.py::coverage_data`（Week 6 #018）|
 
 **重要**：port 8555 是 **clip Web UI 自己的部署 port**；NVR 端 Media API 仍在 port **8443**。
 
@@ -215,3 +218,4 @@ Mock server 啟動時自動生成自簽憑證（`openssl` CLI），scanner 端�
 | 2026-06-30 | v5.3 | `/events` 加 status 篩選 + `resolved_at` 視覺標記；新增 `/query` ad-hoc SELECT 頁 | Phase 1 Step 3a/3b |
 | 2026-07-06 | v5.4 | 新增 §1.5 NVR Media API（port 8443）+ §1.5.4 Clip Web UI（port 8555）段 | Phase 2.7 影片片段調閱 |
 | 2026-07-07 | v5.5 | 新增 §2.3 歷史 PDF 報告歸檔 + `/reports` + `/reports/download/<id>` 兩個 route；舊 `/abnormal/export.pdf` 改為「即時不存檔」 | 報告歸檔（user request） |
+| 2026-09-21 | v5.6 | §1.5.4 Clip Web UI routes 標註 Week 6 #018 新住處（`web/blueprints_clips/*_bp.py`）；新增 `/clips/fetch_sync` `/clips/coverage` `/clips/coverage/data` 三條 | Week 6 Plan #018 執行完成 |

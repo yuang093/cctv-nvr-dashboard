@@ -85,11 +85,13 @@ def test_run_web_bat_default_is_localhost():
 
 
 def test_csv_template_no_plaintext_password():
-    """CSV import template 不應包含明碼密碼（SECRET 這種 placeholder 也不准）。"""
+    """CSV import template 不應包含明碼密碼（SECRET 這種 placeholder 也不准）。
+
+    Week 6 #017：example_csv 從 web/app.py 搬到 web/blueprints/nvrs_bp.py。
+    """
     here = Path(__file__).resolve().parent.parent
-    app_py = (here / "web" / "app.py").read_text(encoding="utf-8")
-    # 找出 /nvrs/import/template.csv 路由內的 example_csv block
-    m = re.search(r"example_csv\s*=\s*\((.*?)\)", app_py, re.DOTALL)
+    nvrs_bp_py = (here / "web" / "blueprints" / "nvrs_bp.py").read_text(encoding="utf-8")
+    m = re.search(r"example_csv\s*=\s*\((.*?)\)", nvrs_bp_py, re.DOTALL)
     assert m, "找不到 example_csv block"
     csv_block = m.group(1)
     # 不准出現 SECRET（明碼密碼 placeholder）或任何看起來像真密碼的字串
@@ -102,12 +104,14 @@ def test_csv_template_no_plaintext_password():
 
 
 def test_json_template_no_plaintext_password():
-    """JSON import template 不應包含明碼密碼。"""
+    """JSON import template 不應包含明碼密碼。
+
+    Week 6 #017：example 從 web/app.py 搬到 web/blueprints/nvrs_bp.py。
+    """
     here = Path(__file__).resolve().parent.parent
-    app_py = (here / "web" / "app.py").read_text(encoding="utf-8")
-    # 找出 example = [ ... ] block（內含 password 欄位）
+    nvrs_bp_py = (here / "web" / "blueprints" / "nvrs_bp.py").read_text(encoding="utf-8")
     # 抓 password: "..." 的所有出現
-    passwords = re.findall(r'"password":\s*"([^"]+)"', app_py)
+    passwords = re.findall(r'"password":\s*"([^"]+)"', nvrs_bp_py)
     assert passwords, "找不到任何 password 欄位"
     for pwd in passwords:
         assert pwd != "SECRET", "JSON template 含明碼密碼 placeholder 'SECRET'"

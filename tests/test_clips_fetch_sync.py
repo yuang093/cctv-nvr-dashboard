@@ -678,7 +678,9 @@ def test_fetch_sync_excludes_stale_cam(seeded_sync_app, monkeypatch):
             return (True, ["anchor 0s: STALE (test fixture)"])
         return (False, [])
 
+    fake_patch = ca.probe_nvr_stale_cache  # save the original
     monkeypatch.setattr(ca, "_probe_nvr_stale_cache", fake_probe)
+    monkeypatch.setattr(ca, "probe_nvr_stale_cache", fake_probe)
 
     durations = {"cam-a": 60.0, "cam-b": 60.0, "cam-c": 60.0, "cam-d": 60.0}
     client = _FixedDurationClient(durations)
@@ -767,7 +769,9 @@ def test_fetch_sync_partial_stale_includes_excluded_header(
             return (True, ["STALE"])
         return (False, [])
 
+    fake_patch = ca.probe_nvr_stale_cache  # save the original
     monkeypatch.setattr(ca, "_probe_nvr_stale_cache", fake_probe)
+    monkeypatch.setattr(ca, "probe_nvr_stale_cache", fake_probe)
 
     durations = {"cam-a": 60.0, "cam-b": 60.0, "cam-c": 60.0, "cam-d": 60.0}
     client = _FixedDurationClient(durations)
@@ -876,6 +880,7 @@ class TestStaleSessionAutoRetry:
             ),
         )
         monkeypatch.setattr(ca, "_probe_nvr_stale_cache", lambda *a: (False, []))
+        monkeypatch.setattr(ca, "probe_nvr_stale_cache", lambda *a: (False, []))
         monkeypatch.setenv("NVR_CLIPS_CLIENT", "live-stale-test")
 
         client = flask_app.test_client()

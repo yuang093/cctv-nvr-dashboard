@@ -105,10 +105,17 @@ def test_clips_app_has_nvr_routes(clips_app):
 
 
 def test_clips_app_has_dark_toggle_route(clips_app):
+    """Week 6 #018 Stage B：工廠內用 _alias_clips_endpoints 給 pages_bp.dark_toggle
+    同 URL 註冊扁平 alias rule（既有 template 用 url_for('dark_toggle')）。
+    所以 /dark/toggle 現在會有 2 條 rule（bp 原生 + alias），
+    兩條都是同 view function、同 methods。檢查改為「primary endpoint 是 dark_toggle」。
+    """
     app_, _ = clips_app
     rules = [r for r in app_.url_map.iter_rules() if r.rule == "/dark/toggle"]
-    assert len(rules) == 1
-    assert "POST" in rules[0].methods
+    assert len(rules) >= 1, "/dark/toggle 應至少 1 條 route"
+    primary = next((r for r in rules if r.endpoint == "dark_toggle"), rules[0])
+    assert "POST" in primary.methods
+    assert "GET" not in primary.methods
 
 
 # === NVR 清單 ===
