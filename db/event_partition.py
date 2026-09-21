@@ -12,7 +12,7 @@ Phase 1 不直接呼叫（trigger 已處理 INSERT/UPDATE 路由），
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 
 def current_month_table_name(now: datetime | None = None) -> str:
@@ -27,6 +27,32 @@ def next_month_table_name(now: datetime | None = None) -> str:
     if now.month == 12:
         return f"events_{now.year + 1:04d}_01"
     return f"events_{now.year:04d}_{now.month + 1:02d}"
+
+
+def current_hot_tables(
+    today: date | None = None, hot_window: int = 4
+) -> list[str]:
+    """傳回 today 起算 hot_window 個月（含當月）的分區表名清單。
+
+    hot_window=4 → [當月, 上月, 上2月, 上3月]
+    跨越年度時自動遞減月份並遞增年份（12 月 → 隔年 1 月）。
+
+    Args:
+        today: 計算基準日；None = 今天（UTC）
+        hot_window: view 內含的月份數（含當月），預設 4
+
+    Returns:
+        list[str] 表名清單，由新到舊（[當月, 上月, ..., 最舊]）
+    """
+    today = today or datetime.now(timezone.utc).date()
+    names = []
+    for offset in range(hot_window):
+        y, m = today.year, today.month - offset
+        while m <= 0:
+            m += 12
+            y -= 1
+        names.append(f"events_{y:04d}_{m:02d}")
+    return names
 
 
 def ensure_next_month_partition(conn: sqlite3.Connection) -> str:
