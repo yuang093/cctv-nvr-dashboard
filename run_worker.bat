@@ -51,6 +51,18 @@ if "%HOUR%"==" 3" if "%WEEKDAY%"=="0" (
     )
 )
 
+REM === Week 5 #015 audit log 日每 04:00 rotation ===
+if "%HOUR%"==" 4" (
+    echo [INFO] Week 5 #015 running audit log rotation at %date% %time%
+    python scripts\rotate_audit_log.py ^
+        --db "%PROJECT_DIR%\nvr_scan.db" ^
+        --archive-dir "%PROJECT_DIR%\archives\audit" ^
+        --retention-days 90
+    if errorlevel 1 (
+        echo [WARN] rotate_audit_log exit_code=%errorlevel%
+    )
+)
+
 python nvr_scanner.py >> "%LOG_DIR%\nvr_scanner.log" 2>&1
 set "EXIT_CODE=%errorlevel%"
 

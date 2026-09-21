@@ -45,13 +45,26 @@ def list_cold_partitions(
         conn.close()
 
 
-def dump_and_compress(db_path: str, table_name: str, archive_dir: str) -> str:
+def dump_and_compress(
+    db_path: str,
+    table_name: str,
+    archive_dir: str,
+    suffix: str | None = None,
+) -> str:
     """用 Python sqlite3.iterdump() 把 table 轉 SQL 並 gzip。
+
+    Args:
+        db_path: SQLite 檔路徑
+        table_name: 要 dump 的 table 名稱
+        archive_dir: 輸出 .sql.gz 的目錄
+        suffix: 自訂檔名（None → "{table_name}.sql.gz"）
+                e.g. "audit_log_2026-09-22.sql.gz" for Week 5 audit log rotation
 
     Returns: 產出的 .sql.gz 完整路徑
     """
     Path(archive_dir).mkdir(parents=True, exist_ok=True)
-    out_path = str(Path(archive_dir) / f"{table_name}.sql.gz")
+    archive_name = suffix or f"{table_name}.sql.gz"
+    out_path = str(Path(archive_dir) / archive_name)
 
     conn = sqlite3.connect(db_path)
     try:
