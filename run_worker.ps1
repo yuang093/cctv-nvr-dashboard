@@ -43,6 +43,24 @@ if (-not (Test-Path $LOG_DIR)) {
 
 $LOG_FILE = Join-Path $LOG_DIR "nvr_scanner.log"
 
+# === Week 4 #011 歸檔守門（每週日凌晨 03:00 才跑）===
+# PowerShell: DayOfWeek 0=Sunday；小時 3=凌晨 3 點
+$HOUR = (Get-Date).Hour
+$DOW = [int](Get-Date).DayOfWeek
+if ($HOUR -eq 3 -and $DOW -eq 0) {
+    $ARCHIVE_DIR = Join-Path $PROJECT_DIR "archives"
+    python scripts/archive_old_partitions.py `
+        --db (Join-Path $PROJECT_DIR "nvr_scan.db") `
+        --archive-dir $ARCHIVE_DIR `
+        --hot-window 4 `
+        --keep-months 1 `
+        2>&1 | Tee-Object -FilePath $LOG_FILE -Append
+    $ARCHIVE_EXIT = $LASTEXITCODE
+    if ($ARCHIVE_EXIT -ne 0) {
+        Add-Content -Path $LOG_FILE -Value "[$(Get-Date -Format 'o')] archive_old_partitions exit_code=$ARCHIVE_EXIT"
+    }
+}
+
 # 執行掃描（Tee-Object 同時印到 stdout 與 log file）
 python nvr_scanner.py 2>&1 | Tee-Object -FilePath $LOG_FILE -Append
 $EXIT_CODE = $LASTEXITCODE
