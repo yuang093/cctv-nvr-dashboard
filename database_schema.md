@@ -105,32 +105,49 @@
 
 ---
 
-## 4.1 `events_YYYY_MM` — 月分區實體表（Week 3 Issue #008）
+## 4.1 `events` view — 動態 UNION 4 張熱表（Week 4 Issue #011）
 
-**動機**：88 NVR × 5 分鐘 × 永久保留 → 5 年後 2.3 億筆 events。SQLite 全表掃描會慢到不可用。月分區後，查詢只掃當月表（或加上 `occurred_at` 範圍條件走索引）。
+**Week 4 起**：`events` view 從「單一 monthly table」改為「`UNION ALL` 當月 + 上 3 個月共 4 張熱表」。
+冷資料（>90 天）對應的分區表從 view 卸除但**仍留在 SQLite**，待 archive 整批壓縮後才 DROP。
 
-| 月份表 | 用途 |
+view SQL 範例（假設 today=2026-10-15）：
+```sql
+CREATE VIEW events AS
+    SELECT * FROM events_2026_10
+    UNION ALL
+    SELECT * FROM events_2026_09
+    UNION ALL
+    SELECT * FROM events_2026_08
+    UNION ALL
+    SELECT * FROM events_2026_07;
+```
+
+| 物件 | 角色 |
 |---|---|
-| `events_legacy` | Week 3 migration 之前的歷史資料（唯讀，emergency rollback 用） |
-| `events_2026_09` | 2026 年 9 月（migration 當月） |
-| `events_2026_10` | 2026 年 10 月（月底 cron 自動建立） |
-
-**Schema**：與 §4 events 完全一致（12 欄，含 `camera_id`、`resolved_at`）。
-
-**查詢**：`SELECT * FROM events` 透明走 view 看當月表；既有 132 項測試零修改。
+| `events` (view) | 4 張熱表 UNION；應用層 `SELECT * FROM events` 完全透明 |
+| `events_insert_router` (INSTEAD OF INSERT) | 寫入當月 `events_YYYY_MM` |
+| `events_update_router` (INSTEAD OF UPDATE) | 依 `OLD.id` 更新當月表 |
+| `events_YYYY_MM` 實體表 | 4 張熱表（hot_window=4，含當月） |
+| `events_legacy` | Week 3 migration 前的歷史資料（唯讀，emergency rollback） |
 
 **寫入**：
-- `INSERT INTO events` → `INSTEAD OF INSERT` trigger 路由到當月 `events_YYYY_MM`
-- `UPDATE events SET ...` → `INSTEAD OF UPDATE` trigger 依 `OLD.id` 找對應月份表更新
+- `INSERT INTO events` → INSTEAD OF INSERT trigger 路由到**當月** `events_YYYY_MM`（hot[0]）
+- `UPDATE events SET ...` → INSTEAD OF UPDATE trigger 依 `OLD.id` 找對應月份表更新
 - 已知 SQLite 限制：`cur.rowcount` 在 INSTEAD OF UPDATE 下永遠回傳 0；`mark_resolved()` 改用預先 `SELECT COUNT` 取得實際匹配數
 
-**索引**（原本在 SCHEMA_SQL 對 `events` 建，Week 3 移到 monthly table）：
+**索引**（綁定在 monthly table，SQLite 不支援 view 上的 index）：
 - `uq_events_open_per_topic`（partial UNIQUE：`(nvr_id, device_id, event_topic) WHERE resolved_at IS NULL`）
 - `idx_events_scan_run_id` (`scan_run_id`)
 - `idx_events_nvr_occurred` (`nvr_id, occurred_at`)
 - `idx_events_detected_at` (`detected_at`)
 
-**Migration**：`db/migrations/migrate_add_events_partition.py`（idempotent，啟動時 SqliteWriter 自動跑）。
+**Migration**：
+- `db/migrations/migrate_add_events_partition.py` — Week 3：events → view + 當月表 + INSTEAD OF triggers
+- `db/migrations/migrate_add_events_view_union.py` — Week 4：view 改為 UNION 4 張熱表（共用 `db.event_partition.rebuild_events_view` helper）
+
+**view 維護點**：
+- view + triggers 重建由 `db.event_partition.rebuild_events_view()` 統一處理
+- 觸發時機：(a) SqliteWriter `_init_schema` 啟動時自動 rebuild；(b) 歸檔後 `run_archive_pass()` 內 rebuild
 
 **Emergency Rollback**（萬一 view/trigger 出問題）：
 ```sql
@@ -138,6 +155,46 @@ DROP VIEW events;
 ALTER TABLE events_legacy RENAME TO events;
 DROP TABLE events_YYYY_MM;
 ```
+
+## 4.2 `events` 冷資料歸檔 SOP（Week 4 Issue #011）
+
+**目標**：當某個舊月份實體表的所有資料都確定超過 90 天（超出 hot window）時，
+將整張表 dump 成 `.sql.gz` 封存檔並 DROP，釋放磁碟空間。
+
+**歸檔流程**（`scripts/archive_old_partitions.py`）：
+```
+1. list_cold_partitions() → 識別 hot window 外的 events_YYYY_MM 表
+2. keep_months=1 安全緩衝：保留最新 N 個月 cold 不歸檔
+3. dump_and_compress() → Python sqlite3.iterdump() + gzip → events_YYYY_MM.sql.gz
+4. drop_and_vacuum() → DROP TABLE + VACUUM（釋放 .db 檔案實際磁碟空間）
+5. rebuild_events_view() → 重建 view 與 INSTEAD OF triggers
+```
+
+**產物格式**：`./archives/events_YYYY_MM.sql.gz`
+- 內容：`CREATE TABLE events_YYYY_MM ...` + `INSERT INTO events_YYYY_MM ...`
+- 還原：`zcat archives/events_YYYY_MM.sql.gz | sqlite3 nvr_scan.db`（會把分區表重新倒回 DB）
+
+**排程整合**：`run_worker.sh` / `.ps1` / `.bat` 在主掃描前守門，**每週日凌晨 03:00** 自動執行：
+- `HOUR==03 && DOW==7`（bash）/ `Hour=3 And DayOfWeek=0`（PowerShell）/ `%HOUR%== 3 if %WEEKDAY%==0`（cmd）
+- 預設參數：`--hot-window 4 --keep-months 1`（總緩衝 120 天，給跨季度調閱用）
+
+**Manual 操作**：
+```bash
+# 預覽（不實際執行）
+python scripts/archive_old_partitions.py --db nvr_scan.db --dry-run
+
+# 正式執行
+python scripts/archive_old_partitions.py --db nvr_scan.db --archive-dir ./archives
+
+# 還原封存檔
+zcat archives/events_2026_06.sql.gz | sqlite3 nvr_scan.db
+```
+
+**安全邊界**：
+- `events_legacy` 不符合 `events_2%` pattern，**永遠不會被誤刪**
+- hot tables 即使存在 0 筆資料也會被 UNION（SQLite view 行為一致）
+- keep_months 預設 1 個月 = 跨季度調閱緩衝
+
 
 ---
 
@@ -236,6 +293,7 @@ DROP TABLE events_YYYY_MM;
 | `db/migrations/002_add_nvr_failure_log.sql` | 新建 `nvr_failure_log` 表 + 2 個索引 | 啟動時 SqliteWriter 自動跑（idempotent）；記錄個別 NVR 連線失敗原因 |
 | `db/migrations/003_add_nvr_enabled.sql` | nvr_servers 表加 `enabled INTEGER NOT NULL DEFAULT 1` | 啟動時 SqliteWriter 自動跑；舊 DB 預設全啟用（idempotent）；v2.7+ 起由 DB 管理啟用狀態 |
 | `db/migrations/004_create_events_partition.py` | events → view + events_YYYY_MM + events_legacy + INSTEAD OF triggers + 4 個索引 | 啟動時 SqliteWriter 自動跑（idempotent）；Week 3 Issue #008。Schema 變更：見 §4.1 |
+| `db/migrations/005_create_events_view_union.py` | events view 改為動態 UNION 4 張熱表 + 重建 INSTEAD OF triggers | 啟動時 SqliteWriter 自動跑（idempotent）；Week 4 Issue #011。Schema 變更：見 §4.1 |
 | Phase 2.8（inline in `db/sqlite_writer.py`） | 加 `image_health_checks` / `discover_sessions` / `event_kind_catalog` 3 表 + `cameras.last_health_check_id` 欄位 + 17 筆 event_kind_catalog seed | 啟動時 SqliteWriter 自動跑（idempotent） |
 
 ---
