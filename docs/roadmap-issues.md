@@ -90,13 +90,15 @@
 
 ---
 
-## Week 4 — 資料庫分區 Phase 2（歸檔） ⏳
+## Week 4 — 資料庫分區 Phase 2（歸檔） ✅
 
 | # | 標題 | 狀態 | 備註 |
 |---|---|---|---|
-| **#011** | `events_archive` 表 + 歸檔 cron 腳本（90 天前的 events 移到 archive） | ⏳ | 待 Week 3 完成 |
+| **#011** | events view 動態 UNION 4 張熱表 + 整表 gzip 歸檔（hot_window=4、keep_months=1、每週日凌晨 03:00、產出 `./archives/`） | ✅ | Week 4 完成；6 commits（c8c1149 → 1c2c089）；994 項 pytest 全綠 |
 
-**流程**：每月 1 號跑 → SELECT old → INSERT archive → DELETE from monthly → VACUUM → audit log
+**架構**：view = 4 張熱表 UNION（90 天滑動窗） + 冷表 gzip 封存 + DROP + VACUUM + view rebuild
+**驗證**：migration 005（view union）+ `db.archive_partitions` + `scripts/archive_old_partitions.py` CLI + run_worker 每週日凌晨守門
+**詳見**：`docs/superpowers/plans/2026-09-21-w4-archive-phase-2.md` + `database_schema.md` §4.1/§4.2
 
 ---
 

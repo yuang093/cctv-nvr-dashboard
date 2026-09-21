@@ -36,6 +36,21 @@ if errorlevel 1 (
 
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
+REM === Week 4 #011 效果守門（每週日夜更 03:00 才跑）===
+REM Windows cmd: %%WEEKDAY%% 0=Sun, 1=Mon...Sat=6
+for /f "tokens=1 delims=:" %%a in ("%time%") do set "HOUR=%%a"
+if "%HOUR%"==" 3" if "%WEEKDAY%"=="0" (
+    echo [INFO] Week 4 #011 running archive pass at %date% %time%
+    python scripts\archive_old_partitions.py ^
+        --db "%PROJECT_DIR%\nvr_scan.db" ^
+        --archive-dir "%PROJECT_DIR%\archives" ^
+        --hot-window 4 ^
+        --keep-months 1
+    if errorlevel 1 (
+        echo [WARN] archive_old_partitions exit_code=%errorlevel%
+    )
+)
+
 python nvr_scanner.py >> "%LOG_DIR%\nvr_scanner.log" 2>&1
 set "EXIT_CODE=%errorlevel%"
 

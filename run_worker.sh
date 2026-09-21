@@ -8,6 +8,7 @@
 #   - 直接用 venv 內的 python（不需 source activate）
 #   - 全部輸出（stdout + stderr）附加寫到 LOG_FILE
 #   - exit code 透傳到 cron（cron 會記錄，可監控失敗）
+#   - Week 4 #011：每週日凌晨 03:00 自動跑歸檔守門（HOUR==03 && DOW==7）
 #
 # 用法（crontab -e）：
 #   */15 * * * * /opt/nvr/run_worker.sh
@@ -39,6 +40,24 @@ fi
 
 # 確保 log 目錄存在
 mkdir -p "$LOG_DIR"
+
+# === Week 4 #011 歸檔守門（每週日凌晨 03:00 才跑）===
+# 因為是月分區，整表脫落每月頂多一次，每週檢查足夠。
+HOUR=$(date +%H)
+DOW=$(date +%u)  # 1=Mon, 7=Sun
+if [ "$HOUR" == "03" ] && [ "$DOW" == "7" ]; then
+    ARCHIVE_DIR="${PROJECT_DIR}/archives"
+    "$VENV_PY" scripts/archive_old_partitions.py \
+        --db "${PROJECT_DIR}/nvr_scan.db" \
+        --archive-dir "$ARCHIVE_DIR" \
+        --hot-window 4 \
+        --keep-months 1 \
+        >> "$LOG_FILE" 2>&1
+    ARCHIVE_EXIT=$?
+    if [ $ARCHIVE_EXIT -ne 0 ]; then
+        echo "[$(date -Iseconds)] archive_old_partitions exit_code=$ARCHIVE_EXIT" >> "$LOG_FILE"
+    fi
+fi
 
 # 執行掃描（stdin 從 /dev/null 避免 cron 卡住）
 "$VENV_PY" nvr_scanner.py < /dev/null >> "$LOG_FILE" 2>&1
