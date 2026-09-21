@@ -393,6 +393,15 @@ def create_app(db_path: str | None = None, secret_key: str | None = None) -> Fla
         except Exception as e:
             print(f"[WARN] schema init 失敗：{e}")
     _register_blueprints(app)
+
+    # === Week 5 middleware 註冊點（#012-#016，待 PR #3 merge 後啟用）===
+    # 5 個 middleware 必須集中在 factory 主幹註冊，不可進入任何 bp。
+    # 待 Week 6 主線合併 Week 5 後，由 Plan §D2「保留 module-level」覆寫：
+    #   - from web.auth.middleware import register_auth_middleware  # #012
+    #   - from web.ratelimit import make_exempt_when_trusted_ip      # #014
+    #   - from audit.middleware import register_audit_middleware      # #015
+    # 註冊位置選擇：路由前面（讓 before_request 早攔截）但 SECRET_KEY 已設完。
+    # 條件：全部以「feature flag 預設關 → pass-through」架構，不影響既有測試。
     return app
 
 
