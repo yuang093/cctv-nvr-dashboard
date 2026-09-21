@@ -10,10 +10,13 @@
 1. `nvr_servers` — NVR 設定檔內容鏡像（執行時載入）
 2. `cameras` — 每台 NVR 下的攝影機清單
 3. `scan_runs` — 每次掃描執行的記錄
-4. `events` — 當次掃描偵測到的異常事件（ACTIVE）
-5. `image_health_checks` — Phase 2.8（Arisan 影像健康巡檢）每張 cam 縮圖分析紀錄
-6. `discover_sessions` — Phase 2.8（Arisan 探索網段）每次探索任務紀錄
-7. `event_kind_catalog` — Phase 2.8（Arisan）17 種事件主題中文顯示字典
+4. `events` — 當次掃描偵測到的異常事件（ACTIVE；Week 3 起改為 view）
+5. `nvr_failure_log` — 個別 NVR 連線失敗紀錄（v2.7+）
+6. `audit_log` — 資安事件紀錄（Week 5 Issue #015）
+7. `users` — 登入帳號（Week 5 Issue #012）
+8. `image_health_checks` — Phase 2.8（Arisan 影像健康巡檢）每張 cam 縮圖分析紀錄
+9. `discover_sessions` — Phase 2.8（Arisan 探索網段）每次探索任務紀錄
+10. `event_kind_catalog` — Phase 2.8（Arisan）17 種事件主題中文顯示字典
 
 ---
 
@@ -285,20 +288,54 @@ zcat archives/events_2026_06.sql.gz | sqlite3 nvr_scan.db
 
 ---
 
-## 5. Migration 紀錄
-
-| 版本 | 描述 | 套用時機 |
-|---|---|---|
-| `db/migrations/001_add_resolved_at.sql` | events 表加 `resolved_at TEXT NULL` | 啟動時 SqliteWriter 自動跑；舊 DB 也適用（idempotent） |
-| `db/migrations/002_add_nvr_failure_log.sql` | 新建 `nvr_failure_log` 表 + 2 個索引 | 啟動時 SqliteWriter 自動跑（idempotent）；記錄個別 NVR 連線失敗原因 |
-| `db/migrations/003_add_nvr_enabled.sql` | nvr_servers 表加 `enabled INTEGER NOT NULL DEFAULT 1` | 啟動時 SqliteWriter 自動跑；舊 DB 預設全啟用（idempotent）；v2.7+ 起由 DB 管理啟用狀態 |
-| `db/migrations/004_create_events_partition.py` | events → view + events_YYYY_MM + events_legacy + INSTEAD OF triggers + 4 個索引 | 啟動時 SqliteWriter 自動跑（idempotent）；Week 3 Issue #008。Schema 變更：見 §4.1 |
-| `db/migrations/005_create_events_view_union.py` | events view 改為動態 UNION 4 張熱表 + 重建 INSTEAD OF triggers | 啟動時 SqliteWriter 自動跑（idempotent）；Week 4 Issue #011。Schema 變更：見 §4.1 |
-| Phase 2.8（inline in `db/sqlite_writer.py`） | 加 `image_health_checks` / `discover_sessions` / `event_kind_catalog` 3 表 + `cameras.last_health_check_id` 欄位 + 17 筆 event_kind_catalog seed | 啟動時 SqliteWriter 自動跑（idempotent） |
 
 ---
 
-## 6. `image_health_checks` — 影像健康巡檢紀錄（Phase 2.8）
+## 6. `audit_log` — 資安事件紀錄（Week 5 Issue #015）
+
+Flask-Login 登入、登出、access_denied、query 等事件寫入此表。
+
+```sql
+CREATE TABLE audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NULL,           -- FK→users.id；ops_auto 不綁 user 故 NULL
+    event TEXT NOT NULL,            -- login / login_failed / logout / access_denied / query / request / password_changed
+    ip TEXT NOT NULL,
+    user_agent TEXT NULL,
+    payload_json TEXT NULL,         -- 查詢條件、path、username 等
+    created_at TEXT NOT NULL        -- ISO 8601 UTC+8
+);
+CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
+CREATE INDEX idx_audit_log_user_id ON audit_log(user_id);
+CREATE INDEX idx_audit_log_event ON audit_log(event);
+```
+
+**寫入控制**：`NVR_AUDIT_ENABLED=False`（預設）→ `audit/middleware.py` 完全 pass-through，不寫入。預設關閉是 Week 5 安全內化策略的一部分（dashboard 行為 = Week 4 完全相同）。
+
+**Retention**：`scripts/rotate_audit_log.py` 每日 04:00 把超過 90 天的 rows 透過 `dump_and_compress()`（Week 4）封存為 `archives/audit/audit_log_YYYY-MM-DD.sql.gz` 後 DELETE。run_worker 三平台已加守門。
+
+---
+
+## 7. `users` — 登入帳號（Week 5 Issue #012）
+
+```sql
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,    -- werkzeug.security.generate_password_hash
+    must_change_password INTEGER NOT NULL DEFAULT 0,  -- 首次登入後由 /change-password 清成 0
+    last_login_at TEXT NULL,
+    created_at TEXT NOT NULL
+);
+```
+
+**預設帳號**：首次啟動自動建立 `admin` 帳號，密碼從 `NVR_ADMIN_DEFAULT_PASSWORD` env 讀（預設 `admin`）；`must_change_password=1`。使用者首次登入後 middleware 強制重導到 `/change-password`。
+
+**寫入控制**：`NVR_AUTH_ENABLED=False`（預設）→ `web/auth/middleware.py` 完全 pass-through，不檢查登入狀態。內網 IP（預設 127/8, 10/8, 172.16/12, 192.168/16）自動視為已登入 ops 群組（透過 `web/auth/ip_whitelist.py::is_trusted_ip` 判定）；外網 IP 強制 redirect `/login`。
+
+---
+
+## 8. `image_health_checks` — 影像健康巡檢紀錄（Phase 2.8）
 
 每張 cam 縮圖分析結果。worker 對 active cam 抓 2 張 jpeg（間隔 5s）後分析：
 - 模糊（blur_var）
@@ -321,7 +358,7 @@ zcat archives/events_2026_06.sql.gz | sqlite3 nvr_scan.db
 
 ---
 
-## 7. `discover_sessions` — 探索網段任務紀錄（Phase 2.8）
+## 9. `discover_sessions` — 探索網段任務紀錄（Phase 2.8）
 
 每次 `POST /devices/discover` 啟動的探索任務（含 CIDR、結果、狀態）。
 
@@ -336,7 +373,7 @@ zcat archives/events_2026_06.sql.gz | sqlite3 nvr_scan.db
 
 ---
 
-## 8. `event_kind_catalog` — 17 種事件主題中文字典（Phase 2.8）
+## 10. `event_kind_catalog` — 17 種事件主題中文字典（Phase 2.8）
 
 UI 顯示單一真相：所有 events topic 一律查此表拿 `name_zh`，不在 catalog 的 topic fallback 顯示原文 + `?`。
 
@@ -376,3 +413,17 @@ UI 顯示單一真相：所有 events topic 一律查此表拿 `name_zh`，不�
 | 欄位 | 型別 | 說明 |
 |---|---|---|
 | `last_health_check_id` | INTEGER NULL | 反向指向最近一次 `image_health_checks.id`（NULL = 尚未檢查） |
+---
+
+## 11. Migration 紀錄
+
+| 版本 | 描述 | 套用時機 |
+|---|---|---|
+| `db/migrations/001_add_resolved_at.sql` | events 表加 `resolved_at TEXT NULL` | 啟動時 SqliteWriter 自動跑；舊 DB 也適用（idempotent） |
+| `db/migrations/002_add_nvr_failure_log.sql` | 新建 `nvr_failure_log` 表 + 2 個索引 | 啟動時 SqliteWriter 自動跑（idempotent）；記錄個別 NVR 連線失敗原因 |
+| `db/migrations/003_add_nvr_enabled.sql` | nvr_servers 表加 `enabled INTEGER NOT NULL DEFAULT 1` | 啟動時 SqliteWriter 自動跑；舊 DB 預設全啟用（idempotent）；v2.7+ 起由 DB 管理啟用狀態 |
+| `db/migrations/004_create_events_partition.py` | events → view + events_YYYY_MM + events_legacy + INSTEAD OF triggers + 4 個索引 | 啟動時 SqliteWriter 自動跑（idempotent）；Week 3 Issue #008。Schema 變更：見 §4.1 |
+| `db/migrations/005_create_events_view_union.py` | events view 改為動態 UNION 4 張熱表 + 重建 INSTEAD OF triggers | 啟動時 SqliteWriter 自動跑（idempotent）；Week 4 Issue #011。Schema 變更：見 §4.1 |
+| `db/migrations/migrate_create_audit_log.py` | 新建 `audit_log` 表 + 3 個 indexes | 啟動時 SqliteWriter 自動跑（idempotent）；Week 5 Issue #015。詳見 §6 |
+| `db/migrations/migrate_create_users.py` | 新建 `users` 表 + 預設 admin 帳號（首次啟動） | 啟動時 SqliteWriter 自動跑（idempotent）；Week 5 Issue #012。詳見 §7 |
+| Phase 2.8（inline in `db/sqlite_writer.py`） | 加 `image_health_checks` / `discover_sessions` / `event_kind_catalog` 3 表 + `cameras.last_health_check_id` 欄位 + 17 筆 event_kind_catalog seed | 啟動時 SqliteWriter 自動跑（idempotent） |

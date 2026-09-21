@@ -61,6 +61,20 @@ if ($HOUR -eq 3 -and $DOW -eq 0) {
     }
 }
 
+# === Week 5 #015 audit log 每日 04:00 rotation ===
+if ($HOUR -eq 4) {
+    $AUDIT_ARCHIVE_DIR = Join-Path $PROJECT_DIR "archives\audit"
+    python scripts/rotate_audit_log.py `
+        --db (Join-Path $PROJECT_DIR "nvr_scan.db") `
+        --archive-dir $AUDIT_ARCHIVE_DIR `
+        --retention-days 90 `
+        2>&1 | Tee-Object -FilePath $LOG_FILE -Append
+    $AUDIT_EXIT = $LASTEXITCODE
+    if ($AUDIT_EXIT -ne 0) {
+        Add-Content -Path $LOG_FILE -Value "[$(Get-Date -Format 'o')] rotate_audit_log exit_code=$AUDIT_EXIT"
+    }
+}
+
 # 執行掃描（Tee-Object 同時印到 stdout 與 log file）
 python nvr_scanner.py 2>&1 | Tee-Object -FilePath $LOG_FILE -Append
 $EXIT_CODE = $LASTEXITCODE

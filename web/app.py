@@ -1872,6 +1872,21 @@ def _maybe_open_browser(host: str, port: int, auto_open: bool) -> None:
 
 
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--https",
+        default="none",
+        choices=["none", "adhoc", "cert"],
+        help="HTTPS 模式（Week 5 #013）",
+    )
+    parser.add_argument("--cert", default=None)
+    parser.add_argument("--key", default=None)
+    args, _unknown = parser.parse_known_args()
+
+    from web.https_runner import build_ssl_context
+
     host = os.environ.get("NVR_WEB_HOST", "127.0.0.1")  # Day-0: 預設只綁本機
     port = int(os.environ.get("NVR_WEB_PORT", "8444"))
     debug = os.environ.get("NVR_WEB_DEBUG", "").lower() in ("1", "true")
@@ -1912,12 +1927,14 @@ def main() -> None:
     # threaded=True 必須（Werkzeug 預設單 thread，背景 scan thread 跑時
     #   連 accept queue 都會卡死；2026-07-06 親身踩到 — /scan 永不回應）
     # Flask 3.x 用 **options 收集剩餘 kwargs 直傳 run_simple，所以直接列舉
+    ssl_context = build_ssl_context(args.https, args.cert, args.key)
     app.run(
         host=host,
         port=port,
         debug=debug,
         use_reloader=False,
         threaded=True,
+        ssl_context=ssl_context,
     )
 
 

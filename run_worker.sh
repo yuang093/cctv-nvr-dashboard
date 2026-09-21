@@ -59,6 +59,19 @@ if [ "$HOUR" == "03" ] && [ "$DOW" == "7" ]; then
     fi
 fi
 
+# === Week 5 #015 audit log 每日 04:00 rotation ===
+if [ "$HOUR" == "04" ]; then
+    "$VENV_PY" scripts/rotate_audit_log.py \
+        --db "${PROJECT_DIR}/nvr_scan.db" \
+        --archive-dir "${PROJECT_DIR}/archives/audit" \
+        --retention-days 90 \
+        >> "$LOG_FILE" 2>&1
+    AUDIT_EXIT=$?
+    if [ $AUDIT_EXIT -ne 0 ]; then
+        echo "[$(date -Iseconds)] rotate_audit_log exit_code=$AUDIT_EXIT" >> "$LOG_FILE"
+    fi
+fi
+
 # 執行掃描（stdin 從 /dev/null 避免 cron 卡住）
 "$VENV_PY" nvr_scanner.py < /dev/null >> "$LOG_FILE" 2>&1
 exit_code=$?
