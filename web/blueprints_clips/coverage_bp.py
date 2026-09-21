@@ -19,7 +19,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request
 from nvr_scanner import get_credential
 
 from web import db as webdb
-from web.clips_helpers import build_nvr_config, get_db_path, login_nvr
+from web import clips_app as _ch
 from web.coverage import fetch_coverage_from_nvr
 
 logger = logging.getLogger("nvr.clips")
@@ -76,7 +76,7 @@ def coverage_data():
     if end_dt <= start_dt:
         return jsonify({"error": "end 必須大於 start"}), 400
 
-    db_path = get_db_path()
+    db_path = _ch.get_db_path()
     nvr_row = webdb.get_nvr(db_path, internal_id)
     if nvr_row is None:
         return jsonify({"error": f"找不到 NVR id={internal_id}"}), 404
@@ -86,11 +86,11 @@ def coverage_data():
         return jsonify({"error": "該 NVR 沒有 cam"}), 404
 
     try:
-        session_token = login_nvr(nvr_row)
+        session_token = _ch.login_nvr(nvr_row)
         from nvr_scanner import AvigilonScanner
 
         scanner = AvigilonScanner(
-            build_nvr_config(nvr_row),
+            _ch.build_nvr_config(nvr_row),
             user_nonce=get_credential(
                 "AVIGILON_USER_NONCE", "AVIGILON_USER_NONCE", hide=False
             ),

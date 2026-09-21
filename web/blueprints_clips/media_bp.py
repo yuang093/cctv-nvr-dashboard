@@ -24,17 +24,8 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, current_app, jsonify, render_template, request, Response
 
 from web import db as webdb
-from web.clips_helpers import (
-    SessionStore,
-    fetch_snapshots_parallel,
-    format_excluded_cams,
-    get_client_for_nvr,
-    get_db_path,
-    get_session_for_nvr,
-    login_nvr,
-    probe_nvr_stale_cache,
-    _MAX_FETCH_WALL_SECONDS,
-)
+from web import clips_app as _ch  # lazy attrs via clips_app module (monkeypatch-friendly)
+from web.clips_helpers import SessionStore  # class for type hint only; callsites use _ch.X
 from web.clip_retrieval import (
     MediaApiClient,
     NvrAuthError,
@@ -56,7 +47,7 @@ def _session_store() -> SessionStore:
 @media_bp.route("/nvrs")
 def nvrs():
     """JSON：所有 NVR 清單（給 dropdown 用）。"""
-    rows = webdb.get_nvrs(get_db_path())
+    rows = webdb.get_nvrs(_ch.get_db_path())
     return jsonify(
         [
             {
@@ -80,7 +71,7 @@ def cameras():
         return jsonify({"error": "nvr_id 必須是整數"}), 400
     if not internal_id:
         return jsonify({"error": "缺少 nvr_id"}), 400
-    cams = webdb.list_cameras_for_nvr(get_db_path(), internal_id)
+    cams = webdb.list_cameras_for_nvr(_ch.get_db_path(), internal_id)
     return jsonify(cams)
 
 
@@ -107,11 +98,11 @@ def snapshots():
     except ValueError as e:
         return jsonify({"error": f"t 解析失敗：{e}"}), 400
 
-    nvr_row = webdb.get_nvr(get_db_path(), internal_id)
+    nvr_row = webdb.get_nvr(_ch.get_db_path(), internal_id)
     if not nvr_row:
         return jsonify({"error": f"找不到 NVR internal_id={internal_id}"}), 404
 
-    cams = webdb.list_cameras_for_nvr(get_db_path(), internal_id)
+    cams = webdb.list_cameras_for_nvr(_ch.get_db_path(), internal_id)
     if not cams:
         return jsonify({"warning": "此 NVR 沒有相機", "snapshots": []})
 
@@ -122,19 +113,19 @@ def snapshots():
         session_token = "MOCK-SESSION"
     else:
         try:
-            session_token = get_session_for_nvr(internal_id, _session_store())
+            session_token = _ch.get_session_for_nvr(internal_id, _session_store())
         except Exception as e:
             logger.error("login 失敗：%s", e)
             return jsonify({"error": f"login 失敗：{e}"}), 502
 
-    client = get_client_for_nvr(nvr_row, session_token=session_token)
+    client = _ch.get_client_for_nvr(nvr_row, session_token=session_token)
     selected = request.args.get("camera_ids", "").strip()
     if selected:
         wanted = set(s.strip() for s in selected.split(",") if s.strip())
         cams = [c for c in cams if c["device_id"] in wanted]
     camera_ids = [c["device_id"] for c in cams]
     id_to_name = {c["device_id"]: c["name"] for c in cams}
-    snapshots = fetch_snapshots_parallel(client, camera_ids, at_time)
+    snapshots = _ch.fetch_snapshots_parallel(client, camera_ids, at_time)
     for s in snapshots:
         s["camera_name"] = id_to_name.get(
             s.get("camera_id", ""), s.get("camera_id", "")
@@ -176,7 +167,7 @@ def fetch_clip():
     if not internal_id or not camera_id:
         return jsonify({"error": "缺少 nvr_id 或 camera_id"}), 400
 
-    nvr_row = webdb.get_nvr(get_db_path(), internal_id)
+    nvr_row = webdb.get_nvr(_ch.get_db_path(), internal_id)
     if not nvr_row:
         return jsonify({"error": f"找不到 NVR internal_id={internal_id}"}), 404
 
@@ -184,12 +175,12 @@ def fetch_clip():
         session_token = "MOCK-SESSION"
     else:
         try:
-            session_token = get_session_for_nvr(internal_id, _session_store())
+            session_token = _ch.get_session_for_nvr(internal_id, _session_store())
         except Exception as e:
             logger.error("login 失敗：%s", e)
             return jsonify({"error": f"login 失敗：{e}"}), 502
 
-    client = get_client_for_nvr(nvr_row, session_token=session_token)
+    client = _ch.get_client_for_nvr(nvr_row, session_token=session_token)
     target_seconds = (end - start).total_seconds()
 
     logger.info(
@@ -254,7 +245,7 @@ def fetch_clip():
                 camera_id,
                 actual_start,
                 actual_end,
-                max_wall_seconds=_MAX_FETCH_WALL_SECONDS,
+                max_wall_seconds=_ch._MAX_FETCH_WALL_SECONDS,
             )
         )
         _t_cf["fetch"] = time.monotonic() - _t_fetch_start
@@ -404,7 +395,7 @@ def fetch_sync():
     request_start = t_center - half_window
     request_end = t_center + half_window
 
-    nvr_row = webdb.get_nvr(get_db_path(), internal_id)
+    nvr_row = webdb.get_nvr(_ch.get_db_path(), internal_id)
     if not nvr_row:
         return jsonify({"error": f"找不到 NVR internal_id={internal_id}"}), 404
 
@@ -412,12 +403,12 @@ def fetch_sync():
         session_token = "MOCK-SESSION"
     else:
         try:
-            session_token = get_session_for_nvr(internal_id, _session_store())
+            session_token = _ch.get_session_for_nvr(internal_id, _session_store())
         except Exception as e:
             logger.error("login 失敗：%s", e)
             return jsonify({"error": f"login 失敗：{e}"}), 502
 
-    client = get_client_for_nvr(nvr_row, session_token=session_token)
+    client = _ch.get_client_for_nvr(nvr_row, session_token=session_token)
     is_mock = os.environ.get("NVR_CLIPS_CLIENT", "").lower() == "mock"
 
     def query_cam_availability(cam_spec):
@@ -467,11 +458,11 @@ def fetch_sync():
         if cam_results and all(c.get("auth_failed") for c in cam_results):
             current_app.config["SESSION_STORE"].clear(internal_id)
             try:
-                session_token = get_session_for_nvr(internal_id, _session_store())
+                session_token = _ch.get_session_for_nvr(internal_id, _session_store())
             except Exception as e:
                 logger.error("[fetch_sync] retry login 失敗：%s", e)
                 return jsonify({"error": f"retry login 失敗：{e}"}), 502
-            client = get_client_for_nvr(nvr_row, session_token=session_token)
+            client = _ch.get_client_for_nvr(nvr_row, session_token=session_token)
 
             def query_cam_availability_fresh(cam_spec):
                 cam_id = cam_spec.get("device_id", "")
@@ -551,7 +542,7 @@ def fetch_sync():
 
         def _run_probe(cam_info):
             try:
-                is_stale, evidence = probe_nvr_stale_cache(
+                is_stale, evidence = _ch.probe_nvr_stale_cache(
                     client,
                     cam_info["camera_id"],
                     request_start,
@@ -645,7 +636,7 @@ def fetch_sync():
                     intersection_start,
                     intersection_end,
                     target_seconds=intersection_length,
-                    max_wall_seconds=_MAX_FETCH_WALL_SECONDS,
+                    max_wall_seconds=_ch._MAX_FETCH_WALL_SECONDS,
                 )
             )
             if not body:
@@ -739,7 +730,7 @@ def fetch_sync():
             "X-Intersection-End": intersection_end.isoformat(),
             "X-Intersection-Length": f"{intersection_length:.2f}",
             "X-Cam-Count": str(len(cameras)),
-            "X-Excluded-Cams": format_excluded_cams(stale_cam_ids, list(cam_results)),
+            "X-Excluded-Cams": _ch.format_excluded_cams(stale_cam_ids, list(cam_results)),
             "X-Server-Timing": ", ".join(
                 f"{phase};dur={t * 1000:.1f}" for phase, t in _t_phase.items()
             )
