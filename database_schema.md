@@ -79,6 +79,8 @@
 ## 4. `events` — 異常事件
 每筆 ACTIVE 事件一筆；用於歷史分析與報表查詢。Phase 1 起支援 resolved 追蹤：掃描時若事件對應的相機重新 CONNECTED，會把 `resolved_at` 寫入。
 
+> **Week 3 Issue #008 起**：`events` 改為 SQLite view，底層實體表為 `events_YYYY_MM`（當月分區）+ `events_legacy`（既有資料）。應用層查詢語法不變（`SELECT * FROM events` 自動看當月表）；INSERT/UPDATE 由 `INSTEAD OF` triggers 自動路由到當月表。詳見 §4.1。
+
 | 欄位 | 型別 | 說明 |
 |---|---|---|
 | `id` | INTEGER PK | 內部主鍵 |
@@ -93,13 +95,49 @@
 | `detected_at` | TEXT NOT NULL DEFAULT (datetime('now')) | 本系統偵測時間 |
 | `resolved_at` | TEXT NULL | 事件解除時間（UTC ISO 8601；NULL=進行中，**Phase 1 新增**） |
 | `raw_json` | TEXT NOT NULL | 原始事件 JSON（供日後除錯） |
-| `INDEX` | (scan_run_id), (nvr_id, occurred_at) | 加速查詢 |
+| `INDEX` | (scan_run_id), (nvr_id, occurred_at), (detected_at) | 加速查詢；Week 3 起綁定在當月 monthly table |
 
 **`resolved_at` 規則**：
 - `NULL` → 事件進行中（紅色標記）
 - 非 `NULL` → 已恢復（綠色標記；值為 UTC ISO 8601 字串）
 - 由 worker 在每次 `finish_scan_run()` 之後依相機連線狀態自動更新
 - 對 v1 既有 DB：`SqliteWriter.__init__()` 啟動時自動 `ALTER TABLE`（idempotent）
+
+---
+
+## 4.1 `events_YYYY_MM` — 月分區實體表（Week 3 Issue #008）
+
+**動機**：88 NVR × 5 分鐘 × 永久保留 → 5 年後 2.3 億筆 events。SQLite 全表掃描會慢到不可用。月分區後，查詢只掃當月表（或加上 `occurred_at` 範圍條件走索引）。
+
+| 月份表 | 用途 |
+|---|---|
+| `events_legacy` | Week 3 migration 之前的歷史資料（唯讀，emergency rollback 用） |
+| `events_2026_09` | 2026 年 9 月（migration 當月） |
+| `events_2026_10` | 2026 年 10 月（月底 cron 自動建立） |
+
+**Schema**：與 §4 events 完全一致（12 欄，含 `camera_id`、`resolved_at`）。
+
+**查詢**：`SELECT * FROM events` 透明走 view 看當月表；既有 132 項測試零修改。
+
+**寫入**：
+- `INSERT INTO events` → `INSTEAD OF INSERT` trigger 路由到當月 `events_YYYY_MM`
+- `UPDATE events SET ...` → `INSTEAD OF UPDATE` trigger 依 `OLD.id` 找對應月份表更新
+- 已知 SQLite 限制：`cur.rowcount` 在 INSTEAD OF UPDATE 下永遠回傳 0；`mark_resolved()` 改用預先 `SELECT COUNT` 取得實際匹配數
+
+**索引**（原本在 SCHEMA_SQL 對 `events` 建，Week 3 移到 monthly table）：
+- `uq_events_open_per_topic`（partial UNIQUE：`(nvr_id, device_id, event_topic) WHERE resolved_at IS NULL`）
+- `idx_events_scan_run_id` (`scan_run_id`)
+- `idx_events_nvr_occurred` (`nvr_id, occurred_at`)
+- `idx_events_detected_at` (`detected_at`)
+
+**Migration**：`db/migrations/migrate_add_events_partition.py`（idempotent，啟動時 SqliteWriter 自動跑）。
+
+**Emergency Rollback**（萬一 view/trigger 出問題）：
+```sql
+DROP VIEW events;
+ALTER TABLE events_legacy RENAME TO events;
+DROP TABLE events_YYYY_MM;
+```
 
 ---
 
@@ -197,6 +235,7 @@
 | `db/migrations/001_add_resolved_at.sql` | events 表加 `resolved_at TEXT NULL` | 啟動時 SqliteWriter 自動跑；舊 DB 也適用（idempotent） |
 | `db/migrations/002_add_nvr_failure_log.sql` | 新建 `nvr_failure_log` 表 + 2 個索引 | 啟動時 SqliteWriter 自動跑（idempotent）；記錄個別 NVR 連線失敗原因 |
 | `db/migrations/003_add_nvr_enabled.sql` | nvr_servers 表加 `enabled INTEGER NOT NULL DEFAULT 1` | 啟動時 SqliteWriter 自動跑；舊 DB 預設全啟用（idempotent）；v2.7+ 起由 DB 管理啟用狀態 |
+| `db/migrations/004_create_events_partition.py` | events → view + events_YYYY_MM + events_legacy + INSTEAD OF triggers + 4 個索引 | 啟動時 SqliteWriter 自動跑（idempotent）；Week 3 Issue #008。Schema 變更：見 §4.1 |
 | Phase 2.8（inline in `db/sqlite_writer.py`） | 加 `image_health_checks` / `discover_sessions` / `event_kind_catalog` 3 表 + `cameras.last_health_check_id` 欄位 + 17 筆 event_kind_catalog seed | 啟動時 SqliteWriter 自動跑（idempotent） |
 
 ---
