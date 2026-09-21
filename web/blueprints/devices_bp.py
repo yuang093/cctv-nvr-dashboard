@@ -144,11 +144,15 @@ def devices_discover():
 
 @devices_bp.route("/devices/discover/<int:session_id>")
 def devices_discover_result(session_id: int):
-    """顯示單次探索 session 結果。"""
+    """顯示單次探索 session 結果。
+
+    Week 6 #017 Stage B：原本 web/app.py 用 `session=sess`，
+    模板內 `{{ session.cidr }}` 引用。沿用相同變數名避免改 template。
+    """
     sess = webdb.get_discover_session(_db_path(), session_id)
     if not sess:
         abort(404)
-    return render_template("discover_result.html", sess=sess)
+    return render_template("discover_result.html", session=sess)
 
 
 @devices_bp.route("/devices/<device_id>")

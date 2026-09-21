@@ -102,8 +102,15 @@ def test_all_12_themes_have_css_file():
 
 
 def test_theme_apply_route_methods():
-    """GET /theme/apply 應 405（POST only）。"""
+    """GET /theme/apply 應 405（POST only）。
+
+    Week 6 #017 Stage B：工廠內用 _alias_legacy_endpoints 給所有 bp
+    view function 同 URL 註冊一個扁平 endpoint alias rule。所以
+    /theme/apply 現在會有 2 條 rule（bp 原生 + alias），但兩條都是
+    同 view function、同 methods。檢查改成「至少一條接受 POST、不接受 GET」。
+    """
     rules = [r for r in app.url_map.iter_rules() if r.rule == "/theme/apply"]
-    assert len(rules) == 1, "/theme/apply 應只 1 條 route"
-    assert "POST" in rules[0].methods, "/theme/apply 應接受 POST"
-    assert "GET" not in rules[0].methods, "/theme/apply 不應接受 GET"
+    assert len(rules) >= 1, "/theme/apply 應至少 1 條 route"
+    primary = next((r for r in rules if r.endpoint == "theme_apply"), rules[0])
+    assert "POST" in primary.methods, "/theme/apply 應接受 POST"
+    assert "GET" not in primary.methods, "/theme/apply 不應接受 GET"
