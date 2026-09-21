@@ -24,11 +24,20 @@ def write_audit_event(
         user_id: 操作者 user id（ops_auto 可為 None）
         user_agent: 瀏覽器 UA
         payload: 額外資訊（會序列化成 JSON）
+
+    Note:
+        若 audit_log 表不存在（舊 DB 升級過渡期）→ 靜默跳過，不阻擋主流程。
     """
     payload_json = json.dumps(payload, ensure_ascii=False) if payload else None
     created_at = datetime.now(timezone(timedelta(hours=8))).isoformat()
     conn = sqlite3.connect(db_path)
     try:
+        # 確認表存在（舊 DB 升級過渡期）
+        existing = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='audit_log'"
+        ).fetchone()
+        if not existing:
+            return  # 表不存在，靜默跳過
         conn.execute(
             """
             INSERT INTO audit_log (user_id, event, ip, user_agent, payload_json, created_at)
