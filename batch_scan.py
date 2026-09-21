@@ -434,7 +434,40 @@ def batch_scan(
             nvr2["password"] = pass_override
         prepared.append(nvr2)
 
-    # --- 2. 預先 upsert 所有 NVR 到 nvr_servers 表（即使 scan 失敗設定也保留） ---
+    # --- 2. Week 5 #016：若 NVR_NVR_DOWNSCOPED flag 開啟，先驗證 NVR 帳號權限 ---
+    # 預設關閉 → 整段跳過。開啟時：每台 NVR 登入後檢查帳號是否有 api_reader，
+    # 若無 → 警告（不中斷整批，因為單台降權失敗不應拖累其他 NVR）。
+    from web.config import FeatureFlags as _FF
+    _flags = _FF.from_env()
+    if _flags.nvr_downscoped:
+        from nvr_auth_check import check_nvr_permissions
+        for nvr in prepared:
+            try:
+                scanner_tmp = AvigilonScanner(
+                    nvr,
+                    credentials=credentials,
+                    timeout=timeout,
+                    session=__import__("requests").Session(),
+                )
+                scanner_tmp.login()
+                ok, msg = check_nvr_permissions(nvr["host"], scanner_tmp._session_token or "")
+                if verbose:
+                    print(f"[NVR {nvr.get('name', nvr['host'])}] {msg}")
+                if not ok:
+                    print(
+                        f"[WARN] NVR {nvr.get('name', nvr['host'])} 帳號權限過大，"
+                        "建議降為 api_reader（仍繼續掃描）",
+                        file=sys.stderr,
+                    )
+            except Exception as exc:
+                # 驗證失敗不應中斷整批（避免單台 NVR 故障拖累整批）
+                if verbose:
+                    print(
+                        f"[NVR {nvr.get('name', nvr['host'])}] 權限檢查跳過：{exc}",
+                        file=sys.stderr,
+                    )
+
+    # --- 3. 預先 upsert 所有 NVR 到 nvr_servers 表（即使 scan 失敗設定也保留） ---
     nvr_int_ids: dict[str, int] = {}
     for nvr in prepared:
         try:
@@ -447,7 +480,7 @@ def batch_scan(
                 file=sys.stderr,
             )
 
-    # --- 3. 開始 batch scan_run（單一 transaction） ---
+    # --- 4. 開始 batch scan_run（單一 transaction） ---
     started_at = _now_utc_iso()
     run_id = writer.begin_scan_run(started_at)
     if verbose:
