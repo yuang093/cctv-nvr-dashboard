@@ -7,101 +7,158 @@ URL prefix: `/scan`, `/dashboard/refresh-completeness`
     `/dashboard/refresh-completeness`             POST  timeline 重整觸發
     `/dashboard/refresh-completeness/status`      GET   timeline 狀態
 
-Module-level state（Phase 2.6+）：
-- `_scan_state` / `_scan_lock`  — 跨 thread 共用
-- `_timeline_state` / `_timeline_lock`  — 跨 thread 共用
-- 背景 worker functions：`_run_scan_in_background`、`_run_timeline_refresh`
+Module-level state（process 級全域、跨 thread 共用）：
+- `_scan_state` / `_scan_lock`  — 背景 thread 跑 batch_scan 進度
+- `_timeline_state` / `_timeline_lock`  — 24h timeline 重整進度
+- background workers：`_run_scan_in_background`、`_run_timeline_refresh`
 
-設計：保留 module-level 全域（Plan §D2 拍板），跨 thread 行為零變。
+設計：Plan §D2 — 保留 module-level 全域、不綁進 factory。
+`_run_scan_*` 與 `_reset_scan_state` / `_finish_scan_state` helper 仍保留在 web/app.py，
+此 bp 從 app.py import 進來用，避免重複定義。
 """
 from __future__ import annotations
 
 import threading
 import time
 
-from flask import Blueprint
+from flask import Blueprint, current_app, jsonify, request
+
+from web import db as webdb
+from web.app import (
+    _reset_scan_state,
+    _reset_timeline_state,
+    _finish_scan_state,
+    _finish_timeline_state,
+    _archive_current_report,
+)
+
+# Stage A：state 仍保留在 web/app.py module 級；本 bp 僅 register 路由呼叫。
+# Stage B 後再考慮把 _scan_state / _timeline_state 也搬到此處（Plan §D2）。
 
 scan_bp = Blueprint("scan", __name__)
 
-# === Module-level scan state（process 級全域；跨 thread 可見）===
-_scan_state: dict = {
-    "running": False,
-    "started_at": None,
-    "finished_at": None,
-    "run_id": None,
-    "total_nvrs": 0,
-    "ok_nvrs": 0,
-    "failed_nvrs": 0,
-    "abnormal_cameras": 0,
-    "error": None,
-}
-_scan_lock = threading.RLock()
 
-# === Module-level timeline refresh state（process 級全域）===
-_timeline_state: dict = {
-    "running": False,
-    "started_at": None,
-    "finished_at": None,
-    "checked": 0,
-    "written": 0,
-    "errors_count": 0,
-    "error": None,
-}
-_timeline_lock = threading.RLock()
+def _db_path() -> str:
+    return current_app.config["DB_PATH"]
 
 
-def reset_scan_state(total_nvrs: int | None = None) -> None:
-    """重置 scan 狀態（給 route + background worker 共用）。"""
+@scan_bp.route("/scan", methods=["POST"])
+def scan_trigger():
+    """啟動背景 thread 跑 batch_scan。
+
+    若已在跑，回 409 conflict。
+    同步回 202 + scan 起始資訊；前端輪詢 /scan/status 看進度。
+    """
+    from db.sqlite_writer import acquire_scan_lock
+    from web.app import _scan_lock, _scan_state, _run_scan_in_background
+
     with _scan_lock:
-        _scan_state.update(
-            {
-                "running": True,
-                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "finished_at": None,
-                "run_id": None,
-                "ok_nvrs": 0,
-                "failed_nvrs": 0,
-                "abnormal_cameras": 0,
-                "error": None,
-            }
+        if _scan_state["running"]:
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": "已有掃描在進行中",
+                        "started_at": _scan_state["started_at"],
+                    }
+                ),
+                409,
+            )
+
+        db_path = _db_path()
+        if not acquire_scan_lock(db_path, timeout=0):
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": "已有掃描在進行中（DB 內 status='running'，可能是 cron 或其他 process）",
+                    }
+                ),
+                409,
+            )
+
+        try:
+            enabled_nvrs = webdb.list_enabled_nvrs(db_path)
+            enabled_count = len(enabled_nvrs)
+        except Exception:
+            enabled_count = 0
+        _reset_scan_state(total_nvrs=enabled_count)
+
+        thread = threading.Thread(
+            target=_run_scan_in_background,
+            args=(current_app._get_current_object(), db_path),
+            daemon=True,
+            name="nvr-scan",
         )
-        if total_nvrs is not None:
-            _scan_state["total_nvrs"] = total_nvrs
+        thread.start()
+
+    return (
+        jsonify(
+            {
+                "ok": True,
+                "started_at": _scan_state["started_at"],
+                "total_nvrs": enabled_count,
+            }
+        ),
+        202,
+    )
 
 
-def finish_scan_state(success: bool, **kwargs) -> None:
+@scan_bp.route("/scan/status")
+def scan_status():
+    """查目前 scan 狀態（給前端 polling）。"""
+    from web.app import _scan_lock, _scan_state
+
     with _scan_lock:
-        _scan_state["running"] = False
-        _scan_state["finished_at"] = time.strftime(
-            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
-        )
-        _scan_state.update(kwargs)
-        if not success and "error" not in kwargs:
-            _scan_state["error"] = "scan failed"
+        return jsonify(dict(_scan_state))
 
 
-def reset_timeline_state() -> None:
-    """重置 timeline refresh 狀態。"""
+@scan_bp.route("/dashboard/refresh-completeness", methods=["POST"])
+def refresh_completeness_trigger():
+    """啟動 background thread 跑 24h timeline 收集。
+
+    已在跑 → 409 conflict。同步回 202 + 啟動時間。
+    """
+    from web.app import _timeline_lock, _timeline_state, _run_timeline_refresh
+
     with _timeline_lock:
-        _timeline_state.update(
+        if _timeline_state["running"]:
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": "已有完整率重整在進行中",
+                        "started_at": _timeline_state["started_at"],
+                    }
+                ),
+                409,
+            )
+        _reset_timeline_state()
+
+    db_path = _db_path()
+    thread = threading.Thread(
+        target=_run_timeline_refresh,
+        args=(current_app._get_current_object(), db_path),
+        daemon=True,
+        name="timeline-refresh",
+    )
+    thread.start()
+
+    return (
+        jsonify(
             {
-                "running": True,
-                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "finished_at": None,
-                "checked": 0,
-                "written": 0,
-                "errors_count": 0,
-                "error": None,
+                "ok": True,
+                "started_at": _timeline_state["started_at"],
             }
-        )
+        ),
+        202,
+    )
 
 
-def finish_timeline_state(success: bool, **kwargs) -> None:
+@scan_bp.route("/dashboard/refresh-completeness/status")
+def refresh_completeness_status():
+    """查目前 timeline refresh 進度（給前端 polling）。"""
+    from web.app import _timeline_lock, _timeline_state
+
     with _timeline_lock:
-        _timeline_state["running"] = False
-        _timeline_state["finished_at"] = time.strftime(
-            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
-        )
-        _timeline_state.update(kwargs)
-        if not success and "error" not in kwargs:
-            _timeline_state["error"] = "timeline refresh failed"
+        return jsonify(dict(_timeline_state))
