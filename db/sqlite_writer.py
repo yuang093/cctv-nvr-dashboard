@@ -241,6 +241,8 @@ class SqliteWriter:
             self._migrate_rebuild_events_view_union(conn)
         # Week 5 Issue #015：audit_log 表（idempotent，預設不寫入由 flag 控制）。
         self._migrate_create_audit_log(conn)
+        # Week 5 Issue #012：users 表 + 預設 admin（idempotent）。
+        self._migrate_create_users(conn)
         # Partial UNIQUE index：跨 process 避免重複寫入 open event。
         # 若 events 已被 migration 轉成 view（SQLite 不支援 view 上的 index），
         # index 已由 migration 建在當月 monthly table 上；此處跳過。
@@ -436,6 +438,37 @@ class SqliteWriter:
         conn.execute(
             "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
             (6, datetime.now(timezone.utc).isoformat()),
+        )
+
+    @staticmethod
+    def _migrate_create_users(conn: sqlite3.Connection) -> None:
+        """Week 5 Issue #012：建立 users 表 + 預設 admin（idempotent）。
+
+        注意：admin 帳號只在表完全不存在時才建立（避免覆蓋既有密碼）。
+        """
+        from db.migrations.migrate_create_users import SCHEMA
+
+        existing = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+        ).fetchone()
+        if existing:
+            return  # 表已存在；admin 帳號保留不動
+
+        from datetime import datetime, timezone
+
+        # 確保 schema_migrations 存在
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                version INTEGER PRIMARY KEY,
+                applied_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.executescript(SCHEMA)
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+            (7, datetime.now(timezone.utc).isoformat()),
         )
 
     @staticmethod
