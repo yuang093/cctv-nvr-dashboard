@@ -235,6 +235,10 @@ class SqliteWriter:
         #   2. uq_events_open_per_topic index 之前（SQLite 不支援 view 上的 index，
         #      要等 migration 把 events 轉成 view + monthly table 後才能建在 monthly）。
         self._migrate_add_events_partition(conn)
+        # Week 4 Issue #011：events view 改為動態 UNION hot tables（90 天滑動窗）。
+        # 必須在 partition migration 之後（view 已建立）才能 rebuild。
+        if self._is_events_view(conn):
+            self._migrate_rebuild_events_view_union(conn)
         # Partial UNIQUE index：跨 process 避免重複寫入 open event。
         # 若 events 已被 migration 轉成 view（SQLite 不支援 view 上的 index），
         # index 已由 migration 建在當月 monthly table 上；此處跳過。
@@ -394,6 +398,16 @@ class SqliteWriter:
         conn.execute(
             f"CREATE INDEX idx_events_detected_at ON {current_month}(detected_at)"
         )
+
+    @staticmethod
+    def _migrate_rebuild_events_view_union(conn: sqlite3.Connection) -> None:
+        """Week 4 Issue #011：events view 動態 UNION 4 張熱表（idempotent）。
+
+        委派給 db.event_partition.rebuild_events_view 統一處理 view + triggers 重建。
+        """
+        from db.event_partition import rebuild_events_view
+
+        rebuild_events_view(conn, hot_window=4)
 
     @staticmethod
     def _migrate_add_resolved_at(conn: sqlite3.Connection) -> None:

@@ -21,15 +21,14 @@ from __future__ import annotations
 
 import sqlite3
 import sys
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 
-from db.event_partition import current_hot_tables
+from db.event_partition import rebuild_events_view
 
 
 def run(db_path: str, today: date | None = None, hot_window: int = 4) -> int:
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
     try:
         # ── 檢查 events 是否為 view（Week 3 已轉換才會是 view） ──
         row = conn.execute(
@@ -38,33 +37,16 @@ def run(db_path: str, today: date | None = None, hot_window: int = 4) -> int:
         if row is None:
             print(f"[skip] {db_path} 沒有 events 物件（尚未初始化）")
             return 0
-        if row["type"] != "view":
+        if row[0] != "view":
             print(f"[skip] {db_path} events 不是 view（Week 3 partition 未套用）")
             return 0
 
-        # ── 計算 hot window 名單 ──
-        if today is None:
-            today = datetime.now(timezone.utc).date()
-        hot_names = current_hot_tables(today, hot_window)
-
-        # ── 篩選實際存在的 hot tables ──
-        existing = {
-            r[0]
-            for r in conn.execute(
-                "SELECT name FROM sqlite_master "
-                "WHERE type='table' AND name LIKE 'events_2%'"
-            ).fetchall()
-        }
-        hot = [t for t in hot_names if t in existing]
-        if not hot:
-            print(f"[skip] {db_path} 找不到任何 hot table（{hot_names}）")
-            return 0
-
-        # ── 重建 view ──
-        unions = " UNION ALL ".join(f"SELECT * FROM {t}" for t in hot)
-        conn.execute("DROP VIEW IF EXISTS events")
-        conn.execute(f"CREATE VIEW events AS {unions}")
+        # ── 委派給共用 helper（包含 view + triggers 重建） ──
+        hot = rebuild_events_view(conn, today=today, hot_window=hot_window)
         conn.commit()
+        if not hot:
+            print(f"[skip] {db_path} 找不到任何 hot table")
+            return 0
         print(f"[ok] {db_path} events view 重建 → {hot}")
         return 0
     except Exception as exc:
