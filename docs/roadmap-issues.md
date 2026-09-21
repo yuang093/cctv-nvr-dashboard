@@ -17,7 +17,7 @@
 | **Week 2** | 量化瓶頸（py-spy） | ⏸ | **暫緩**：NVR 192.168.133.141 失聯，待復活後再啟動 |
 | **Week 3** | 資料庫分區 Phase 1 | 🟡 | 本週進行中（`feature/db-partition-phase-1` 分支，Plan 撰寫中） |
 | **Week 4** | 資料庫分區 Phase 2（歸檔） | ⏳ | 待 Week 3 完成 |
-| **Week 5** | 資安提案 B（HTTPS + Flask-Login + rate limit） | ⏳ | 待 Week 3-4 完成 |
+| **Week 5** | 資安提案 B（HTTPS + Flask-Login + rate limit） | ✅ | 2026-09-21 完成（feature/week5-security-hardening，10 commits，1050 項 pytest 全綠） |
 | **Week 6** | Blueprints 拆分 | ⏳ | 待 Week 5 完成 |
 | **Week 7** | Type Hint + OpenAPI（含 23 個 mypy error） | ⏳ | 待 Week 6 完成 |
 | **Week 8** | 最終驗收 | ⏳ | 待 Week 7 完成 |
@@ -106,13 +106,13 @@
 
 | # | 標題 | 狀態 | 備註 |
 |---|---|---|---|
-| **#012** | Flask-Login 整合（users 表 + login_required decorator + session 管理） | ⏳ | 待 Week 4 完成 |
-| **#013** | HTTPS 設定（自簽憑證 / cert renewal / reverse proxy for 8444 + 8555） | ⏳ | 部署摩擦最大 |
-| **#014** | Rate limit middleware（flask-limiter，保護 `/login` / `/query` / `/devices/*`） | ⏳ | |
-| **#015** | Audit log（新增 `audit_log` 表 + 30 項 auth pytest） | ⏳ | 需 Week 3 partition 鋪好寫入層 |
-| **#016** | NVR 端帳號降權（強制 `api_reader` 最低權限） | ⏳ | 需 NVR 端配合設定 |
+| **#012** | Flask-Login 整合（users 表 + login_required decorator + session 管理） | ✅ | Week 5 完成 |
+| **#013** | HTTPS 設定（自簽憑證 / cert renewal / reverse proxy for 8444 + 8555） | ✅ | Week 5 完成（Werkzeug adhoc + reverse proxy 文件） |
+| **#014** | Rate limit middleware（flask-limiter，保護 `/login` / `/query` / `/devices/*`） | ✅ | Week 5 完成（flag 預設關） |
+| **#015** | Audit log（新增 `audit_log` 表 + 30 項 auth pytest） | ✅ | Week 5 完成（復用 Week 4 dump_and_compress） |
+| **#016** | NVR 端帳號降權（強制 `api_reader` 最低權限） | ✅ | Week 5 完成（self-check 工具，flag 預設關） |
 
-**部署摩擦提醒**：NSSM / systemd 需加 reverse proxy 或 cert 路徑；內部 ops 對「無登入即可用」有 UX 預期，需溝通
+**Week 5 策略**：安全內化優先 + 預設關閉（Feature Flags）。Week 5 結束時 dashboard 行為 = Week 4 完全相同（所有 flag 預設 False）；Week 6 翻 flags 即可對外生效。**部署摩擦提醒**：NSSM / systemd 需加 reverse proxy 或 cert 路徑；內部 ops 對「無登入即可用」有 UX 預期，需溝通。Week 5 已建立「內網 IP 白名單 + admin 預設密碼 + 強制改密碼」三層緩衝（D2）。
 
 ---
 
@@ -154,10 +154,10 @@
 
 | 狀態 | 數量 | 百分比 |
 |---|---|---|
-| ✅ 完成 | 5 / 27 | 18.5% |
-| 🟡 進行中 | 1 / 27 | 3.7% |
+| ✅ 完成 | 10 / 27 | 37.0% |
+| 🟡 進行中 | 0 / 27 | 0.0% |
 | ⏸ 暫緩 | 1 / 27 | 3.7% |
-| ⏳ 待辦 | 20 / 27 | 74.1% |
+| ⏳ 待辦 | 16 / 27 | 59.3% |
 
 ---
 
@@ -165,4 +165,5 @@
 
 | 日期 | 變更 | 作者 |
 |---|---|---|
+| 2026-09-21 | Week 5 #012-#016 全部 ✅ | Claude Code × 昱安 |
 | 2026-09-18 | 初版（重建，補上 Week 1 完成狀態 + Week 3 進行中） | Claude Code × 昱安 |
