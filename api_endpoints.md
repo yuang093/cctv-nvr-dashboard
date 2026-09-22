@@ -133,21 +133,21 @@ GET .../media?format=fmp4&t=<ISO8601 start> → 回 H.264 fragmented MP4 stream
 
 Base URL: `http://127.0.0.1:8444`（預設；可用 `NVR_WEB_HOST` / `NVR_WEB_PORT` 環境變數覆寫）
 
-### 2.1 路由表
+### 2.1 路由表（**已由 OpenAPI 自動產生取代**）
 
-| Method | Path | 用途 | 來源 |
-|---|---|---|---|
-| GET | `/` | Dashboard（4 統計卡 + 最近 5 次掃描） | `web/db.py::get_overall_stats` + `get_recent_runs` |
-| GET | `/runs` | 掃描紀錄列表（含分頁，per_page=20） | `web/db.py::get_paginated_runs` |
-| GET | `/runs/<int:run_id>` | 單次掃描詳情（stats + events + cameras） | `web/db.py::get_run` + `get_run_events` + `get_run_cameras` |
-| GET | `/nvrs` | NVR 配置清單（含 camera 數 + 啟用狀態 + 啟用/停用切換按鈕） | `web/db.py::get_nvrs_paginated` |
-| POST | `/nvrs/<int:internal_id>/toggle` | **v2.7+**：切換單台 NVR 啟用狀態（不刪資料） | `web/db.py::set_nvr_enabled` |
-| GET | `/events` | 異常事件篩選清單（hours / nvr / topic / **status**） | `web/db.py::get_events_filtered` |
-| GET/POST | `/query` | **Ad-hoc 唯讀 SELECT 表單 + 結果**（Phase 1 Step 3b） | `web/db.py::run_readonly_query` |
-| GET | `/abnormal/export.pdf` | 即時生成當下故障 PDF（**不存檔**，僅當下狀態） | `web/app.py::abnormal_export_pdf` |
-| GET | `/reports` | **歷史 PDF 報告列表**（每次掃描自動歸檔） | `web/report_archive.py::list_reports` |
-| GET | `/reports/download/<int:run_id>` | 下載指定 run_id 的歸檔 PDF | `web/report_archive.py::find_report` |
-| GET | `/static/style.css` | 樣式表 | `web/static/style.css` |
+> **Week 7 Issue #022 起**：本節路由表由 flasgger 自動產生（45 條 routes：35 dashboard + 10 clips），
+> 手寫維護成本高且易漂移。**Source of truth**：
+>
+> - **Swagger UI**：`http://127.0.0.1:8444/apidocs/`（dashboard）+ `http://127.0.0.1:8555/apidocs/`（clips）
+> - **OpenAPI YAML 規格**：`web/openapi/dashboard/*.yml` + `web/openapi/clips/*.yml`
+> - **Routes 定義**：`web/blueprints/*_bp.py`（8444）+ `web/blueprints_clips/*_bp.py`（8555）
+>
+> 本表僅保留**高層次對照**，完整 schema 與 parameters 請見 Swagger UI。
+
+| App | Port | 業務領域 | 條數 | Source |
+|---|---|---|---|---|
+| dashboard | 8444 | dashboard / runs / nvrs / scan / devices | 35 | `web/blueprints/{dashboard,runs,nvrs,scan,devices}_bp.py` |
+| clips | 8555 | pages / coverage / media | 10 | `web/blueprints_clips/{pages,coverage,media}_bp.py` |
 
 ### 2.2 Query String 參數
 

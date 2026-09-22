@@ -39,7 +39,7 @@
 ## 整合測試（已完成）
 
 - **目標**：在沒真實 NVR 的開發機上跑完整 pipeline（mock HTTPS server ↔ scanner ↔ DB ↔ Flask）。
-- **覆蓋**：27 項整合測試（單 NVR 8 + batch 8 + Web 11），與 69 項 unit 合計 **96 項 pytest 全綠**。
+- **覆蓋**：27 項整合測試（單 NVR 8 + batch 8 + Web 11），與 69 項 unit 合計 **96 項 pytest 全綠**（Week 7 結束時 `pytest -q` **1010 項全綠**，含 5 項 OpenAPI 測試）。
 - **Mock 設計**：`MockAvigilonServer`（`tests/integration/mock_acc.py`）用 `openssl` 生成自簽憑證 + Python `ssl` 模組 + threading HTTP server 模擬 ACC 8.7 API。
 - **執行**：`pytest tests/integration/ -q`（已整合進 CI-ready）。
 - **設計重點**：
@@ -71,9 +71,14 @@
 
 - [x] Web UI 雛形（Flask 5 routes + 6 templates）
 - [x] 整合測試（MockAvigilonServer + 真實 SQLite）
-- [ ] Webhook 推播（Slack / Teams 異常通知）
-- [ ] 事件 resolved 追蹤（`events.resolved_at`）
-- [ ] 即時更新（WebSocket / SSE）
+- [x] Webhook 推播（Slack / Teams 異常通知）
+- [x] 事件 resolved 追蹤（`events.resolved_at`）
+- [x] CI（GitHub Actions 跑 pytest）
+- [x] **Week 5** — 資安：Flask-Login + HTTPS + rate-limit + audit_log + NVR 降權
+- [x] **Week 6** — Blueprint 拆分（8444 dashboard 5 bp + 8555 clips 3 bp）+ 雙 App 隔離
+- [x] **Week 7** — mypy strict subset + OpenAPI（flasgger + 45 條 YAML）
+- [ ] 即時更新（WebSocket / SSE）— **Q4 候選**
+- [ ] 多站台支援（`site_id` 欄位已預留）— **Q4 候選**
 - [ ] 常駐服務（systemd / NSSM）
 - [ ] 帳號權限管理（users / roles）
-- [ ] CI（GitHub Actions 跑 pytest）
+- [ ] mypy 完整 --strict（補完既有 1581 untyped-def）— **Q4 候選**

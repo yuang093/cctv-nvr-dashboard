@@ -96,7 +96,12 @@ def check_routes_in_api_endpoints() -> list[str]:
 
 
 def check_table_names_in_schema_doc() -> list[str]:
-    """檢查 database_schema.md 提到的表名都實際存在於 sqlite_writer._init_schema。"""
+    """檢查 database_schema.md 提到的表名都實際存在於 sqlite_writer._init_schema。
+
+    接受兩種寫法：
+    A. 獨立章節 §N. `xxx`
+    B. 「資料表清單」段的 `N. xxx` 列點
+    """
     f = ROOT / "database_schema.md"
     if not f.exists():
         return ["database_schema.md 不存在"]
@@ -106,7 +111,15 @@ def check_table_names_in_schema_doc() -> list[str]:
         "image_health_checks", "discover_sessions", "event_kind_catalog",
         "audit_log", "schema_migrations", "nvr_failure_log",
     }
-    actual_in_doc = set(re.findall(r"^## \d+\. `(\w+)`", doc, re.M))
+    # 獨立章節
+    sections = set(re.findall(r"^## \d+(?:\.\d+)?\. `(\w+)`", doc, re.M))
+    # 「資料表清單」段列點（N. `xxx`）
+    list_segment_match = re.search(
+        r"## 資料表清單(.*?)(?=^---|\n## )", doc, re.S | re.M
+    )
+    list_segment = list_segment_match.group(1) if list_segment_match else ""
+    list_items = set(re.findall(r"^\d+\. `(\w+)`", list_segment, re.M))
+    actual_in_doc = sections | list_items
     writer_f = ROOT / "db" / "sqlite_writer.py"
     if not writer_f.exists():
         return ["db/sqlite_writer.py 不存在"]
@@ -114,13 +127,15 @@ def check_table_names_in_schema_doc() -> list[str]:
     actual_in_code = set(re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)", writer))
     drift: list[str] = []
     for t in expected_tables - actual_in_doc:
-        drift.append(f"database_schema.md 缺表 `{t}` 章節")
+        drift.append(f"database_schema.md 缺表 `{t}` 章節或清單段")
     skip = {
         "events_legacy", "events_view", "events_insert_router",
         "events_update_router", "events_partition", "events",
     }
-    for t in actual_in_doc - actual_in_code - skip:
-        drift.append(f"database_schema.md 提到表 `{t}` 但 sqlite_writer.py 沒 CREATE（可能是過時）")
+    for t in sections - actual_in_code - skip:
+        if t in actual_in_code:
+            continue
+        drift.append(f"database_schema.md §提到表 `{t}` 但 sqlite_writer.py 沒 CREATE（可能是過時）")
     return drift
 
 
