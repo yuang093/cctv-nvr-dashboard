@@ -19,7 +19,7 @@ import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def _connect(db_path: str) -> sqlite3.Connection:
@@ -1929,7 +1929,7 @@ def get_event_label_zh(db_path: str, topic: str) -> str:
             (topic,),
         ).fetchone()
         if row and row["name_zh"]:
-            return row["name_zh"]
+            return cast(str, row["name_zh"])
         return topic
     finally:
         conn.close()

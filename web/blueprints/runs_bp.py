@@ -13,6 +13,8 @@ URL prefix: `/runs`, `/reports`, `/query`
 """
 from __future__ import annotations
 
+from typing import cast
+
 from flask import (
     Blueprint,
     abort,
@@ -29,7 +31,7 @@ runs_bp = Blueprint("runs", __name__)
 
 
 def _db_path() -> str:
-    return current_app.config["DB_PATH"]
+    return cast(str, current_app.config["DB_PATH"])
 
 
 @runs_bp.route("/runs")

@@ -17,6 +17,8 @@ URL prefix: `/nvrs`
 
 from __future__ import annotations
 
+from typing import cast
+
 import csv
 import io
 import json
@@ -50,7 +52,7 @@ nvr_bp = Blueprint("nvr", __name__, url_prefix="/nvrs")
 
 # === 共用 DB_PATH 取得 ===
 def _get_db_path() -> str:
-    return current_app.config["DB_PATH"]
+    return cast(str, current_app.config["DB_PATH"])
 
 
 # === Form 解析 / 正規化 helpers ===

@@ -24,7 +24,7 @@ import time
 import logging
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any
+from typing import Any, cast
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -104,7 +104,7 @@ from web.nvr_crud import (
 
 # === 共用 DB_PATH 取得（給 routes 用）===
 def _get_db_path(app: Flask) -> str:
-    return app.config["DB_PATH"]
+    return cast(str, app.config["DB_PATH"])
 
 
 def _start_probe_thread(db_path: str, session_id: int) -> None:
@@ -1093,7 +1093,7 @@ def main() -> None:
     # 測試可透過 `webapp.app = fake` 注入；生產環境 lazy proxy 在第一次存取時建立。
     import web.app as _webapp_mod
 
-    app = _webapp_mod.app  # type: ignore[attr-defined]
+    app = _webapp_mod.app
     # 預設不自動開瀏覽器（避免開發 / 重啟時一直跳分頁干擾）。
     # 想自動開就設 NVR_WEB_OPEN_BROWSER=1。
     auto_open = os.environ.get("NVR_WEB_OPEN_BROWSER", "").lower() in ("1", "true")

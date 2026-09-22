@@ -20,6 +20,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from typing import cast
 
 from flask import Blueprint, current_app, jsonify, render_template, request, Response
 
@@ -41,7 +42,7 @@ _NO_STALE_TRUST_TTL = 600  # 10 分鐘
 
 def _session_store() -> SessionStore:
     """從 app.config 拿 SessionStore（測試可注入 mock；生產由 clips_app 設）。"""
-    return current_app.config["SESSION_STORE"]
+    return cast(SessionStore, current_app.config["SESSION_STORE"])
 
 
 @media_bp.route("/nvrs")

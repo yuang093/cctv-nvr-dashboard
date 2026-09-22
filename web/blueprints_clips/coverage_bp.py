@@ -21,6 +21,7 @@ from nvr_scanner import get_credential
 from web import db as webdb
 from web import clips_app as _ch
 from web.coverage import fetch_coverage_from_nvr
+from typing import Any, cast
 
 logger = logging.getLogger("nvr.clips")
 
@@ -102,7 +103,7 @@ def coverage_data():
         scanner._session_token = session_token
 
         def fetch_one(cam_id: str, s: str, e: str) -> dict:
-            return scanner.get_timeline(cam_id, from_iso=s, to_iso=e)
+            return cast(dict, scanner.get_timeline(cam_id, from_iso=s, to_iso=e))
 
         out = fetch_coverage_from_nvr(
             nvr={

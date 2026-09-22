@@ -16,6 +16,8 @@ URL prefix: `/nvrs`
 """
 from __future__ import annotations
 
+from typing import cast
+
 import csv
 import io
 import json
@@ -46,7 +48,7 @@ from web.nvr_crud import (
 
 
 def _db_path() -> str:
-    return current_app.config["DB_PATH"]
+    return cast(str, current_app.config["DB_PATH"])
 
 
 nvrs_bp = Blueprint("nvrs", __name__, url_prefix="/nvrs")

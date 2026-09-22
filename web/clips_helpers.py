@@ -23,6 +23,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
+from typing import cast
 
 from web import db as webdb
 from web.snapshot import compress_to_thumbnail as _compress_to_thumbnail
@@ -159,7 +160,7 @@ def get_session_for_nvr(internal_id: int, session_store) -> str:
     """從 session_store 拿 token；過期或缺則重 login。"""
     token = session_store.get(internal_id)
     if token:
-        return token
+        return cast(str, token)
     nvr_row = webdb.get_nvr(get_db_path(), internal_id)
     if not nvr_row:
         raise ValueError(f"找不到 NVR internal_id={internal_id}")

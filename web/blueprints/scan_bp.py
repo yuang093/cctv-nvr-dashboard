@@ -18,6 +18,8 @@ Module-level state（process 級全域、跨 thread 共用）：
 """
 from __future__ import annotations
 
+from typing import cast
+
 import threading
 import time
 
@@ -39,7 +41,7 @@ scan_bp = Blueprint("scan", __name__)
 
 
 def _db_path() -> str:
-    return current_app.config["DB_PATH"]
+    return cast(str, current_app.config["DB_PATH"])
 
 
 @scan_bp.route("/scan", methods=["POST"])

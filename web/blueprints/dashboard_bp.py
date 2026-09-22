@@ -13,6 +13,8 @@ URL prefix: `/`
 """
 from __future__ import annotations
 
+from typing import cast
+
 from flask import (
     Blueprint,
     current_app,
@@ -38,7 +40,7 @@ from web.app import _count_online_cameras, _to_taipei_str
 
 def _db_path() -> str:
     """等效於 web.app._get_db_path(app) — 從 current_app.config 取 DB_PATH。"""
-    return current_app.config["DB_PATH"]
+    return cast(str, current_app.config["DB_PATH"])
 
 
 dashboard_bp = Blueprint("dashboard", __name__)

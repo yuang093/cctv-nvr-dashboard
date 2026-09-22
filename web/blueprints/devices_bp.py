@@ -15,6 +15,8 @@ URL prefix: `/devices`, `/health`, `/trends`, `/events`, `/wall`, `/abnormal`
 """
 from __future__ import annotations
 
+from typing import cast
+
 import time
 
 from flask import (
@@ -34,7 +36,7 @@ from web.app import _build_abnormal_pdf, _safe_int
 
 
 def _db_path() -> str:
-    return current_app.config["DB_PATH"]
+    return cast(str, current_app.config["DB_PATH"])
 
 
 devices_bp = Blueprint("devices", __name__)

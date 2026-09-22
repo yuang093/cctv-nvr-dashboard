@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import time
+from typing import Any, cast
 
 import psutil as _psutil
 
@@ -36,7 +37,7 @@ def get_fleet_view(db_path: str, *, force_refresh: bool = False) -> list[dict]:
         and _CACHE["data"] is not None
         and now - _CACHE["ts"] < _TTL_SECONDS
     ):
-        return _CACHE["data"]
+        return cast(list[dict[Any, Any]], _CACHE["data"])
 
     # get_nvrs() 同時回 id（INTEGER primary key, FK 給 cameras.nvr_id）與 nvr_id（string）。
     # 此處需整數 internal_id 才能餵 get_wall_cameras_with_snapshots(nvr_id=...)
@@ -120,9 +121,9 @@ def _count_ghost_cameras(db_path: str) -> int:
     """輔助：總 ghost cam 數（被過濾的）。"""
     conn = sqlite3.connect(db_path)
     try:
-        return conn.execute(
+        return cast(int, conn.execute(
             "SELECT COUNT(*) FROM cameras WHERE is_ghost = 1"
-        ).fetchone()[0]
+        ).fetchone()[0])
     finally:
         conn.close()
 

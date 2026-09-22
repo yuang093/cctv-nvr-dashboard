@@ -547,7 +547,7 @@ def main() -> None:
     # 與 8444 對齊 — 測試可注入 monkeypatch `webapp.app = fake`
     import web.clips_app as _webapp_mod
 
-    app = _webapp_mod.app  # type: ignore[attr-defined]
+    app = _webapp_mod.app
 
     host = os.environ.get("NVR_CLIPS_HOST", "0.0.0.0")
     port = int(os.environ.get("NVR_CLIPS_PORT", "8555"))
