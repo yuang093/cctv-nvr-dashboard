@@ -5,6 +5,9 @@ Week 8 Issue #025 — 文件 fact-check 守門員。
 
 掃所有 .md 文件的「表 / 數字 / 函式名」與程式碼比對，列出漂移項。
 回傳 list[str]（每項一個漂移描述），空 list 表示全對齊。
+
+設計注意：不要在 module 層做 stdout/stderr wrapper（會干擾 pytest collect）；
+只在 main() 內 lazy 做。
 """
 from __future__ import annotations
 
@@ -13,15 +16,19 @@ import re
 import sys
 from pathlib import Path
 
-# Windows cp950 console 編碼容錯：把 stdout 強制包 UTF-8（避免 ❌/✅ 噴 cp950 編碼錯誤）
-if sys.platform == "win32":
-    try:
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def _safe_print_setup() -> None:
+    """Windows cp950 console 容錯：把 stdout/stderr 包 UTF-8（避免 ❌/✅ 噴 cp950 錯誤）。
+    只在 main() 內呼叫，避免 pytest collect 階段被搞壞。
+    """
+    if sys.platform == "win32":
+        try:
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+        except Exception:
+            pass
 
 
 def _count_actual_routes() -> int:
@@ -173,6 +180,7 @@ def check_entry_scripts() -> list[str]:
 
 def main() -> int:
     """CLI 入口：列出所有漂移項，exit code = 漂移數。"""
+    _safe_print_setup()
     all_drift: list[str] = []
     checks = [
         ("routes in api_endpoints.md", check_routes_in_api_endpoints),

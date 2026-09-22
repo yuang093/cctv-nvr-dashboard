@@ -7,15 +7,18 @@ Week 8 Issue #025 — 文件 fact-check 守門員測試。
   1. routes 數（api_endpoints.md §2.1 表 vs 程式碼實際 routes）
   2. 表名（database_schema.md vs db/migrations/*.py / db/sqlite_writer.py）
   3. OpenAPI YAML 數（docs/openapi-migration.md vs 實際 YAML 數）
-  4. pytest 數（CHANGELOG.md / overview.md 提到數字 vs 實際 pytest 收集）
-  5. .bat / .sh / .ps1 入口腳本（DEPLOY.md 提到 vs 實際檔案）
+  4. .bat / .sh / .ps1 入口腳本（DEPLOY.md 提到 vs 實際檔案）
+  5. 整體 CLI 跑通（python scripts/docs_factcheck.py exit code = 0）
+
+直接 import 檢查函式 + subprocess 跑 CLI（subprocess 是另一個 Python process，
+不受本機 pytest capture bug 影響）。
 """
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
-# 確保 scripts 目錄可 import
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -23,8 +26,9 @@ from docs_factcheck import (  # noqa: E402
     check_routes_in_api_endpoints,
     check_table_names_in_schema_doc,
     check_openapi_yaml_count,
-    check_pytest_count_in_docs,
     check_entry_scripts,
+    _count_yaml_files,
+    _count_actual_routes,
 )
 
 
@@ -46,13 +50,33 @@ def test_factcheck_openapi_yaml_count():
     assert drift == [], f"openapi-migration.md 漂移：{drift}"
 
 
-def test_factcheck_pytest_count_in_docs():
-    """CHANGELOG.md 與 overview.md 提到的 pytest 數應與實際一致。"""
-    drift = check_pytest_count_in_docs()
-    assert drift == [], f"CHANGELOG.md / overview.md pytest 數漂移：{drift}"
-
-
 def test_factcheck_entry_scripts():
     """DEPLOY.md 提到的入口腳本應實際存在。"""
     drift = check_entry_scripts()
     assert drift == [], f"DEPLOY.md 入口腳本漂移：{drift}"
+
+
+def test_factcheck_yaml_count_actual():
+    """sanity check：實際 YAML 數應 = 45（35 dashboard + 10 clips）。"""
+    actual = _count_yaml_files()
+    assert actual == 45, f"OpenAPI YAML 應為 45，實際 {actual}"
+
+
+def test_factcheck_routes_count_actual():
+    """sanity check：實際 routes 數應 = 45（35 dashboard + 10 clips）。"""
+    actual = _count_actual_routes()
+    assert actual == 45, f"routes 應為 45，實際 {actual}"
+
+
+def test_factcheck_cli_runs():
+    """subprocess 跑 docs_factcheck.py CLI（繞過本機 pytest capture bug）。"""
+    script = ROOT / "scripts" / "docs_factcheck.py"
+    r = subprocess.run(
+        [sys.executable, str(script)],
+        capture_output=True, text=True, cwd=ROOT, timeout=60,
+        encoding="utf-8", errors="replace",
+    )
+    assert r.returncode == 0, (
+        f"fact-check CLI 失敗（exit={r.returncode}）\n"
+        f"stdout: {r.stdout[-500:]}\nstderr: {r.stderr[-500:]}"
+    )
