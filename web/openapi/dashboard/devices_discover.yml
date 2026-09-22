@@ -6,4 +6,3 @@ description: GET 顯示表單；POST 啟動背景探索 + 列出 sessions
 responses:
   200:
     description: devices_discover.html 渲染
----

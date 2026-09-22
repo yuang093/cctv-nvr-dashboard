@@ -12,4 +12,3 @@ responses:
     description: devices_detail.html
   404:
     description: cam 找不到
----

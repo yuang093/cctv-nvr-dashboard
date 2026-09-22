@@ -6,4 +6,3 @@ description: 列出所有 NVR（含啟用狀態切換按鈕）
 responses:
   200:
     description: nvrs_list.html 渲染成功
----

@@ -8,4 +8,3 @@ responses:
     description: JSON
     schema:
       type: object
----

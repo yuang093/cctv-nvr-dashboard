@@ -10,4 +10,3 @@ parameters:
 responses:
   200:
     description: devices_discover_detail.html
----

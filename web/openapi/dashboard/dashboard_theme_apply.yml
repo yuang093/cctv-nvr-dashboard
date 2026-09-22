@@ -12,4 +12,3 @@ parameters:
 responses:
   302:
     description: 重新導向回首頁
----

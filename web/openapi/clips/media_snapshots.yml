@@ -20,4 +20,3 @@ parameters:
 responses:
   200:
     description: 縮圖 URL 陣列
----

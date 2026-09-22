@@ -6,4 +6,3 @@ description: POST 觸發 background thread 跑 batch_scan；不會阻塞 respons
 responses:
   302:
     description: 重新導向回首頁（scan state 由 /scan/status 查詢）
----

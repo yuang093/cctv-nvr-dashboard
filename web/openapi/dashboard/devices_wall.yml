@@ -6,4 +6,3 @@ description: 所有 cam 縮圖 grid（用 snapshot 或 placeholder jpeg）
 responses:
   200:
     description: wall.html 渲染
----

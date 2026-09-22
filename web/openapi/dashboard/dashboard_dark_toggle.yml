@@ -6,4 +6,3 @@ description: 切換 session['dark'] 狀態；response 設 session cookie
 responses:
   200:
     description: 新 dark 狀態（true/false）
----

@@ -12,4 +12,3 @@ responses:
     description: cameras 陣列
     schema:
       type: array
----

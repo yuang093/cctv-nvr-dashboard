@@ -12,4 +12,3 @@ responses:
     description: 健康度資料 JSON
     schema:
       type: object
----

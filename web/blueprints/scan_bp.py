@@ -47,7 +47,7 @@ def _db_path() -> str:
 
 
 @scan_bp.route("/scan", methods=["POST"])
-@swag_from("web/openapi/dashboard/scan_run.yml")
+@swag_from("web.openapi.dashboard.scan_run.yml")
 def scan_trigger():
     """啟動背景 thread 跑 batch_scan。
 
@@ -110,7 +110,7 @@ def scan_trigger():
 
 
 @scan_bp.route("/scan/status")
-@swag_from("web/openapi/dashboard/scan_status.yml")
+@swag_from("web.openapi.dashboard.scan_status.yml")
 def scan_status():
     """查目前 scan 狀態（給前端 polling）。"""
     from web.app import _scan_lock, _scan_state
@@ -120,7 +120,7 @@ def scan_status():
 
 
 @scan_bp.route("/dashboard/refresh-completeness", methods=["POST"])
-@swag_from("web/openapi/dashboard/scan_refresh_completeness.yml")
+@swag_from("web.openapi.dashboard.scan_refresh_completeness.yml")
 def refresh_completeness_trigger():
     """啟動 background thread 跑 24h timeline 收集。
 
@@ -163,7 +163,7 @@ def refresh_completeness_trigger():
 
 
 @scan_bp.route("/dashboard/refresh-completeness/status")
-@swag_from("web/openapi/dashboard/scan_refresh_completeness_status.yml")
+@swag_from("web.openapi.dashboard.scan_refresh_completeness_status.yml")
 def refresh_completeness_status():
     """查目前 timeline refresh 進度（給前端 polling）。"""
     from web.app import _timeline_lock, _timeline_state

@@ -7,4 +7,3 @@ description: |
 responses:
   200:
     description: clips.html 渲染
----

@@ -12,4 +12,3 @@ parameters:
 responses:
   200:
     description: {success: bool, message: str, online_cameras: int}
----

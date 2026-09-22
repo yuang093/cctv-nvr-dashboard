@@ -7,4 +7,3 @@ responses:
     description: JSON 範本檔案
     schema:
       type: file
----

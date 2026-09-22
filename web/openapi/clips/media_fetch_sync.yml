@@ -14,4 +14,3 @@ parameters:
 responses:
   200:
     description: multipart/x-mixed-replace stream
----

@@ -9,4 +9,3 @@ responses:
       type: array
       items:
         type: object
----

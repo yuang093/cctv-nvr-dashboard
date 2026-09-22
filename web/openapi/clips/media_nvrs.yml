@@ -7,4 +7,3 @@ responses:
     description: NVR 陣列
     schema:
       type: array
----

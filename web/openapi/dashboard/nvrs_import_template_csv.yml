@@ -7,4 +7,3 @@ responses:
     description: CSV 範本檔案
     schema:
       type: file
----

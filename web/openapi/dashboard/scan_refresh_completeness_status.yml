@@ -7,4 +7,3 @@ responses:
     description: JSON timeline state
     schema:
       type: object
----

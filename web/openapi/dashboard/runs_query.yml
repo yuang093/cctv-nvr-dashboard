@@ -12,4 +12,3 @@ parameters:
 responses:
   200:
     description: query.html 渲染 + 結果 grid
----

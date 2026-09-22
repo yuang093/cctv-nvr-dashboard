@@ -14,4 +14,3 @@ responses:
       type: file
   404:
     description: PDF 不存在
----

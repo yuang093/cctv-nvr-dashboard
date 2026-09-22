@@ -8,4 +8,3 @@ description: |
 responses:
   200:
     description: coverage.html 渲染
----

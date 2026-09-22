@@ -9,4 +9,3 @@ responses:
     description: JSON 物件
     schema:
       type: object
----

@@ -14,4 +14,3 @@ responses:
           type: object
         recent_runs:
           type: array
----

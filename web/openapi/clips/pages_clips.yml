@@ -6,4 +6,3 @@ description: /clips 與 / 同樣內容
 responses:
   200:
     description: clips.html 渲染
----

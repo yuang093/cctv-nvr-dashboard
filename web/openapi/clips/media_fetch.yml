@@ -23,4 +23,3 @@ responses:
     schema:
       type: string
       format: binary
----
