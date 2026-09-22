@@ -282,28 +282,31 @@ def get_session_for_nvr(
 # clips_helpers，但測試只要 monkeypatch setattr 後重新 import 或用 monkeypatch
 # 的 fixture 範圍，仍可命中本檔的符號。
 from web.clips_helpers import (
-    SessionStore as _SessionStore,
     SessionStore,
-    login_nvr as _login_nvr,
     login_nvr,
-    build_nvr_config as _build_nvr_config,
     build_nvr_config,
-    get_client_for_nvr as _get_client_for_nvr,
     get_client_for_nvr,
-    get_session_for_nvr as _get_session_for_nvr,
     get_session_for_nvr,
-    fetch_snapshots_parallel as _fetch_snapshots_parallel,
     fetch_snapshots_parallel,
-    fetch_snapshot_with_meta as _fetch_snapshot_with_meta,
     fetch_snapshot_with_meta,
-    probe_nvr_stale_cache as _probe_nvr_stale_cache,
     probe_nvr_stale_cache,
-    format_excluded_cams as _format_excluded_cams,
     format_excluded_cams,
-    get_db_path as _get_db_path,
     get_db_path,
     _MAX_FETCH_WALL_SECONDS,
 )
+# Week 7 Task 6：移除 dual-alias（_X 與 X 同列 import）。改用 module-attr lookup 模式：
+# bp 內 `from web import clips_app as _ch` + `_ch.X(...)`，每個 request 都走 clips_app module 屬性查找
+# → monkeypatch setattr(clips_app, "X", ...) 立即生效。舊 fixture 透過下方 re-expose 兼容。
+_login_nvr = login_nvr
+_build_nvr_config = build_nvr_config
+_get_client_for_nvr = get_client_for_nvr
+_get_session_for_nvr = get_session_for_nvr
+_fetch_snapshots_parallel = fetch_snapshots_parallel
+_fetch_snapshot_with_meta = fetch_snapshot_with_meta
+_probe_nvr_stale_cache = probe_nvr_stale_cache
+_format_excluded_cams = format_excluded_cams
+_get_db_path = get_db_path
+_SessionStore_cls = SessionStore  # Week 7 Task 6: 別名給舊 fixture（`_SessionStore` 已被當 type alias 用）
 
 # 重新 expose `clips_app._login_nvr` 等供測試 monkeypatch。
 # 因為 `from X import Y as Z` 已在 module 級別建立名稱 Z，而 monkeypatch 改寫
@@ -455,11 +458,14 @@ def _alias_clips_endpoints(app: Flask) -> None:
             continue
         view = app.view_functions[qualified_ep]
         if flat_ep not in app.view_functions:
+            rule_methods = target_rule.methods
+            if rule_methods is None:
+                rule_methods = {"GET"}
             app.add_url_rule(
                 target_rule.rule,
                 endpoint=flat_ep,
                 view_func=view,
-                methods=list(target_rule.methods - {"HEAD", "OPTIONS"}),
+                methods=list(rule_methods - {"HEAD", "OPTIONS"}),
             )
 
 
@@ -537,6 +543,12 @@ def __getattr__(name: str):
 
 
 def main() -> None:
+    # 取得 Flask app：使用 module-level `app` 變數（PEP 562 lazy proxy）
+    # 與 8444 對齊 — 測試可注入 monkeypatch `webapp.app = fake`
+    import web.clips_app as _webapp_mod
+
+    app = _webapp_mod.app  # type: ignore[attr-defined]
+
     host = os.environ.get("NVR_CLIPS_HOST", "0.0.0.0")
     port = int(os.environ.get("NVR_CLIPS_PORT", "8555"))
     debug = os.environ.get("NVR_CLIPS_DEBUG", "").lower() in ("1", "true")

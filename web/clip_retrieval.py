@@ -151,7 +151,8 @@ class MockMediaClient:
     ) -> float:
         # 2026-08-04 user 032.PNG：mock 必回 > 0，否則 /clips/fetch_sync 會把所有 cam
         # 都視為「無錄影」→ NO_COMMON_RECORDING → 前端誤顯示「NVR 連線失敗」
-        self.duration_calls.append((camera_id, at_time))
+        # Week 7 Task 6：Protocol 簽章為 datetime；mock 接受 str 兼容測試但 append 用 cast
+        self.duration_calls.append((camera_id, at_time))  # type: ignore[arg-type]
         return self._duration
 
 

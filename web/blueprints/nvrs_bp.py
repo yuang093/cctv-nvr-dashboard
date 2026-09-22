@@ -134,11 +134,11 @@ def edit(nvr_id: int):
             flash(f"已更新 NVR「{nvr_data['nvr_id']}」", "success")
             return redirect(url_for("nvrs.list_"))
         except ValueError as e:
-            nvr = webdb.get_nvr(_db_path(), nvr_id) or {}
+            err_nvr: dict | None = webdb.get_nvr(_db_path(), nvr_id)
             return render_template(
                 "nvr_form.html",
                 mode="edit",
-                nvr=nvr,
+                nvr=err_nvr or {},
                 error=str(e),
             )
     nvr = webdb.get_nvr(_db_path(), nvr_id)
