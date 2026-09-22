@@ -31,14 +31,14 @@ coverage_bp = Blueprint("clips_coverage", __name__, url_prefix="/clips/coverage"
 
 
 @coverage_bp.route("")
-@swag_from("web/openapi/clips/coverage_index.yml")
+@swag_from("web.openapi.clips.coverage_index.yml")
 def coverage():
     """錄影覆蓋熱區頁面（給 1 台 NVR 看所有 cam 24h 錄影時間軸）。"""
     return render_template("coverage.html")
 
 
 @coverage_bp.route("/data")
-@swag_from("web/openapi/clips/coverage_data.yml")
+@swag_from("web.openapi.clips.coverage_data.yml")
 def coverage_data():
     """JSON API：回傳 1 台 NVR 所有 cam 的 timeline 資料。
 
