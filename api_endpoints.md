@@ -119,10 +119,19 @@ GET .../media?format=fmp4&t=<ISO8601 start> → 回 H.264 fragmented MP4 stream
 
 ## 2. Web UI Routes（v2，本專案 Flask app）
 
-> 來源：`web/app.py`（v2 雛形，2026-06-29 完成）。
+> 來源：`web/app.py`（v2 雛形，2026-06-29 完成；Week 7 Issue #022 改由 OpenAPI 自動產生）。
 > 設計：**唯讀**（`PRAGMA query_only = ON`）不與 worker 競爭 DB。
+>
+> **Week 7 起（Issue #022）**：本節路由表**已由 OpenAPI 自動產生**取代。
+> 詳細 schema 與 parameters 請見：
+> - Swagger UI：`http://127.0.0.1:8444/apidocs/`
+> - OpenAPI JSON：`http://127.0.0.1:8444/apispec_1.json`
+> - 8555 clips：`http://127.0.0.1:8555/apidocs/`
+>
+> 路由 source-of-truth 在 `web/blueprints/*.py`（8444）與 `web/blueprints_clips/*.py`（8555），
+> YAML 規格在 `web/openapi/{dashboard,clips}/*.yml`。修改 code 後會自動反映在 Swagger UI。
 
-Base URL: `http://127.0.0.1:5000`（預設；可用 `NVR_WEB_HOST` / `NVR_WEB_PORT` 環境變數覆寫）
+Base URL: `http://127.0.0.1:8444`（預設；可用 `NVR_WEB_HOST` / `NVR_WEB_PORT` 環境變數覆寫）
 
 ### 2.1 路由表
 
