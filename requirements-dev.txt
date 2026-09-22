@@ -1,3 +1,8 @@
 pytest>=7.0
 -r requirements.txt
 -r requirements-web.txt
+
+# Week 7 Issue #020 — mypy 型別檢查工具鏈
+# 安裝方式：pip install -r requirements-dev.txt
+# 跑法：python -m mypy（預期 Task 1-7 期間容忍既有 51 errors，Task 8 strict 後零容忍）
+mypy>=1.10,<3

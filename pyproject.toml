@@ -1,0 +1,34 @@
+# pyproject.toml
+# ==============
+# Week 7 Issue #020-#022 mypy 設定
+# Stage A：寬鬆模式（容忍既有 51 errors；Task 1-7 期間方便分批修）
+# Stage B：--strict 模式（Task 8 啟用；CI fail-on-error）
+#
+# 對應 evolution-roadmap §4.2「Type Hint + OpenAPI」段。
+#
+# 設定原則：
+#   - files: 限定要檢查的目錄（避免掃到 venv/_local/）
+#   - ignore_missing_imports: 跳過沒有 type stub 的第三方套件（如 Pillow 某些模組）
+#   - strict: 由 false 漸進到 true（Task 8）
+#   - test_overrides: 整合測試 mock 不強制型別（mock_acc.py 是動態 server）
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = false
+warn_return_any = false
+no_implicit_optional = false
+strict = false
+files = [
+    "nvr_scanner.py",
+    "discover_event_subtopics.py",
+    "batch_scan.py",
+    "db",
+    "web",
+    "tests",
+]
+
+# Week 7 Task 8：整合測試 mock 不強迫型別檢查（避免動態 server 邏輯爆炸）
+[[tool.mypy.overrides]]
+module = ["tests.integration.*"]
+check_untyped_defs = false
