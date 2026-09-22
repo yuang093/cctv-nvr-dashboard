@@ -494,7 +494,7 @@ class AvigilonScanner:
         raise ApiResponseError(f"無法解析 server/ids 回應：{data!r}")
 
     # --- 攝影機 ---
-    def get_cameras(self) -> dict[str, str]:
+    def get_cameras(self) -> dict[str, dict[str, Any]]:
         """
         GET /mt/api/rest/v1/cameras，回傳 {deviceId: cameraName}。
 
