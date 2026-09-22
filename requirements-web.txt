@@ -1,2 +1,7 @@
 flask>=3.0.0
 -r requirements.txt
+
+# Week 7 Issue #022 — OpenAPI 自動產生（flasgger：與 Flask Blueprint 相容）
+# 取代 api_endpoints.md §2.1 手寫路由表
+# 用法：在 factory 內 `Swagger(app, template={...})`，per-route 掛 `@swag_from("path/to/file.yml")`
+flasgger>=0.9,<1.0

@@ -401,6 +401,26 @@ def create_app(db_path: str | None = None, secret_key: str | None = None) -> Fla
             print(f"[WARN] schema init 失敗：{e}")
     _register_blueprints(app)
 
+    # Week 7 Issue #022 — OpenAPI 自動產生（flasgger + Swagger UI）
+    # 取代 api_endpoints.md §2.1 手寫路由表；per-route doc 由 Task 11/12 YAML 補上
+    from flasgger import Swagger
+
+    Swagger(
+        app,
+        template={
+            "info": {
+                "title": "CCTV NVR Dashboard",
+                "version": "1.0.0",
+                "description": (
+                    "8444 dashboard Web UI（dashboard / runs / nvrs / scan / devices）"
+                    "；Week 7 自動產生"
+                ),
+            },
+            "basePath": "/",
+            "schemes": ["http", "https"],
+        },
+    )
+
     # === Week 5 middleware 註冊點（#012-#016，待 PR #3 merge 後啟用）===
     # 5 個 middleware 必須集中在 factory 主幹註冊，不可進入任何 bp。
     # 待 Week 6 主線合併 Week 5 後，由 Plan §D2「保留 module-level」覆寫：

@@ -503,6 +503,26 @@ def create_clips_app(db_path: str | None = None, secret_key: str | None = None) 
     )
     _register_clips_blueprints(app)
 
+    # Week 7 Issue #022 — OpenAPI 自動產生（flasgger + Swagger UI）
+    # 取代 api_endpoints.md §1.5.4 手寫路由表；per-route doc 由 Task 12 YAML 補上
+    from flasgger import Swagger
+
+    Swagger(
+        app,
+        template={
+            "info": {
+                "title": "CCTV NVR Clips",
+                "version": "1.0.0",
+                "description": (
+                    "8555 clips Web UI（pages / coverage / media）"
+                    "；Week 7 自動產生"
+                ),
+            },
+            "basePath": "/",
+            "schemes": ["http", "https"],
+        },
+    )
+
     # === App 級 context processor（跨 bp template 都套用）===
     # Blueprint-local context processor 只套用該 bp 路由觸發的 template，
     # 但 coverage.html 透過 coverage_bp 渲染，nav 模板透過 pages_bp，須 app 級。
