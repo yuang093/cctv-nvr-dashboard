@@ -67,7 +67,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Run mypy (warning period)
+      - name: Run mypy (strict subset)
         run: |
-          # 警告期：|| true 不擋 PR merge；數據透過 GitHub Actions summary 收集
-          python -m mypy || true
+          # Week 7 Task 8：啟用嚴格子選項（no_implicit_optional + warn_unused_ignores + warn_return_any）
+          # 完整 strict 待 Week 8+ 補強既有函式型別標註
+          python -m mypy

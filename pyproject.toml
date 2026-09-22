@@ -1,23 +1,26 @@
 # pyproject.toml
 # ==============
 # Week 7 Issue #020-#022 mypy 設定
-# Stage A：寬鬆模式（容忍既有 51 errors；Task 1-7 期間方便分批修）
-# Stage B：--strict 模式（Task 8 啟用；CI fail-on-error）
+# Stage A（Task 1-7）：寬鬆模式（容忍既有 51 errors；分批修完 ✅）
+# Stage B（Task 8）：務實漸進 — 啟用「低成本高價值」strict 子選項
+#                   - no_implicit_optional：強制 Optional[T] 明確標註
+#                   - warn_unused_ignores：type: ignore 必須有對應錯誤
+#                   - warn_return_any：函式回傳 Any 提醒
+#                   不啟用（歷史債太大）：
+#                   - disallow_untyped_defs（既有函式缺型別是大量工作；Week 8+ 目標）
+#                   - disallow_any_generics（dict/list 不要求型別參數）
+#                   - strict = true（包含上面兩者）
 #
 # 對應 evolution-roadmap §4.2「Type Hint + OpenAPI」段。
-#
-# 設定原則：
-#   - files: 限定要檢查的目錄（避免掃到 venv/_local/）
-#   - ignore_missing_imports: 跳過沒有 type stub 的第三方套件（如 Pillow 某些模組）
-#   - strict: 由 false 漸進到 true（Task 8）
-#   - test_overrides: 整合測試 mock 不強制型別（mock_acc.py 是動態 server）
 
 [tool.mypy]
 python_version = "3.10"
 ignore_missing_imports = true
-warn_unused_ignores = false
-warn_return_any = false
-no_implicit_optional = false
+warn_unused_ignores = true
+no_implicit_optional = true
+disallow_untyped_defs = false  # Week 8+ 補強：先讓既有 1005 項 pytest 通過
+disallow_any_generics = false  # 同上
+warn_return_any = true
 strict = false
 files = [
     "nvr_scanner.py",
@@ -28,7 +31,7 @@ files = [
     "tests",
 ]
 
-# Week 7 Task 8：整合測試 mock 不強迫型別檢查（避免動態 server 邏輯爆炸）
+# Week 7 Task 8：測試 mock 不強迫型別（既有測試是動態 mock）
 [[tool.mypy.overrides]]
 module = ["tests.integration.*"]
 check_untyped_defs = false
