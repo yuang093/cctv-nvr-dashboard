@@ -1,0 +1,11 @@
+---
+tags:
+  - coverage
+summary: 錄影覆蓋熱區頁
+description: |
+  Spec F：多 cam 24h timeline grid，顯示每小時錄影段長度
+  ?days= 預設 1（最長 7）
+responses:
+  200:
+    description: coverage.html 渲染
+---

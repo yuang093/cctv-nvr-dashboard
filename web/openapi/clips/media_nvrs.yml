@@ -1,0 +1,10 @@
+---
+tags:
+  - media
+summary: 所有 NVR 清單 JSON（給 clips 下拉用）
+responses:
+  200:
+    description: NVR 陣列
+    schema:
+      type: array
+---

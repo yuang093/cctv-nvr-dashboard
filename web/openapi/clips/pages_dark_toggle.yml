@@ -1,0 +1,9 @@
+---
+tags:
+  - clips
+summary: 深色模式切換（8555 端）
+description: 切換 session['dark'] 狀態
+responses:
+  200:
+    description: 新 dark 狀態
+---

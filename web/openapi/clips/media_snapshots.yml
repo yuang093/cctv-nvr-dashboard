@@ -1,0 +1,23 @@
+---
+tags:
+  - media
+summary: 並行抓 N 台 cam 縮圖 jpeg
+description: |
+  ?nvr_id=&t=&camera_ids=1,2,3 並行抓 N 張 jpeg（給兩段式 UI 縮圖 grid）
+parameters:
+  - name: nvr_id
+    in: query
+    type: integer
+    required: true
+  - name: t
+    in: query
+    type: string
+    required: true
+  - name: camera_ids
+    in: query
+    type: string
+    required: true
+responses:
+  200:
+    description: 縮圖 URL 陣列
+---

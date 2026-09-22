@@ -1,0 +1,17 @@
+---
+tags:
+  - media
+summary: 多 cam 同步 multipart（含 stale probe）
+description: |
+  POST 接收 {nvr_id, camera_ids[], start, end}，
+  內部做「是否有 common recording window」檢查，回傳 multipart 同步播放
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+responses:
+  200:
+    description: multipart/x-mixed-replace stream
+---

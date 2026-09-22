@@ -1,0 +1,9 @@
+---
+tags:
+  - clips
+summary: Clips 頁（/clips 別名）
+description: /clips 與 / 同樣內容
+responses:
+  200:
+    description: clips.html 渲染
+---

@@ -22,6 +22,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import cast
 
+from flasgger import swag_from
+
 from flask import Blueprint, current_app, jsonify, render_template, request, Response
 
 from web import db as webdb
@@ -46,6 +48,7 @@ def _session_store() -> SessionStore:
 
 
 @media_bp.route("/nvrs")
+@swag_from("web/openapi/clips/media_nvrs.yml")
 def nvrs():
     """JSON：所有 NVR 清單（給 dropdown 用）。"""
     rows = webdb.get_nvrs(_ch.get_db_path())
@@ -64,6 +67,7 @@ def nvrs():
 
 
 @media_bp.route("/cameras")
+@swag_from("web/openapi/clips/media_cameras.yml")
 def cameras():
     """?nvr_id=<internal_id> → JSON cameras list。"""
     try:
@@ -77,6 +81,7 @@ def cameras():
 
 
 @media_bp.route("/snapshots")
+@swag_from("web/openapi/clips/media_snapshots.yml")
 def snapshots():
     """並行抓 N 台相機的 snapshot，縮圖後 JSON 回傳。
 
@@ -142,6 +147,7 @@ def snapshots():
 
 
 @media_bp.route("/fetch", methods=["POST"])
+@swag_from("web/openapi/clips/media_fetch.yml")
 def fetch_clip():
     """POST {nvr_id, camera_id, start, end} → stream fragmented MP4 bytes。
 
@@ -369,6 +375,7 @@ def fetch_clip():
 
 
 @media_bp.route("/fetch_sync", methods=["POST"])
+@swag_from("web/openapi/clips/media_fetch_sync.yml")
 def fetch_sync():
     """2 台以上 cam 同時撥放：算交集區間 → 回 4 段 multipart/mixed。
 
