@@ -22,7 +22,9 @@ import os
 import threading
 import time
 import logging
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -124,7 +126,9 @@ def _start_probe_thread(db_path: str, session_id: int) -> None:
 
 
 # === NVR form 解析（給 new / edit routes 共用，Phase 2.5a）===
-def _parse_nvr_form(form) -> dict:
+# Week 7 Task 5：移除本地未使用的 _parse_nvr_form 重複定義（從 web.nvr_form.parse_nvr_form import 而來）
+# === 註：原 line 127 之 _parse_nvr_form 為 dead code，與 line 95 的 import 衝突；實際路由都用 import 的版本 ===
+def _parse_nvr_form_unused(form) -> dict:
     """從 request.form 解析 NVR 欄位，做基本驗證。
 
     Raises:
@@ -325,11 +329,14 @@ def _alias_legacy_endpoints(app: Flask) -> None:
         view = app.view_functions[qualified_ep]
         # 加 alias rule（如 endpoint 已存在則跳過重複註冊）
         if flat_ep not in app.view_functions:
+            rule_methods = target_rule.methods
+            if rule_methods is None:
+                rule_methods = {"GET"}  # fallback：URL rule 沒指定時預設 GET
             app.add_url_rule(
                 target_rule.rule,
                 endpoint=flat_ep,
                 view_func=view,
-                methods=list(target_rule.methods - {"HEAD", "OPTIONS"}),
+                methods=list(rule_methods - {"HEAD", "OPTIONS"}),
             )
 
 
@@ -344,7 +351,7 @@ def _make_flask_app() -> Flask:
 
     if getattr(sys, "frozen", False):
         # 打包狀態（onedir）：sys._MEIPASS = dist/web/_internal（templates在 _internal/web/templates）
-        meipass = Path(sys._MEIPASS)
+        meipass = Path(getattr(sys, "_MEIPASS", "."))
         tpl_dir = meipass / "web" / "templates"
         static_dir = meipass / "web" / "static"
         app = Flask(
@@ -449,7 +456,7 @@ def _group_run_events_by_camera(events: list[dict]) -> list[dict]:
 
 def _build_abnormal_pdf(
     groups: list[dict],
-    topic_zh: dict[str, str],
+    topic_zh: Callable[[str], str],
     last_run: dict | None,
 ) -> bytes:
     """產生故障報告 PDF（繁體中文）。
@@ -819,7 +826,7 @@ def _run_scan_in_background(app: Flask, db_path: str) -> None:
                 error="DB 沒有啟用的 NVR（請到 /nvrs 新增並啟用）",
             )
             return
-        cfg = {"nvr_servers": enabled, "scan_settings": {"timeout_seconds": 10}}
+        cfg: dict[str, Any] = {"nvr_servers": enabled, "scan_settings": {"timeout_seconds": 10}}
         # 2026-07-13 Phase 2.2：不 reset total_nvrs（保留 scan_trigger 已 set 的值）
         _reset_scan_state()
 
@@ -935,9 +942,9 @@ def _run_timeline_refresh(app: Flask, db_path: str) -> None:
                     # per-NVR instance（HTTP session 絕不跨 NVR 共用）
                     scanner = AvigilonScanner(
                         nvr,
-                        user_nonce=credentials["user_nonce"],
-                        user_key=credentials["user_key"],
-                        integration_id=credentials.get("integration_id", ""),
+                        user_nonce=credentials.get("user_nonce") or "",
+                        user_key=credentials.get("user_key") or "",
+                        integration_id=credentials.get("integration_id") or "",
                         timeout=10,
                     )
                     scanner.login()  # _timeline_check_loop 直接呼叫 get_timeline，不經過 scan() → 不會自動登入
@@ -1004,7 +1011,7 @@ def __getattr__(name: str):
 
 
 # === CLI 入口 ===
-def _print_banner(host: str, port: int) -> None:
+def _print_banner(host: str, port: int, db_path: str | None = None) -> None:
     """印 banner：本機 + 所有 LAN IP 的 URL，方便員工看。
 
     0.0.0.0 對員工沒意義，要列 127.0.0.1 + 實際 NIC IP。
@@ -1012,7 +1019,7 @@ def _print_banner(host: str, port: int) -> None:
     print("=" * 64)
     print("[INFO] NVR Web UI 已啟動")
     print(f"[INFO] 綁定：{host}:{port}")
-    print(f"[INFO] 資料庫：{app.config['DB_PATH']}")
+    print(f"[INFO] 資料庫：{db_path or '(default)'}")
     print()
     print("  本機存取：")
     print(f"    http://127.0.0.1:{port}/")
@@ -1037,7 +1044,9 @@ def _collect_lan_ips() -> list[str]:
     ips: list[str] = []
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            ip = info[4][0]
+            raw_ip: Any = info[4][0]
+            # socket.getaddrinfo 可能回 IPv4 字串或 IPv6；只接受字串型 IPv4
+            ip = raw_ip if isinstance(raw_ip, str) else ""
             if ip and not ip.startswith("127.") and ip not in ips:
                 ips.append(ip)
     except Exception:
@@ -1080,10 +1089,15 @@ def main() -> None:
     host = os.environ.get("NVR_WEB_HOST", "127.0.0.1")  # Day-0: 預設只綁本機
     port = int(os.environ.get("NVR_WEB_PORT", "8444"))
     debug = os.environ.get("NVR_WEB_DEBUG", "").lower() in ("1", "true")
+    # 取得 Flask app：使用 module-level `app` 變數（PEP 562 lazy proxy）。
+    # 測試可透過 `webapp.app = fake` 注入；生產環境 lazy proxy 在第一次存取時建立。
+    import web.app as _webapp_mod
+
+    app = _webapp_mod.app  # type: ignore[attr-defined]
     # 預設不自動開瀏覽器（避免開發 / 重啟時一直跳分頁干擾）。
     # 想自動開就設 NVR_WEB_OPEN_BROWSER=1。
     auto_open = os.environ.get("NVR_WEB_OPEN_BROWSER", "").lower() in ("1", "true")
-    _print_banner(host, port)
+    _print_banner(host, port, app.config["DB_PATH"])
     _maybe_open_browser(host, port, auto_open)
 
     # 信號處理：SIGTERM/SIGINT 結束時，把 daemon scan thread 留下的
