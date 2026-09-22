@@ -1,0 +1,11 @@
+---
+tags:
+  - devices
+summary: 即時故障 PDF
+description: 即時生成當下故障 PDF（不下載不留檔）
+responses:
+  200:
+    description: PDF bytes
+    schema:
+      type: file
+---

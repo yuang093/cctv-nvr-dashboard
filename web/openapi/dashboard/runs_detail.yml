@@ -1,0 +1,16 @@
+---
+tags:
+  - runs
+summary: 單次掃描詳情
+description: 顯示 stats + events + cameras 清單
+parameters:
+  - name: run_id
+    in: path
+    type: integer
+    required: true
+responses:
+  200:
+    description: run_detail.html 渲染成功
+  404:
+    description: run_id 找不到
+---

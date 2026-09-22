@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import cast
 
+from flasgger import swag_from
+
 import time
 
 from flask import (
@@ -43,6 +45,7 @@ devices_bp = Blueprint("devices", __name__)
 
 
 @devices_bp.route("/wall")
+@swag_from("web/openapi/dashboard/devices_wall.yml")
 def wall():
     """相機牆視覺化 grid（含縮圖 + status 圓點 + 計數 tab）。
 
@@ -62,6 +65,7 @@ def wall():
 
 
 @devices_bp.route("/devices")
+@swag_from("web/openapi/dashboard/devices_list.yml")
 def devices_list():
     """跨 NVR 設備總覽表。"""
     nvr_filter = request.args.get("nvr", "").strip()
@@ -91,6 +95,7 @@ def devices_list():
 
 
 @devices_bp.route("/devices/discover", methods=["GET", "POST"])
+@swag_from("web/openapi/dashboard/devices_discover.yml")
 def devices_discover():
     """CIDR 探索介面 + 探索網段執行。"""
     if request.method == "POST":
@@ -145,6 +150,7 @@ def devices_discover():
 
 
 @devices_bp.route("/devices/discover/<int:session_id>")
+@swag_from("web/openapi/dashboard/devices_discover_detail.yml")
 def devices_discover_result(session_id: int):
     """顯示單次探索 session 結果。
 
@@ -158,6 +164,7 @@ def devices_discover_result(session_id: int):
 
 
 @devices_bp.route("/devices/<device_id>")
+@swag_from("web/openapi/dashboard/devices_detail.yml")
 def device_detail(device_id: str):
     """單台 cam 詳情 + 影像健康卡。"""
     info = webdb.get_device_detail(_db_path(), device_id)
@@ -167,6 +174,7 @@ def device_detail(device_id: str):
 
 
 @devices_bp.route("/health/cameras/<device_id>")
+@swag_from("web/openapi/dashboard/devices_health_api.yml")
 def camera_health_history(device_id: str):
     """單台 cam 健康歷史（image_health_checks）。"""
     info = webdb.get_device_detail(_db_path(), device_id)
@@ -181,6 +189,7 @@ def camera_health_history(device_id: str):
 
 
 @devices_bp.route("/trends")
+@swag_from("web/openapi/dashboard/devices_trends.yml")
 def trends():
     """Cam 健康趨勢總覽（mini sparkline grid）。
 
@@ -219,6 +228,7 @@ def trends():
 
 
 @devices_bp.route("/events")
+@swag_from("web/openapi/dashboard/devices_events.yml")
 def events_list():
     """事件列表（hours / nvr_id / topic / status 篩選）。"""
     hours = _safe_int(request.args.get("hours"), 24, min_val=1, max_val=8760)
@@ -251,6 +261,7 @@ def events_list():
 
 
 @devices_bp.route("/abnormal")
+@swag_from("web/openapi/dashboard/devices_abnormal.yml")
 def abnormal_list():
     """故障攝影機總覽（按相機分組）。"""
     groups = webdb.get_abnormal_cameras_grouped(_db_path())
@@ -269,6 +280,7 @@ def abnormal_list():
 
 
 @devices_bp.route("/abnormal/export.pdf")
+@swag_from("web/openapi/dashboard/devices_abnormal_export_pdf.yml")
 def abnormal_export_pdf():
     """故障報告 PDF（繁體中文，reportlab 內嵌字型）。"""
     groups = webdb.get_abnormal_cameras_grouped(_db_path())

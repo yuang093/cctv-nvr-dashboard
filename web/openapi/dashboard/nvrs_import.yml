@@ -1,0 +1,11 @@
+---
+tags:
+  - nvrs
+summary: 匯入 NVR（CSV/JSON）
+description: GET 顯示上傳表單；POST 解析檔案批次寫入
+responses:
+  200:
+    description: nvr_import.html 渲染
+  302:
+    description: 匯入完成重新導向
+---

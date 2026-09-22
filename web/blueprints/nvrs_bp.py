@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import cast
 
+from flasgger import swag_from
+
 import csv
 import io
 import json
@@ -55,6 +57,7 @@ nvrs_bp = Blueprint("nvrs", __name__, url_prefix="/nvrs")
 
 
 @nvrs_bp.route("")
+@swag_from("web/openapi/dashboard/nvrs_list.yml")
 def list_():
     """NVR 列表。"""
     page = _safe_int_default(request.args.get("page"), 1)
@@ -81,6 +84,7 @@ def _safe_int_default(value, default):
 
 
 @nvrs_bp.route("/<int:internal_id>/toggle", methods=["POST"])
+@swag_from("web/openapi/dashboard/nvrs_toggle.yml")
 def toggle(internal_id: int):
     """切換單台 NVR 的啟用狀態（不刪除資料）。"""
     nvr = webdb.get_nvr(_db_path(), internal_id)
@@ -96,6 +100,7 @@ def toggle(internal_id: int):
 
 
 @nvrs_bp.route("/new", methods=["GET", "POST"])
+@swag_from("web/openapi/dashboard/nvrs_new.yml")
 def new():
     """新增 NVR。"""
     if request.method == "POST":
@@ -118,6 +123,7 @@ def new():
 
 
 @nvrs_bp.route("/<int:nvr_id>/edit", methods=["GET", "POST"])
+@swag_from("web/openapi/dashboard/nvrs_edit.yml")
 def edit(nvr_id: int):
     """編輯 NVR。密碼留空=不變更。"""
     if request.method == "POST":
@@ -151,6 +157,7 @@ def edit(nvr_id: int):
 
 
 @nvrs_bp.route("/<int:nvr_id>/delete", methods=["POST"])
+@swag_from("web/openapi/dashboard/nvrs_delete.yml")
 def delete(nvr_id: int):
     """刪除 NVR（連同 cameras；保留 scan_runs/events）。"""
     try:
@@ -165,6 +172,7 @@ def delete(nvr_id: int):
 
 
 @nvrs_bp.route("/test-connection", methods=["POST"])
+@swag_from("web/openapi/dashboard/nvrs_test_connection.yml")
 def test_connection():
     """AJAX 測試 NVR 連線（不寫入 DB）。
 
@@ -248,6 +256,7 @@ def test_connection():
 
 
 @nvrs_bp.route("/import", methods=["GET", "POST"])
+@swag_from("web/openapi/dashboard/nvrs_import.yml")
 def import_():
     """CSV / JSON 批次匯入（80+ NVR 用）。"""
     if request.method == "POST":
@@ -303,6 +312,7 @@ def import_():
 
 
 @nvrs_bp.route("/import/template.csv")
+@swag_from("web/openapi/dashboard/nvrs_import_template_csv.yml")
 def import_template_csv():
     """下載 CSV 範本（含 UTF-8 BOM + CRLF 換行）。"""
     example_csv = (
@@ -322,6 +332,7 @@ def import_template_csv():
 
 
 @nvrs_bp.route("/import/template.json")
+@swag_from("web/openapi/dashboard/nvrs_import_template_json.yml")
 def import_template_json():
     """下載 JSON 範本。"""
     example = [
@@ -358,6 +369,7 @@ def import_template_json():
 
 
 @nvrs_bp.route("/export.csv")
+@swag_from("web/openapi/dashboard/nvrs_export_csv.yml")
 def export_csv():
     """匯出目前 DB 內所有 NVR 為 CSV。"""
     nvrs = webdb.get_all_nvrs_for_export(_db_path())
@@ -388,6 +400,7 @@ def export_csv():
 
 
 @nvrs_bp.route("/export.json")
+@swag_from("web/openapi/dashboard/nvrs_export_json.yml")
 def export_json():
     """匯出目前 DB 內所有 NVR 為 JSON array。"""
     nvrs = webdb.get_all_nvrs_for_export(_db_path())

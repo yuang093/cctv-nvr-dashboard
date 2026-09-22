@@ -1,0 +1,9 @@
+---
+tags:
+  - scan
+summary: 立即掃描（背景執行）
+description: POST 觸發 background thread 跑 batch_scan；不會阻塞 response
+responses:
+  302:
+    description: 重新導向回首頁（scan state 由 /scan/status 查詢）
+---

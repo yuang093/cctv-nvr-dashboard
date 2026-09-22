@@ -1,0 +1,17 @@
+---
+tags:
+  - dashboard
+summary: Dashboard 首頁（4 統計卡 + 最近 5 次掃描）
+description: |
+  v2 儀表板首頁。顯示 NVR / cam / event / scan run 統計 + 最近 5 次掃描紀錄。
+responses:
+  200:
+    description: dashboard.html 渲染成功
+    schema:
+      type: object
+      properties:
+        stats:
+          type: object
+        recent_runs:
+          type: array
+---

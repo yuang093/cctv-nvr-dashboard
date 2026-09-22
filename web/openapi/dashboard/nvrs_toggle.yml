@@ -1,0 +1,13 @@
+---
+tags:
+  - nvrs
+summary: 切換單台 NVR 啟用狀態
+parameters:
+  - name: internal_id
+    in: path
+    type: integer
+    required: true
+responses:
+  302:
+    description: 重新導向回 nvrs list
+---

@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import cast
 
+from flasgger import swag_from
+
 from flask import (
     Blueprint,
     current_app,
@@ -62,6 +64,7 @@ def _taipei_filter(value):
 
 
 @dashboard_bp.route("/dark/toggle", methods=["POST"])
+@swag_from("web/openapi/dashboard/dashboard_dark_toggle.yml")
 def dark_toggle():
     """切換深色模式。"""
     flask_session["dark"] = not flask_session.get("dark", False)
@@ -69,6 +72,7 @@ def dark_toggle():
 
 
 @dashboard_bp.route("/")
+@swag_from("web/openapi/dashboard/dashboard_index.yml")
 def dashboard():
     stats = webdb.get_overall_stats(_db_path())
     # Phase 2.8（Arisan 磁磚點擊跳轉）：即時算線上 cam 數（GET 每台 NVR /cameras）
@@ -86,6 +90,7 @@ def dashboard():
 
 
 @dashboard_bp.route("/theme")
+@swag_from("web/openapi/dashboard/dashboard_theme.yml")
 def theme_preview():
     """主題選擇頁面（六種風格預覽）。"""
     current = flask_session.get("theme", "")
@@ -93,6 +98,7 @@ def theme_preview():
 
 
 @dashboard_bp.route("/theme/apply", methods=["POST"])
+@swag_from("web/openapi/dashboard/dashboard_theme_apply.yml")
 def theme_apply():
     """套用選擇的主題（寫入 session）。"""
     theme = request.form.get("theme", "")
@@ -102,6 +108,7 @@ def theme_apply():
 
 
 @dashboard_bp.route("/fleet")
+@swag_from("web/openapi/dashboard/dashboard_fleet.yml")
 def fleet():
     """跨 NVR 伺服器概覽（總計 / 健康 / 異常 分類）。"""
     nvrs = get_fleet_view(_db_path())

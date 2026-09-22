@@ -1,0 +1,8 @@
+---
+tags:
+  - devices
+summary: 故障相機彙總頁
+responses:
+  200:
+    description: abnormal.html 渲染
+---

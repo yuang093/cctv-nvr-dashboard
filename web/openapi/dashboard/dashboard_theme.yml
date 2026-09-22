@@ -1,0 +1,9 @@
+---
+tags:
+  - dashboard
+summary: 主題預覽頁
+description: 列出 12 種主題 token 預覽卡片
+responses:
+  200:
+    description: theme.html 渲染成功
+---

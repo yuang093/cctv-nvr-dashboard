@@ -1,0 +1,9 @@
+---
+tags:
+  - scan
+summary: 重新計算 completeness（背景）
+description: POST 觸發 background thread 跑 timeline refresh
+responses:
+  302:
+    description: 重新導向回原頁
+---

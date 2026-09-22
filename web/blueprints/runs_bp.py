@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import cast
 
+from flasgger import swag_from
+
 from flask import (
     Blueprint,
     abort,
@@ -35,6 +37,7 @@ def _db_path() -> str:
 
 
 @runs_bp.route("/runs")
+@swag_from("web/openapi/dashboard/runs_list.yml")
 def runs_list():
     page = _safe_int(request.args.get("page"), 1, min_val=1)
     data = webdb.get_paginated_runs(_db_path(), page=page, per_page=20)
@@ -42,6 +45,7 @@ def runs_list():
 
 
 @runs_bp.route("/runs/<int:run_id>")
+@swag_from("web/openapi/dashboard/runs_detail.yml")
 def run_detail(run_id: int):
     run = webdb.get_run(_db_path(), run_id)
     if not run:
@@ -62,6 +66,7 @@ def run_detail(run_id: int):
 
 
 @runs_bp.route("/reports")
+@swag_from("web/openapi/dashboard/runs_reports.yml")
 def reports_list():
     """歷史 PDF 報告列表（每次掃描自動歸檔一份）。"""
     from web import report_archive
@@ -71,6 +76,7 @@ def reports_list():
 
 
 @runs_bp.route("/reports/download/<int:run_id>")
+@swag_from("web/openapi/dashboard/runs_reports_download.yml")
 def reports_download(run_id: int):
     """下載指定 run_id 的歷史 PDF。"""
     from web import report_archive
@@ -87,6 +93,7 @@ def reports_download(run_id: int):
 
 
 @runs_bp.route("/query", methods=["GET", "POST"])
+@swag_from("web/openapi/dashboard/runs_query.yml")
 def adhoc_query():
     """ad-hoc 唯讀 SELECT 頁。
 

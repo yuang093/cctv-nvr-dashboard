@@ -1,0 +1,15 @@
+---
+tags:
+  - nvrs
+summary: 編輯 NVR 表單
+parameters:
+  - name: nvr_id
+    in: path
+    type: integer
+    required: true
+responses:
+  200:
+    description: nvr_form.html（mode=edit）渲染
+  404:
+    description: nvr_id 找不到
+---

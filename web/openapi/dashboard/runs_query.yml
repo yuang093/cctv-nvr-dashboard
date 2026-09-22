@@ -1,0 +1,15 @@
+---
+tags:
+  - runs
+summary: ad-hoc 唯讀 SELECT
+description: |
+  Phase 1 Step 3b：PRAGMA query_only = ON 強制 + 黑名單 keyword 過濾
+parameters:
+  - name: sql
+    in: formData
+    type: string
+    required: false
+responses:
+  200:
+    description: query.html 渲染 + 結果 grid
+---

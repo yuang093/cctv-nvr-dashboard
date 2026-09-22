@@ -1,0 +1,15 @@
+---
+tags:
+  - devices
+summary: 單台 cam 健康度 JSON（給 /trends JS 用）
+parameters:
+  - name: device_id
+    in: path
+    type: string
+    required: true
+responses:
+  200:
+    description: 健康度資料 JSON
+    schema:
+      type: object
+---

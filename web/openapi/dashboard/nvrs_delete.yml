@@ -1,0 +1,13 @@
+---
+tags:
+  - nvrs
+summary: 刪除 NVR
+parameters:
+  - name: nvr_id
+    in: path
+    type: integer
+    required: true
+responses:
+  302:
+    description: 重新導向回 nvrs list
+---
