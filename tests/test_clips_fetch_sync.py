@@ -182,7 +182,7 @@ def _parse_multipart(resp_data: bytes, content_type: str) -> list[dict]:
             if ":" in line:
                 k, _, v = line.partition(":")
                 meta[k.strip()] = v.strip()
-        meta["_body_len"] = len(body)
+        meta["_body_len"] = len(body)  # type: ignore[assignment]
         segments.append(meta)
     return segments
 

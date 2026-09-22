@@ -70,8 +70,8 @@ def _seed_abnormal(db_path: str) -> None:
         }
     )
     run_id = w.begin_scan_run("2026-07-03T10:00:00Z")
-    w.upsert_cameras(nvr_a, {101: "Cam-101", 102: "Cam-102"})
-    w.upsert_cameras(nvr_b, {201: "Cam-201"})
+    w.upsert_cameras(nvr_a, {"101": "Cam-101", "102": "Cam-102"})
+    w.upsert_cameras(nvr_b, {"201": "Cam-201"})
     # Cam-101 有 2 種故障（nvr_a）
     w.insert_events(
         run_id,

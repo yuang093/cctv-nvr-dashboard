@@ -440,8 +440,8 @@ class MockWebhookReceiver:
         self.response_status = response_status
         self.response_body = response_body
         self.received: list[dict] = []  # 所有接收的記錄
-        self._httpd = None
-        self._thread = None
+        self._httpd: HTTPServer | None = None  # Week 7 Task 7: 加 Optional 型別
+        self._thread: threading.Thread | None = None  # Week 7 Task 7: 加 Optional 型別
         self.port: int = 0
 
     @property
