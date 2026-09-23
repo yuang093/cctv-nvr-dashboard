@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **2026-09-22**（Week 8 released）：最終驗收（Issue #023-#027）— 5 commits，`scripts/docs_factcheck.py`（5 項文件守門員）+ `scripts/check_ci_duration.py`（CI 時間估算）+ 簡化 CI 矩陣為單 Python 3.12（300s → 120s）+ 5 個核心文件同步 + DEPLOY.md 加「雙 App + HTTPS + Audit」段 + `docs/w8-acceptance-report.md` + `docs/roadmap-q4-2026.md`（3 條可選方向：型別 / 即時性 / 多站台）。`pytest -q` 仍維持 1010 全綠 + 0 mypy errors。
+- **2026-09-22**（Week 7 released）：mypy strict subset + OpenAPI（Issue #020-#022）— 15 commits（5d75997..9283d8b），51 → 0 mypy errors、1005 → 1010 pytest、45 OpenAPI YAML + 45 `@swag_from`（dashboard 35 + clips 10）、flasgger 0.9.7 + Swagger UI（8444 + 8555 `/apidocs/`）。
+- **2026-09-21**（Week 6 released）：Blueprint 拆分（Issue #017-#019）— 9 commits（c8ad63c..516a128），8444 拆 5 個業務領域 bp（dashboard / runs / nvrs / scan / devices）+ 8555 拆 3 個 bp（pages / coverage / media）+ 雙 App 工廠對稱（create_app + create_clips_app）+ alias 攤平機制讓既有 30+ 處 url_for 零修改。
+- **2026-09-21**（Week 5 released）：資安提案 B（Issue #012-#016）— 11 commits（b251985..3b67124），Flask-Login + HTTPS（reverse proxy）+ rate-limit（flask-limiter）+ audit_log 表 + NVR 降權。5 個 feature flags 全預設 False，Week 5 結束時 dashboard 行為 = Week 4（內網 ops 完全無感）。
 - **2026-08-05 ~ 08-06**（Spec G released）：Cam 健康趨勢圖 — `/trends` 頁面從 snapshot 升級到趨勢判斷（**25 commits**：plan + 4 batches，898 → 974 tests）：
   - **Batch A**（6 commits）：純 DB 查詢層 `web/trends.py`（`HealthBin` / `CamHealthSummary` dataclass + `compute_health_timeseries` 24h/7d + `get_all_cams_health_summary` with ghost/nvr/status filter），13 項純函式測試
   - **Batch B**（8 commits）：`/trends` Flask route + Chart.js 4.4.0 sparkline grid（mini + inline expand detail），peer-review 修法（Critical XSS、filter state preservation、loop.index0 canvas id、theme tokens via CSS var、台北時區、lazy chart init），9 項 route 整合測試 + 3 視覺驗證截圖

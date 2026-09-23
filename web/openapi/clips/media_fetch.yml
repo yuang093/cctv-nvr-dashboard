@@ -1,0 +1,25 @@
+---
+tags:
+  - media
+summary: 抓單段 clip bytes（MPD / fmp4 stream）
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+      properties:
+        nvr_id:
+          type: integer
+        camera_id:
+          type: string
+        start:
+          type: string
+        end:
+          type: string
+responses:
+  200:
+    description: mp4 bytes stream
+    schema:
+      type: string
+      format: binary

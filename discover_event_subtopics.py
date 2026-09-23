@@ -29,7 +29,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from nvr_scanner import (
     AvigilonScanner,
@@ -69,7 +69,7 @@ def load_first_nvr(config_path: Path) -> dict:
     servers = config.get("nvr_servers", [])
     if not servers:
         raise DiscoveryError("設定檔中沒有任何 nvr_servers 項目")
-    return servers[0]
+    return cast(dict[str, Any], servers[0])
 
 
 def normalize_topics(data: Any) -> list[str]:

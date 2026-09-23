@@ -1,0 +1,8 @@
+---
+tags:
+  - dashboard
+summary: 跨 NVR fleet 總覽
+description: 顯示所有 enabled NVR 的健康度彙總（cam 數、異常數）
+responses:
+  200:
+    description: fleet.html 渲染成功

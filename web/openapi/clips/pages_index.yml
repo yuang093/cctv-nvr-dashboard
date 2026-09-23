@@ -1,0 +1,9 @@
+---
+tags:
+  - clips
+summary: Clips 首頁（兩段式 UI：NVR + 時間）
+description: |
+  / 與 /clips 同樣內容；兩段式 UX — 上半選 NVR + 時間，下半顯示縮圖 grid
+responses:
+  200:
+    description: clips.html 渲染

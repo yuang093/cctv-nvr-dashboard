@@ -104,11 +104,14 @@ GET .../media?format=fmp4&t=<ISO8601 start> → 回 H.264 fragmented MP4 stream
 
 | Method | Path | 用途 | 來源 |
 |---|---|---|---|
-| GET | `/` / `/clips` | 兩段式 UI 頁（NVR + 時間 → 縮圖 grid → 點擊載 30s 影片）| `web/templates/clips.html` |
-| GET | `/clips/nvrs` | JSON：所有 NVR 清單（給下拉用）| `web/db.py::get_nvrs` |
-| GET | `/clips/cameras` | ?nvr_id= → JSON cameras list | `web/db.py::list_cameras_for_nvr` |
-| GET | `/clips/snapshots` | ?nvr_id=&t= → 並行抓 N 台相機 jpeg，縮圖後 JSON | `web/clips_app.py::fetch_snapshots_parallel` |
-| POST | `/clips/fetch` | {nvr_id, camera_id, start, end} → stream mp4 bytes | `web/clips_app.py::clips_fetch` |
+| GET | `/` / `/clips` | 兩段式 UI 頁（NVR + 時間 → 縮圖 grid → 點擊載 30s 影片）| `web/templates/clips.html`（Week 6 #018 改由 `web/blueprints_clips/pages_bp.py` 提供） |
+| GET | `/clips/nvrs` | JSON：所有 NVR 清單（給下拉用）| `web/db.py::get_nvrs`（Week 6 #018 → `web/blueprints_clips/media_bp.py::nvrs`）|
+| GET | `/clips/cameras` | ?nvr_id= → JSON cameras list | `web/db.py::list_cameras_for_nvr`（Week 6 #018 → `web/blueprints_clips/media_bp.py::cameras`）|
+| GET | `/clips/snapshots` | ?nvr_id=&t= → 並行抓 N 台相機 jpeg，縮圖後 JSON | `web/clips_helpers.fetch_snapshots_parallel`（Week 6 #018 → `web/blueprints_clips/media_bp.py::snapshots`）|
+| POST | `/clips/fetch` | {nvr_id, camera_id, start, end} → stream mp4 bytes | `web/blueprints_clips/media_bp.py::fetch_clip`（Week 6 #018）|
+| POST | `/clips/fetch_sync` | 多 cam 同步 multipart（含 stale probe）| `web/blueprints_clips/media_bp.py::fetch_sync`（Week 6 #018）|
+| GET | `/clips/coverage` | 錄影覆蓋熱區頁（Spec F）| `web/blueprints_clips/coverage_bp.py::coverage`（Week 6 #018）|
+| GET | `/clips/coverage/data` | 熱區 JSON（Spec F）| `web/blueprints_clips/coverage_bp.py::coverage_data`（Week 6 #018）|
 
 **重要**：port 8555 是 **clip Web UI 自己的部署 port**；NVR 端 Media API 仍在 port **8443**。
 
@@ -116,26 +119,35 @@ GET .../media?format=fmp4&t=<ISO8601 start> → 回 H.264 fragmented MP4 stream
 
 ## 2. Web UI Routes（v2，本專案 Flask app）
 
-> 來源：`web/app.py`（v2 雛形，2026-06-29 完成）。
+> 來源：`web/app.py`（v2 雛形，2026-06-29 完成；Week 7 Issue #022 改由 OpenAPI 自動產生）。
 > 設計：**唯讀**（`PRAGMA query_only = ON`）不與 worker 競爭 DB。
+>
+> **Week 7 起（Issue #022）**：本節路由表**已由 OpenAPI 自動產生**取代。
+> 詳細 schema 與 parameters 請見：
+> - Swagger UI：`http://127.0.0.1:8444/apidocs/`
+> - OpenAPI JSON：`http://127.0.0.1:8444/apispec_1.json`
+> - 8555 clips：`http://127.0.0.1:8555/apidocs/`
+>
+> 路由 source-of-truth 在 `web/blueprints/*.py`（8444）與 `web/blueprints_clips/*.py`（8555），
+> YAML 規格在 `web/openapi/{dashboard,clips}/*.yml`。修改 code 後會自動反映在 Swagger UI。
 
-Base URL: `http://127.0.0.1:5000`（預設；可用 `NVR_WEB_HOST` / `NVR_WEB_PORT` 環境變數覆寫）
+Base URL: `http://127.0.0.1:8444`（預設；可用 `NVR_WEB_HOST` / `NVR_WEB_PORT` 環境變數覆寫）
 
-### 2.1 路由表
+### 2.1 路由表（**已由 OpenAPI 自動產生取代**）
 
-| Method | Path | 用途 | 來源 |
-|---|---|---|---|
-| GET | `/` | Dashboard（4 統計卡 + 最近 5 次掃描） | `web/db.py::get_overall_stats` + `get_recent_runs` |
-| GET | `/runs` | 掃描紀錄列表（含分頁，per_page=20） | `web/db.py::get_paginated_runs` |
-| GET | `/runs/<int:run_id>` | 單次掃描詳情（stats + events + cameras） | `web/db.py::get_run` + `get_run_events` + `get_run_cameras` |
-| GET | `/nvrs` | NVR 配置清單（含 camera 數 + 啟用狀態 + 啟用/停用切換按鈕） | `web/db.py::get_nvrs_paginated` |
-| POST | `/nvrs/<int:internal_id>/toggle` | **v2.7+**：切換單台 NVR 啟用狀態（不刪資料） | `web/db.py::set_nvr_enabled` |
-| GET | `/events` | 異常事件篩選清單（hours / nvr / topic / **status**） | `web/db.py::get_events_filtered` |
-| GET/POST | `/query` | **Ad-hoc 唯讀 SELECT 表單 + 結果**（Phase 1 Step 3b） | `web/db.py::run_readonly_query` |
-| GET | `/abnormal/export.pdf` | 即時生成當下故障 PDF（**不存檔**，僅當下狀態） | `web/app.py::abnormal_export_pdf` |
-| GET | `/reports` | **歷史 PDF 報告列表**（每次掃描自動歸檔） | `web/report_archive.py::list_reports` |
-| GET | `/reports/download/<int:run_id>` | 下載指定 run_id 的歸檔 PDF | `web/report_archive.py::find_report` |
-| GET | `/static/style.css` | 樣式表 | `web/static/style.css` |
+> **Week 7 Issue #022 起**：本節路由表由 flasgger 自動產生（45 條 routes：35 dashboard + 10 clips），
+> 手寫維護成本高且易漂移。**Source of truth**：
+>
+> - **Swagger UI**：`http://127.0.0.1:8444/apidocs/`（dashboard）+ `http://127.0.0.1:8555/apidocs/`（clips）
+> - **OpenAPI YAML 規格**：`web/openapi/dashboard/*.yml` + `web/openapi/clips/*.yml`
+> - **Routes 定義**：`web/blueprints/*_bp.py`（8444）+ `web/blueprints_clips/*_bp.py`（8555）
+>
+> 本表僅保留**高層次對照**，完整 schema 與 parameters 請見 Swagger UI。
+
+| App | Port | 業務領域 | 條數 | Source |
+|---|---|---|---|---|
+| dashboard | 8444 | dashboard / runs / nvrs / scan / devices | 35 | `web/blueprints/{dashboard,runs,nvrs,scan,devices}_bp.py` |
+| clips | 8555 | pages / coverage / media | 10 | `web/blueprints_clips/{pages,coverage,media}_bp.py` |
 
 ### 2.2 Query String 參數
 
@@ -215,3 +227,4 @@ Mock server 啟動時自動生成自簽憑證（`openssl` CLI），scanner 端�
 | 2026-06-30 | v5.3 | `/events` 加 status 篩選 + `resolved_at` 視覺標記；新增 `/query` ad-hoc SELECT 頁 | Phase 1 Step 3a/3b |
 | 2026-07-06 | v5.4 | 新增 §1.5 NVR Media API（port 8443）+ §1.5.4 Clip Web UI（port 8555）段 | Phase 2.7 影片片段調閱 |
 | 2026-07-07 | v5.5 | 新增 §2.3 歷史 PDF 報告歸檔 + `/reports` + `/reports/download/<id>` 兩個 route；舊 `/abnormal/export.pdf` 改為「即時不存檔」 | 報告歸檔（user request） |
+| 2026-09-21 | v5.6 | §1.5.4 Clip Web UI routes 標註 Week 6 #018 新住處（`web/blueprints_clips/*_bp.py`）；新增 `/clips/fetch_sync` `/clips/coverage` `/clips/coverage/data` 三條 | Week 6 Plan #018 執行完成 |

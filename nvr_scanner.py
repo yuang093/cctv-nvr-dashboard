@@ -43,7 +43,7 @@ import urllib3
 from datetime import datetime, timezone
 from getpass import getpass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -324,7 +324,7 @@ def _extract_list(data: Any, *wrapper_keys: str) -> list:
     # 先試常見包裝 key
     for key in wrapper_keys:
         if key in data and isinstance(data[key], list):
-            return data[key]
+            return cast(list[Any], data[key])
     # dict singleton 且唯一 value 是 list → 解開
     if len(data) == 1:
         inner = next(iter(data.values()))
@@ -428,7 +428,7 @@ class AvigilonScanner:
             raise AuthError(f"登入回應中找不到 session token：{data}")
         self._session_token = token
         self._server_id = None  # 重新登入時清掉舊的 serverId
-        return token
+        return cast(str, token)
 
     # --- 伺服器 ID ---
     def get_server_ids(self) -> str:
@@ -494,7 +494,7 @@ class AvigilonScanner:
         raise ApiResponseError(f"無法解析 server/ids 回應：{data!r}")
 
     # --- 攝影機 ---
-    def get_cameras(self) -> dict[str, str]:
+    def get_cameras(self) -> dict[str, dict[str, Any]]:
         """
         GET /mt/api/rest/v1/cameras，回傳 {deviceId: cameraName}。
 
@@ -624,7 +624,7 @@ class AvigilonScanner:
                 "scope": scope,
             },
         )
-        return unwrap_response(raw)
+        return cast(dict[str, Any], unwrap_response(raw))
 
     @staticmethod
     def _parse_events(data: Any) -> list[dict]:
@@ -703,7 +703,7 @@ class AvigilonScanner:
             # JPEG magic bytes 快速驗證（避免拿到 HTML error page 誤判）
             if not resp.content.startswith(b"\xff\xd8\xff"):
                 return None
-            return resp.content
+            return cast(bytes, resp.content)
         except Exception:
             return None
 
@@ -827,7 +827,7 @@ class AvigilonScanner:
 def _camera_name(cam_info: Any) -> str:
     """相容舊版（純字串）與新版（dict 含 name）兩種 cameras 值。"""
     if isinstance(cam_info, dict):
-        return cam_info.get("name", "?")
+        return cast(str, cam_info.get("name", "?"))
     return str(cam_info)
 
 

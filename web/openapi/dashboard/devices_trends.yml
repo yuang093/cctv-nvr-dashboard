@@ -1,0 +1,16 @@
+---
+tags:
+  - devices
+summary: Cam 健康度趨勢圖（Spec G）
+description: 多 cam 趨勢線圖表
+parameters:
+  - name: cam_id
+    in: query
+    type: string
+  - name: range
+    in: query
+    type: string
+    default: 24h
+responses:
+  200:
+    description: trends.html 渲染

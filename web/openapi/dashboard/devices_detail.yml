@@ -1,0 +1,14 @@
+---
+tags:
+  - devices
+summary: 單台 cam 詳情
+parameters:
+  - name: device_id
+    in: path
+    type: string
+    required: true
+responses:
+  200:
+    description: devices_detail.html
+  404:
+    description: cam 找不到

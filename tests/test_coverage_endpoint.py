@@ -423,9 +423,13 @@ def test_coverage_data_endpoint_with_mock_timeline(clips_app, monkeypatch):
     monkeypatch.setenv("AVIGILON_USER_KEY", "test-key")
 
     # 1. stub _login_nvr：給假 token，不打真 NVR
+    # Week 6 #018 Stage B：bp 內以 `from web import clips_app as _ch` lookup
+    # `_ch.login_nvr(...)`（無底線前綴），所以 fixture 需同時 patch 兩個名稱。
     from web import clips_app as clips_app_mod
 
-    monkeypatch.setattr(clips_app_mod, "_login_nvr", lambda nvr_row: "FAKE-TOKEN")
+    fake_login = lambda nvr_row: "FAKE-TOKEN"
+    monkeypatch.setattr(clips_app_mod, "_login_nvr", fake_login)
+    monkeypatch.setattr(clips_app_mod, "login_nvr", fake_login)
 
     # 2. stub AvigilonScanner.get_timeline：回傳「覆蓋整個視窗」的錄影
     from nvr_scanner import AvigilonScanner

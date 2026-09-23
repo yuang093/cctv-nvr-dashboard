@@ -22,6 +22,7 @@ import json
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from db.sqlite_writer import SqliteWriter
 from nvr_scanner import (
@@ -180,7 +181,7 @@ def _image_health_check_loop(
     """
     if frozen_interval_sec is None:
         frozen_interval_sec = _FROZEN_INTERVAL_SEC
-    summary = {"checked": 0, "triggered": 0, "errors": []}
+    summary: dict[str, Any] = {"checked": 0, "triggered": 0, "errors": []}
     # 取得 cam 清單（從 scanner 內部已抓過的 _cameras 或重新 GET；這裡直接呼叫 get_cameras）
     try:
         cams = scanner.get_cameras()

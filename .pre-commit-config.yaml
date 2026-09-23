@@ -54,5 +54,11 @@ repos:
       - id: ruff-format
         types_or: [python, pyi]
 
-  # mypy 暫時不放 pre-commit（Week 7 Issue #023 完成後再加）
-  # CI 仍跑 mypy（見 .github/workflows/ci.yml 的 mypy job）
+  # mypy 從 Week 7 Issue #020/021 完成後啟用（CI fail-on-error + 本地警告）
+  # 安裝：pre-commit install 後 commit 時自動跑
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-requests, types-PyYAML]
+        args: [--config-file=pyproject.toml]

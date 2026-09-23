@@ -34,6 +34,14 @@ PYTHONPATH=. python -m web.clips_app 8555
 - **Webhook 推播**：異常事件可推 Slack / Teams。
 - **孤兒事件過濾**：dedup 後不會再顯示幽靈相機的舊事件。
 
+## 8 週演進成果（Week 8 驗收）
+
+- ✅ **資安**（Week 5）：Flask-Login + HTTPS（reverse proxy）+ rate-limit + audit log + NVR 降權
+- ✅ **架構**（Week 6）：Blueprint 拆分（8444 dashboard 5 bp + 8555 clips 3 bp）+ 雙 App 隔離
+- ✅ **型別檢查**（Week 7）：mypy strict subset（0 errors、155 source files）
+- ✅ **API 文件**（Week 7）：flasgger + OpenAPI 自動產生（45 條 routes、Swagger UI）
+- ✅ **驗收**（Week 8）：1010 pytest 全綠、CI < 5 分鐘、文件 fact-check 守門員
+
 ## 開發環境
 
 - Python 3.10+

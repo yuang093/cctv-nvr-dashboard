@@ -198,7 +198,7 @@ class _MockAvigilonHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):  # noqa: N802
-        cfg: MockAvigilonConfig = self.server.mock_config  # type: ignore[attr-defined]
+        cfg: MockAvigilonConfig = self.server.mock_config
         cfg.request_count["post"] = cfg.request_count.get("post", 0) + 1
         cfg.request_log.append(("POST", self.path))
 
@@ -223,7 +223,7 @@ class _MockAvigilonHandler(BaseHTTPRequestHandler):
         self._respond_json(404, {"error": "not found"})
 
     def do_GET(self):  # noqa: N802
-        cfg: MockAvigilonConfig = self.server.mock_config  # type: ignore[attr-defined]
+        cfg: MockAvigilonConfig = self.server.mock_config
         cfg.request_count["get"] = cfg.request_count.get("get", 0) + 1
         cfg.request_log.append(("GET", self.path))
 
@@ -440,8 +440,8 @@ class MockWebhookReceiver:
         self.response_status = response_status
         self.response_body = response_body
         self.received: list[dict] = []  # 所有接收的記錄
-        self._httpd = None
-        self._thread = None
+        self._httpd: HTTPServer | None = None  # Week 7 Task 7: 加 Optional 型別
+        self._thread: threading.Thread | None = None  # Week 7 Task 7: 加 Optional 型別
         self.port: int = 0
 
     @property

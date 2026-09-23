@@ -14,6 +14,8 @@ tests/integration/test_e2e_batch_scan.py
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from batch_scan import batch_scan
@@ -332,7 +334,7 @@ class TestNvrFullyOffline:
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("127.0.0.1", 0))
-            return s.getsockname()[1]
+            return cast(int, s.getsockname()[1])
 
     def test_single_nvr_offline_status_failed(
         self,

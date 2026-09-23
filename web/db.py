@@ -19,7 +19,7 @@ import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def _connect(db_path: str) -> sqlite3.Connection:
@@ -889,7 +889,10 @@ def create_nvr(db_path: str, nvr_data: dict) -> int:
             ),
         )
         conn.commit()
-        return cur.lastrowid
+        new_id = cur.lastrowid
+        if new_id is None:
+            raise RuntimeError("add_nvr: INSERT 沒有回傳 lastrowid（不可能）")
+        return int(new_id)
     except sqlite3.IntegrityError as e:
         conn.rollback()
         raise ValueError(f"id 重複或違反約束：{e}") from e
@@ -1261,7 +1264,7 @@ def bulk_create_nvrs(db_path: str, nvr_list: list[dict]) -> dict:
                     now_iso,
                 ),
             )
-            inserted_ids.append(cur.lastrowid)
+            inserted_ids.append(cur.lastrowid if cur.lastrowid is not None else 0)
         conn.commit()
         return {"inserted": len(inserted_ids), "internal_ids": inserted_ids}
     except (sqlite3.IntegrityError, sqlite3.Error, ValueError):
@@ -1820,7 +1823,10 @@ def create_discover_session(db_path: str, *, cidr: str, port: int) -> int:
             (cidr, port, _json.dumps([])),
         )
         conn.commit()
-        return cur.lastrowid
+        new_id = cur.lastrowid
+        if new_id is None:
+            raise RuntimeError("create_discover_session: INSERT 沒有回傳 lastrowid（不可能）")
+        return int(new_id)
     finally:
         conn.close()
 
@@ -1923,7 +1929,7 @@ def get_event_label_zh(db_path: str, topic: str) -> str:
             (topic,),
         ).fetchone()
         if row and row["name_zh"]:
-            return row["name_zh"]
+            return cast(str, row["name_zh"])
         return topic
     finally:
         conn.close()

@@ -1,0 +1,9 @@
+---
+tags:
+  - scan
+summary: 查詢 timeline refresh 狀態
+responses:
+  200:
+    description: JSON timeline state
+    schema:
+      type: object

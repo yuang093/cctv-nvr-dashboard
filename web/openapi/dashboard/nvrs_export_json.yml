@@ -1,0 +1,11 @@
+---
+tags:
+  - nvrs
+summary: 匯出 NVR 清單（JSON）
+responses:
+  200:
+    description: JSON 陣列
+    schema:
+      type: array
+      items:
+        type: object

@@ -50,7 +50,7 @@ def _seed_full_scan(w: "SqliteWriter", nvr_id: str = "n1") -> int:
             },
         ],
     )
-    return nvr_int, run_id
+    return nvr_int, run_id  # type: ignore[return-value]
 
 
 # === 1. 基本 lifecycle ===

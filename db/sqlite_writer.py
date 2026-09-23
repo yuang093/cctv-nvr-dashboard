@@ -747,7 +747,11 @@ class SqliteWriter:
             """,
             (started_at,),
         )
-        self._current_scan_run_id = int(cur.lastrowid)
+        # SQLite lastrowid 在 INSERT 成功後必為 int；但 mypy 標為 int | None，加守衛
+        new_id = cur.lastrowid
+        if new_id is None:
+            raise RuntimeError("begin_scan_run: INSERT 沒有回傳 lastrowid（不可能）")
+        self._current_scan_run_id = int(new_id)
         return self._current_scan_run_id
 
     def upsert_cameras(self, nvr_id: int, cameras: dict[str, Any]) -> None:
@@ -1015,11 +1019,16 @@ class SqliteWriter:
             (nvr_server_id, camera_id),
         ).fetchone()
         if cam_row:
+            if new_id is None:
+                # 對應上面 INSERT 邏輯 — INSERT 成功必非 None
+                raise RuntimeError("INSERT 回傳無 lastrowid（不可能）")
             conn.execute(
                 "UPDATE cameras SET last_health_check_id=? WHERE id=?",
                 (new_id, cam_row["id"]),
             )
-        return new_id
+        if new_id is None:
+            raise RuntimeError("INSERT 回傳無 lastrowid（不可能）")
+        return int(new_id)
 
     def mark_resolved(
         self,
@@ -1207,7 +1216,11 @@ class SqliteWriter:
                 when,
             ),
         )
-        return int(cur.lastrowid)
+        # SQLite lastrowid 在 INSERT 成功後必為 int；mypy 標為 int | None，加守衛
+        new_id = cur.lastrowid
+        if new_id is None:
+            raise RuntimeError("log_nvr_failure: INSERT 沒有回傳 lastrowid（不可能）")
+        return int(new_id)
 
     # --- 查詢輔助（v1 報表用） ---
     def get_scan_runs(self, limit: int = 10) -> list[dict]:

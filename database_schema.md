@@ -10,10 +10,13 @@
 1. `nvr_servers` — NVR 設定檔內容鏡像（執行時載入）
 2. `cameras` — 每台 NVR 下的攝影機清單
 3. `scan_runs` — 每次掃描執行的記錄
-4. `events` — 當次掃描偵測到的異常事件（ACTIVE）
+4. `events` — 當次掃描偵測到的異常事件（ACTIVE）；Week 3 起改為 view（4 張熱表 UNION）
 5. `image_health_checks` — Phase 2.8（Arisan 影像健康巡檢）每張 cam 縮圖分析紀錄
 6. `discover_sessions` — Phase 2.8（Arisan 探索網段）每次探索任務紀錄
 7. `event_kind_catalog` — Phase 2.8（Arisan）17 種事件主題中文顯示字典
+8. `audit_log` — **Week 5 資安**：login / 敏感操作（query / toggle）審計紀錄
+9. `schema_migrations` — **Week 5 inline migration tracking**：記錄已套用的 migration 版本
+10. `nvr_failure_log` — **Phase 2.7+ 補**：個別 NVR 連線失敗明細（給 run_detail 顯示）
 
 ---
 
@@ -295,6 +298,9 @@ zcat archives/events_2026_06.sql.gz | sqlite3 nvr_scan.db
 | `db/migrations/004_create_events_partition.py` | events → view + events_YYYY_MM + events_legacy + INSTEAD OF triggers + 4 個索引 | 啟動時 SqliteWriter 自動跑（idempotent）；Week 3 Issue #008。Schema 變更：見 §4.1 |
 | `db/migrations/005_create_events_view_union.py` | events view 改為動態 UNION 4 張熱表 + 重建 INSTEAD OF triggers | 啟動時 SqliteWriter 自動跑（idempotent）；Week 4 Issue #011。Schema 變更：見 §4.1 |
 | Phase 2.8（inline in `db/sqlite_writer.py`） | 加 `image_health_checks` / `discover_sessions` / `event_kind_catalog` 3 表 + `cameras.last_health_check_id` 欄位 + 17 筆 event_kind_catalog seed | 啟動時 SqliteWriter 自動跑（idempotent） |
+| Phase 2.7 補（inline） | 新增 `nvr_failure_log` 表 + 2 個索引 + `nvr_servers.enabled` 欄位 | 啟動時 SqliteWriter 自動跑（idempotent） |
+| **Week 5**（inline） | 新增 `audit_log` 表（login / sensitive op audit）+ `schema_migrations` 追蹤表 | 啟動時 SqliteWriter 自動跑（idempotent） |
+| **Week 7**（inline） | `audit_log` 與 `schema_migrations` 加 `CREATE TABLE IF NOT EXISTS` 容錯（修既有測試 nosuchtable bug） | 同上 |
 
 ---
 

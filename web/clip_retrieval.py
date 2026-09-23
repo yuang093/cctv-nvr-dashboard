@@ -19,7 +19,7 @@ Auth：`?session=<token>`（沿用 `/login` 拿到的 token）
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Iterator, Protocol, runtime_checkable
+from typing import Iterator, Protocol, cast, runtime_checkable
 
 import requests
 
@@ -151,7 +151,8 @@ class MockMediaClient:
     ) -> float:
         # 2026-08-04 user 032.PNG：mock 必回 > 0，否則 /clips/fetch_sync 會把所有 cam
         # 都視為「無錄影」→ NO_COMMON_RECORDING → 前端誤顯示「NVR 連線失敗」
-        self.duration_calls.append((camera_id, at_time))
+        # Week 7 Task 6：Protocol 簽章為 datetime；mock 接受 str 兼容測試但 append 用 cast
+        self.duration_calls.append((camera_id, at_time))  # type: ignore[arg-type]
         return self._duration
 
 
@@ -239,7 +240,7 @@ class MpdMediaClient:
             raise RuntimeError(
                 f"NVR get_snapshot 失敗 HTTP {r.status_code}：{r.text[:200]}"
             )
-        return r.content
+        return cast(bytes, r.content)
 
     def get_mpd_manifest(self, camera_id: str, at_time: datetime | str = "live") -> str:
         """拿 DASH MPD manifest XML（給需要 seek 的進階用途；v1 不一定用得到）。
@@ -253,7 +254,7 @@ class MpdMediaClient:
             raise RuntimeError(
                 f"NVR get_mpd_manifest 失敗 HTTP {r.status_code}：{body_preview}"
             )
-        return r.content.decode("utf-8")
+        return cast(str, r.content.decode("utf-8"))
 
     def get_recording_duration(self, camera_id: str, at_time: datetime | str) -> float:
         """從 MPD manifest 解析 mediaPresentationDuration，回秒數（float）。
@@ -447,7 +448,7 @@ def _extract_moov_timescale(buf: bytes, moov_off: int, moov_size: int) -> Option
     timescale_off = payload_start + ts_size * 2
     if timescale_off + 4 > mdhd_off + mdhd_size:
         return None
-    return struct.unpack(">I", bytes(buf[timescale_off : timescale_off + 4]))[0]
+    return cast(int, struct.unpack(">I", bytes(buf[timescale_off : timescale_off + 4]))[0])
 
 
 def _extract_moof_tfdt(buf: bytes, moof_off: int, moof_size: int) -> Optional[int]:
@@ -470,10 +471,10 @@ def _extract_moof_tfdt(buf: bytes, moof_off: int, moof_size: int) -> Optional[in
     if version == 1:
         if value_off + 8 > tfdt_off + tfdt_size:
             return None
-        return struct.unpack(">Q", bytes(buf[value_off : value_off + 8]))[0]
+        return cast(int, struct.unpack(">Q", bytes(buf[value_off : value_off + 8]))[0])
     if value_off + 4 > tfdt_off + tfdt_size:
         return None
-    return struct.unpack(">I", bytes(buf[value_off : value_off + 4]))[0]
+    return cast(int, struct.unpack(">I", bytes(buf[value_off : value_off + 4]))[0])
 
 
 def _find_fmp4_cut_point(buf: bytes, target_seconds: float) -> Optional[int]:

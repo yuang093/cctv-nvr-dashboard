@@ -1,0 +1,10 @@
+---
+tags:
+  - scan
+summary: 查詢掃描狀態
+description: 回傳 _scan_state（running / started_at / finished_at / total / done）
+responses:
+  200:
+    description: JSON
+    schema:
+      type: object

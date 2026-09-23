@@ -1,0 +1,14 @@
+---
+tags:
+  - nvrs
+summary: 測試 NVR 連線
+description: AJAX 端點；接收 nvr 參數回傳連線狀態
+parameters:
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+responses:
+  200:
+    description: {success: bool, message: str, online_cameras: int}

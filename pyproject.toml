@@ -1,0 +1,37 @@
+# pyproject.toml
+# ==============
+# Week 7 Issue #020-#022 mypy 設定
+# Stage A（Task 1-7）：寬鬆模式（容忍既有 51 errors；分批修完 ✅）
+# Stage B（Task 8）：務實漸進 — 啟用「低成本高價值」strict 子選項
+#                   - no_implicit_optional：強制 Optional[T] 明確標註
+#                   - warn_unused_ignores：type: ignore 必須有對應錯誤
+#                   - warn_return_any：函式回傳 Any 提醒
+#                   不啟用（歷史債太大）：
+#                   - disallow_untyped_defs（既有函式缺型別是大量工作；Week 8+ 目標）
+#                   - disallow_any_generics（dict/list 不要求型別參數）
+#                   - strict = true（包含上面兩者）
+#
+# 對應 evolution-roadmap §4.2「Type Hint + OpenAPI」段。
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true
+no_implicit_optional = true
+disallow_untyped_defs = false  # Week 8+ 補強：先讓既有 1005 項 pytest 通過
+disallow_any_generics = false  # 同上
+warn_return_any = true
+strict = false
+files = [
+    "nvr_scanner.py",
+    "discover_event_subtopics.py",
+    "batch_scan.py",
+    "db",
+    "web",
+    "tests",
+]
+
+# Week 7 Task 8：測試 mock 不強迫型別（既有測試是動態 mock）
+[[tool.mypy.overrides]]
+module = ["tests.integration.*"]
+check_untyped_defs = false

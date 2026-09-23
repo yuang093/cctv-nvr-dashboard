@@ -1,0 +1,9 @@
+---
+tags:
+  - nvrs
+summary: 匯出 NVR 清單（CSV）
+responses:
+  200:
+    description: CSV 檔案
+    schema:
+      type: file

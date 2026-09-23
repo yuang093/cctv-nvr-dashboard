@@ -1,0 +1,8 @@
+---
+tags:
+  - devices
+summary: 設備清單（所有 cam）
+description: 列出所有 cam + connection_status + last_seen
+responses:
+  200:
+    description: devices_list.html 渲染

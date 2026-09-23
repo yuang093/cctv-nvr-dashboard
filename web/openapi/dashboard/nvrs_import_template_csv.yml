@@ -1,0 +1,9 @@
+---
+tags:
+  - nvrs
+summary: 下載 CSV 匯入範本
+responses:
+  200:
+    description: CSV 範本檔案
+    schema:
+      type: file

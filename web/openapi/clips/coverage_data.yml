@@ -1,0 +1,11 @@
+---
+tags:
+  - coverage
+summary: 熱區資料 JSON
+description: |
+  給 coverage.html JS 用的 JSON（grid data + tick 軸 + NVR list）
+responses:
+  200:
+    description: JSON 物件
+    schema:
+      type: object

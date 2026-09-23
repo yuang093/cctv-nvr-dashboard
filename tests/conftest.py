@@ -169,3 +169,27 @@ def make_events_response():
         return MockResponse({"status": "success", "result": {"events": events}})
 
     return _make
+
+
+# === Week 7 OpenAPI fixtures ===
+@pytest.fixture
+def dashboard_app(monkeypatch, tmp_db):
+    """8444 dashboard Flask app（OpenAPI 測試用，給定記憶體 DB）。"""
+    monkeypatch.setenv("NVR_WEB_SECRET_KEY", "test-openapi-secret")
+    monkeypatch.setenv("NVR_DB_PATH", tmp_db.db_path if hasattr(tmp_db, "db_path") else ":memory:")
+    # 直接 import factory；不透過 module-level lazy proxy（避免 SECRET_KEY 提前檢查）
+    from web.app import create_app
+
+    app = create_app(db_path=":memory:", secret_key="test-openapi-secret")
+    yield app
+
+
+@pytest.fixture
+def clips_app(monkeypatch, tmp_db):
+    """8555 clips Flask app（OpenAPI 測試用，給定記憶體 DB）。"""
+    monkeypatch.setenv("NVR_CLIPS_SECRET_KEY", "test-clips-openapi-secret")
+    monkeypatch.setenv("NVR_DB_PATH", ":memory:")
+    from web.clips_app import create_clips_app
+
+    app = create_clips_app(db_path=":memory:", secret_key="test-clips-openapi-secret")
+    yield app

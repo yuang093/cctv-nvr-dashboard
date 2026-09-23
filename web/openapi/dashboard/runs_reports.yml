@@ -1,0 +1,8 @@
+---
+tags:
+  - runs
+summary: 歷史 PDF 報告列表
+description: 列出 ./reports/ 下所有歸檔 PDF
+responses:
+  200:
+    description: reports_list.html 渲染成功

@@ -1,0 +1,14 @@
+---
+tags:
+  - dashboard
+summary: 套用主題
+description: |
+  接收 theme_name 表單欄位，更新全域主題 token。
+parameters:
+  - name: theme_name
+    in: formData
+    type: string
+    required: true
+responses:
+  302:
+    description: 重新導向回首頁

@@ -17,6 +17,8 @@ URL prefix: `/nvrs`
 
 from __future__ import annotations
 
+from typing import cast
+
 import csv
 import io
 import json
@@ -50,7 +52,7 @@ nvr_bp = Blueprint("nvr", __name__, url_prefix="/nvrs")
 
 # === 共用 DB_PATH 取得 ===
 def _get_db_path() -> str:
-    return current_app.config["DB_PATH"]
+    return cast(str, current_app.config["DB_PATH"])
 
 
 # === Form 解析 / 正規化 helpers ===
@@ -140,11 +142,11 @@ def edit(nvr_id: int):
             flash(f"已更新 NVR「{nvr_data['nvr_id']}」", "success")
             return redirect(url_for("nvr.list"))
         except ValueError as e:
-            nvr = webdb.get_nvr(_get_db_path(), nvr_id) or {}
+            err_nvr: dict | None = webdb.get_nvr(_get_db_path(), nvr_id)
             return render_template(
                 "nvr_form.html",
                 mode="edit",
-                nvr=nvr,
+                nvr=err_nvr or {},
                 error=str(e),
             )
     nvr = webdb.get_nvr(_get_db_path(), nvr_id)

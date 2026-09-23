@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any
+from typing import Any, cast
 
 from PIL import Image
 
@@ -100,18 +100,20 @@ def _load_grayscale(
     if not jpeg_bytes:
         raise ValueError("空 bytes，無法解碼影像")
     try:
-        img = Image.open(BytesIO(jpeg_bytes))
+        img = cast(Image.Image, Image.open(BytesIO(jpeg_bytes)))
         img.load()  # 強制 decode（BytesIO close 後仍可讀）
     except Exception as e:
         raise ValueError(f"無法解碼 JPEG：{e}") from e
-    img = img.convert("L")  # 灰度
+    img = cast(Image.Image, img.convert("L"))  # 灰度
     if size is not None:
-        img = img.resize(
-            size,
+        # Pillow 9.1+ 把 BILINEAR 等常數搬到 Image.Resampling；舊版直接掛在 Image
+        resample = (
             Image.Resampling.BILINEAR
             if hasattr(Image, "Resampling")
-            else Image.BILINEAR,
+            else getattr(Image, "BILINEAR", 1)
         )
+        # Pillow 回傳 Image.Image 型別；cast 給 mypy 看
+        img = cast(Image.Image, img.resize(size, resample))
     return img
 
 

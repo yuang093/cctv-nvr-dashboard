@@ -1,0 +1,12 @@
+---
+tags:
+  - devices
+summary: 探索結果詳情
+parameters:
+  - name: session_id
+    in: path
+    type: integer
+    required: true
+responses:
+  200:
+    description: devices_discover_detail.html

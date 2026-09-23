@@ -1,0 +1,14 @@
+---
+tags:
+  - media
+summary: 單 NVR cameras JSON
+parameters:
+  - name: nvr_id
+    in: query
+    type: integer
+    required: true
+responses:
+  200:
+    description: cameras 陣列
+    schema:
+      type: array
